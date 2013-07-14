@@ -2,9 +2,9 @@ prefix=@PREFIX@
 libdir=@LIBDIR@
 includedir=@INCLUDEDIR@
 
-Name: libChronoSync
+Name: ChronoSync
 Description: ChronoSync library
 Version: @VERSION@
-Libs: -L${libdir} -lsync
+Libs: -L${libdir} -lChronoSync
 Cflags: -I${includedir}
 

@@ -1,7 +1,7 @@
 # -*- Mode: python; py-indent-offset: 4; indent-tabs-mode: nil; coding: utf-8; -*-
 
-VERSION='0.0.1'
-APPNAME='sync'
+VERSION='0.1'
+APPNAME='ChronoSync'
 
 from waflib import Configure, Build, Logs
 
@@ -90,8 +90,8 @@ def build (bld):
 
     pc = bld (
         features = "subst",
-        source='libChronoSync.pc.in',
-        target='libChronoSync.pc',
+        source='ChronoSync.pc.in',
+        target='ChronoSync.pc',
         install_path = '${LIBDIR}/pkgconfig',
         PREFIX       = bld.env['PREFIX'],
         INCLUDEDIR   = "%s/ChronoSync" % bld.env['INCLUDEDIR'],
