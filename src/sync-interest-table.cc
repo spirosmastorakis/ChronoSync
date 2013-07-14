@@ -21,7 +21,7 @@
  */
 
 #include "sync-interest-table.h"
-#include "sync-log.h"
+#include "sync-logging.h"
 using namespace std;
 using namespace boost;
 

@@ -28,7 +28,7 @@
 #include "sync-logic.h"
 #include "sync-diff-leaf.h"
 #include "sync-full-leaf.h"
-#include "sync-log.h"
+#include "sync-logging.h"
 #include "sync-state.h"
 
 #include <boost/make_shared.hpp>
@@ -64,10 +64,9 @@ SyncLogic::SyncLogic (const std::string &syncPrefix,
   , m_syncInterestTable (TIME_SECONDS (m_syncInterestReexpress))
   , m_syncPrefix (syncPrefix)
   , m_onUpdate (onUpdate)
-  , m_perBranch (false)
   , m_onRemove (onRemove)
+  , m_perBranch (false)
   , m_ccnxHandle(new CcnxWrapper ())
-  , m_recoveryRetransmissionInterval (m_defaultRecoveryRetransmitInterval)
 #ifndef NS3_MODULE
   , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
   , m_rangeUniformRandom (m_randomGenerator, uniform_int<> (200,1000))
@@ -76,6 +75,7 @@ SyncLogic::SyncLogic (const std::string &syncPrefix,
   , m_rangeUniformRandom (200,1000)
   , m_reexpressionJitter (10,500)
 #endif
+  , m_recoveryRetransmissionInterval (m_defaultRecoveryRetransmitInterval)
 { 
 #ifndef NS3_MODULE
   // In NS3 module these functions are moved to StartApplication method
@@ -97,7 +97,6 @@ SyncLogic::SyncLogic (const std::string &syncPrefix,
   , m_onUpdateBranch (onUpdateBranch)
   , m_perBranch(true)
   , m_ccnxHandle(new CcnxWrapper())
-  , m_recoveryRetransmissionInterval (m_defaultRecoveryRetransmitInterval)
 #ifndef NS3_MODULE
   , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
   , m_rangeUniformRandom (m_randomGenerator, uniform_int<> (200,1000))
@@ -106,6 +105,7 @@ SyncLogic::SyncLogic (const std::string &syncPrefix,
   , m_rangeUniformRandom (200,1000)
   , m_reexpressionJitter (10,500)
 #endif
+  , m_recoveryRetransmissionInterval (m_defaultRecoveryRetransmitInterval)
 { 
 #ifndef NS3_MODULE
   // In NS3 module these functions are moved to StartApplication method

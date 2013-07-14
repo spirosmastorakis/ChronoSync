@@ -54,9 +54,9 @@ def build (bld):
     libsync = bld (
         target=APPNAME,
         features=['cxx', 'cxxshlib'],
-        source =  ant_glob (['src/**/*.cc', 'src/**/*.proto']),
+        source =  bld.path.ant_glob (['src/**/*.cc', 'src/**/*.proto']),
         use = 'BOOST BOOST_IOSTREAMS BOOST_THREAD SSL NDNX',
-        includes = ['include', 'src'],
+        includes = ['src'],
         )
     
     # Unit tests
@@ -66,7 +66,7 @@ def build (bld):
           source = bld.path.ant_glob(['tests/**/*.cc']),
           features=['cxx', 'cxxprogram'],
           use = 'BOOST_TEST sync',
-          includes = ['include', 'src'],
+          includes = ['src'],
           )
 
     if bld.get_define ("HAVE_LOG4CXX"):
@@ -74,17 +74,27 @@ def build (bld):
         if bld.get_define("_TEST"):
             unittests.use += ' LOG4CXX'
 
-    headers = bld.path.ant_glob(['include/*.h'])
-    headers.extend (bld.path.get_bld().ant_glob(['model/sync-state.pb.h']))
-    bld.install_files ("%s/sync" % bld.env['INCLUDEDIR'], headers)
+    bld.install_files (
+        dest = "%s/ChronoSync" % bld.env['INCLUDEDIR'], 
+        files = bld.path.ant_glob(['src/**/*.h']), 
+        cwd = bld.path.find_dir ("src"),
+        relative_trick = True,
+        )
+
+    bld.install_files (
+        dest = "%s/ChronoSync" % bld.env['INCLUDEDIR'], 
+        files = bld.path.get_bld().ant_glob(['src/**/*.h']), 
+        cwd = bld.path.get_bld().find_dir ("src"),
+        relative_trick = True,
+        )
 
     pc = bld (
         features = "subst",
-        source='libsync.pc.in',
-        target='libsync.pc',
+        source='libChronoSync.pc.in',
+        target='libChronoSync.pc',
         install_path = '${LIBDIR}/pkgconfig',
         PREFIX       = bld.env['PREFIX'],
-        INCLUDEDIR   = "%s/sync" % bld.env['INCLUDEDIR'],
+        INCLUDEDIR   = "%s/ChronoSync" % bld.env['INCLUDEDIR'],
         VERSION      = VERSION,
         )
 

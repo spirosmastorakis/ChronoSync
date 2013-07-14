@@ -1,4 +1,4 @@
-/* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
+/* -*- Mode: C32++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
  * Copyright (c) 2012 University of California, Los Angeles
  *
@@ -29,8 +29,8 @@ namespace Sync
 {
 
 SyncAppSocket::SyncAppSocket (const string &syncPrefix, NewDataCallback dataCallback, RemoveCallback rmCallback )
-  : m_ccnxHandle (new CcnxWrapper())
-  , m_newDataCallback(dataCallback)
+  : m_newDataCallback(dataCallback)
+  , m_ccnxHandle (new CcnxWrapper())
   , m_syncLogic (syncPrefix,
                  bind(&SyncAppSocket::passCallback, this, _1),
                  rmCallback)
@@ -61,6 +61,7 @@ SyncAppSocket::publishString (const string &prefix, uint32_t session, const stri
   m_sequenceLog[prefix] = s;
 
   m_syncLogic.addLocalNames (prefix, session, sequence);
+  return true;
 }
 
 bool 
@@ -75,6 +76,7 @@ SyncAppSocket::publishRaw(const std::string &prefix, uint32_t session, const cha
   SeqNo s(session, sequence + 1);
   m_sequenceLog[prefix] = s;
   m_syncLogic.addLocalNames (prefix, session, sequence);
+  return true;
 }
 
 

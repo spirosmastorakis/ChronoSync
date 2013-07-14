@@ -29,7 +29,7 @@
 #include <memory>
 #include <map>
 
-#include "sync-ccnx-wrapper.h"
+#include "ccnx/sync-ccnx-wrapper.h"
 #include "sync-interest-table.h"
 #include "sync-diff-state.h"
 #include "sync-full-state.h"

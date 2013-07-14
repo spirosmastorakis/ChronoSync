@@ -20,7 +20,7 @@
  *	   Alexander Afanasyev <alexander.afanasyev@ucla.edu>
  */
 
-#include "sync-log.h"
+#include "sync-logging.h"
 
 #ifdef HAVE_LOG4CXX
 

@@ -21,7 +21,7 @@
  */
 
 #include "sync-scheduler.h"
-#include "sync-log.h"
+#include "sync-logging.h"
 
 using namespace boost;
 using namespace std;

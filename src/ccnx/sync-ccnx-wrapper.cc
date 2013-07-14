@@ -26,7 +26,7 @@ extern "C" {
 #include <ccn/fetch.h>
 }
 
-#include "sync-log.h"
+#include "sync-logging.h"
 #include <poll.h>
 #include <boost/throw_exception.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -245,7 +245,7 @@ CcnxWrapper::ccnLoop ()
 /// @endcond
 int
 CcnxWrapper::publishStringData (const string &name, const string &dataBuffer, int freshness) {
-  publishRawData(name, dataBuffer.c_str(), dataBuffer.length(), freshness);
+  return publishRawData(name, dataBuffer.c_str(), dataBuffer.length(), freshness);
 }
 
 int
@@ -384,13 +384,13 @@ incomingData(ccn_closure *selfp,
 int CcnxWrapper::sendInterestForString (const string &strInterest, const StringDataCallback &strDataCallback, int retry)
 {
   DataClosurePass * pass = new DataClosurePass(STRING_FORM, retry, strDataCallback);
-  sendInterest(strInterest, pass);
+  return sendInterest(strInterest, pass);
 }
 
 int CcnxWrapper::sendInterest (const string &strInterest, const RawDataCallback &rawDataCallback, int retry)
 {
   RawDataClosurePass * pass = new RawDataClosurePass(RAW_DATA, retry, rawDataCallback);
-  sendInterest(strInterest, pass);
+  return sendInterest(strInterest, pass);
 }
 
 int CcnxWrapper::sendInterest (const string &strInterest, void *dataPass)
@@ -439,6 +439,8 @@ int CcnxWrapper::setInterestFilter (const string &prefix, const InterestCallback
 
   m_registeredInterests.insert(pair<std::string, InterestCallback>(prefix, interestCallback));
   ccn_charbuf_destroy(&pname);
+
+  return 0;
 }
 
 void
