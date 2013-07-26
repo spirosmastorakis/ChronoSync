@@ -52,7 +52,7 @@ def configure(conf):
 
 def build (bld):
     libsync = bld (
-        target=APPNAME,
+        target="ChronoSync",
         features=['cxx', 'cxxshlib'],
         source =  bld.path.ant_glob (['src/**/*.cc', 'src/**/*.proto']),
         use = 'BOOST BOOST_IOSTREAMS BOOST_THREAD SSL NDNX',
@@ -65,7 +65,7 @@ def build (bld):
           target="unit-tests",
           source = bld.path.ant_glob(['tests/**/*.cc']),
           features=['cxx', 'cxxprogram'],
-          use = 'BOOST_TEST sync',
+          use = 'BOOST_TEST ChronoSync',
           includes = ['src'],
           )
 

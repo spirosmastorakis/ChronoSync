@@ -27,9 +27,10 @@ using boost::test_tools::output_test_stream;
 #include <boost/make_shared.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
-#include "sync-log.h"
+#include "sync-logging.h"
 
-#include "sync-app-socket.h"
+#include "ccnx/sync-app-socket.h"
+
 extern "C" {
 #include <unistd.h>
 }

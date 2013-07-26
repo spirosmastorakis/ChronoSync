@@ -27,7 +27,7 @@ using boost::test_tools::output_test_stream;
 
 #include <boost/make_shared.hpp>
 
-#include "sync-ccnx-wrapper.h"
+#include "ccnx/sync-ccnx-wrapper.h"
 #include "sync-logic.h"
 #include "sync-seq-no.h"
 

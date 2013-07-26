@@ -28,7 +28,7 @@ using boost::test_tools::output_test_stream;
 #include <boost/make_shared.hpp>
 
 #include "sync-interest-table.h"
-#include "sync-log.h"
+#include "sync-logging.h"
 
 using namespace Sync;
 using namespace std;
