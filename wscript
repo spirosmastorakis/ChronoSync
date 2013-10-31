@@ -7,7 +7,7 @@ from waflib import Configure, Build, Logs
 
 def options(opt):
     opt.load('compiler_c compiler_cxx boost doxygen gnu_dirs protoc')
-    opt.load('ndnx', tooldir=["waf-tools"])
+    # opt.load('ndnx', tooldir=["waf-tools"])
 
     syncopt = opt.add_option_group ("ChronoSync Options")
 
@@ -17,7 +17,7 @@ def options(opt):
 
 def configure(conf):
     conf.load('compiler_c compiler_cxx gnu_dirs boost')
-    conf.load('ndnx')
+    # conf.load('ndnx')
 
     if conf.options.debug:
         conf.define ('_DEBUG', 1)
@@ -32,8 +32,11 @@ def configure(conf):
     else:
         conf.add_supported_cxxflags (cxxflags = ['-O3', '-g'])
 
-    conf.check_ndnx ()
-    conf.check_openssl ()
+    # conf.check_ndnx ()
+
+    conf.check_cfg(package='libndn.cxx', args=['--cflags', '--libs'], uselib_store='NDNCXX', mandatory=True)
+    conf.check_cfg(package='openssl', args=['--cflags', '--libs'], uselib_store='OPENSSL', mandatory=True)
+    # conf.check_openssl ()
 
     conf.check_boost(lib='system iostreams test thread')
 
@@ -55,7 +58,7 @@ def build (bld):
         target="ChronoSync",
         features=['cxx', 'cxxshlib'],
         source =  bld.path.ant_glob (['src/**/*.cc', 'src/**/*.proto']),
-        use = 'BOOST BOOST_IOSTREAMS BOOST_THREAD SSL NDNX',
+        use = 'BOOST BOOST_IOSTREAMS BOOST_THREAD SSL NDNCXX OPENSSL',
         includes = ['src'],
         )
     

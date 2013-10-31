@@ -29,12 +29,13 @@
 #include <memory>
 #include <map>
 
-#include "ccnx/sync-ccnx-wrapper.h"
+#include <ndn.cxx/wrapper/wrapper.h>
 #include "sync-interest-table.h"
 #include "sync-diff-state.h"
 #include "sync-full-state.h"
 #include "sync-std-name-info.h"
 #include "sync-scheduler.h"
+#include "sync-policy-manager.h"
 
 #include "sync-diff-state-container.h"
 
@@ -82,11 +83,13 @@ public:
    * @param ccnxHandle ccnx handle
    * the app data when new remote names are learned
    */
-  SyncLogic (const std::string &syncPrefix,
+  SyncLogic (const ndn::Name& syncPrefix,
+             ndn::Ptr<SyncPolicyManager> syncPolicyManager,
              LogicUpdateCallback onUpdate,
              LogicRemoveCallback onRemove);
 
-  SyncLogic (const std::string &syncPrefix,
+  SyncLogic (const ndn::Name& syncPrefix,
+             ndn::Ptr<SyncPolicyManager> syncPolicyManager,
              LogicPerBranchCallback onUpdateBranch);
 
   ~SyncLogic ();
@@ -100,14 +103,14 @@ public:
    * @brief respond to the Sync Interest; a lot of logic needs to go in here
    * @param interest the Sync Interest in string format
    */
-  void respondSyncInterest (const std::string &interest);
+  void respondSyncInterest (ndn::Ptr<ndn::Interest>);
 
   /**
    * @brief process the fetched sync data
    * @param name the data name
    * @param dataBuffer the sync data
    */
-  void respondSyncData (const std::string &name, const char *wireData, size_t len);
+  void respondSyncData (ndn::Ptr<ndn::Data> data);
 
   /**
    * @brief remove a participant's subtree from the sync tree
@@ -140,6 +143,12 @@ public:
 private:
   void
   delayedChecksLoop ();
+
+  void
+  onSyncDataTimeout(ndn::Ptr<ndn::Closure> closure, ndn::Ptr<ndn::Interest> interest, int retry);
+
+  void
+  onSyncDataUnverified();
 
   void
   processSyncInterest (const std::string &name,
@@ -187,12 +196,13 @@ private:
   std::string m_outstandingInterestName;
   SyncInterestTable m_syncInterestTable;
 
-  std::string m_syncPrefix;
+  ndn::Name m_syncPrefix;
   LogicUpdateCallback m_onUpdate;
   LogicRemoveCallback m_onRemove;
   LogicPerBranchCallback m_onUpdateBranch;
   bool m_perBranch;
-  CcnxWrapperPtr m_ccnxHandle;
+  ndn::Ptr<SyncPolicyManager> m_policyManager;
+  ndn::Ptr<ndn::Wrapper> m_handler;
 
   Scheduler m_scheduler;
 

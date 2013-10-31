@@ -27,7 +27,8 @@ using boost::test_tools::output_test_stream;
 
 #include <boost/make_shared.hpp>
 
-#include "ccnx/sync-ccnx-wrapper.h"
+// #include <ndn.cxx/wrapper/wrapper.h>
+#include "sync-policy-manager.h"
 #include "sync-logic.h"
 #include "sync-seq-no.h"
 
@@ -75,7 +76,9 @@ BOOST_AUTO_TEST_CASE (SyncLogicTest)
 {
   Handler h1 ("1");
 
-  SyncLogic l1 ("/bcast", bind (&Handler::wrapper, &h1, _1), bind (&Handler::onRemove, &h1, _1));
+  ndn::Ptr<SyncPolicyManager> policyManager1 = ndn::Ptr<SyncPolicyManager>(new SyncPolicyManager(ndn::Name("/ndn/ucla.edu/alice"), ndn::Name("/ndn/ucla.edu/alice/KEY/dsk-1382934202/ID-CERT/%FD%FF%FF%FF%FF%DEk%C0%0B"), ndn::Name("/bcast")));
+
+  SyncLogic l1 (ndn::Name("/bcast"), policyManager1, bind (&Handler::wrapper, &h1, _1), bind (&Handler::onRemove, &h1, _1));
 
   std::string oldDigest  = l1.getRootDigest();
   
@@ -86,7 +89,10 @@ BOOST_AUTO_TEST_CASE (SyncLogicTest)
   BOOST_CHECK_EQUAL (h1.m_map.size (), 0);
 
   Handler h2 ("2");
-  SyncLogic l2 ("/bcast", bind (&Handler::wrapper, &h2, _1), bind (&Handler::onRemove, &h2, _1));
+
+ ndn::Ptr<SyncPolicyManager> policyManager2 = ndn::Ptr<SyncPolicyManager>(new SyncPolicyManager(ndn::Name("/ndn/ucla.edu/bob"), ndn::Name("/ndn/ucla.edu/bob/KEY/dsk-1382934206/ID-CERT/%FD%FF%FF%FF%FF%DEl%0BC"), ndn::Name("/bcast")));
+
+  SyncLogic l2 (ndn::Name("/bcast"), policyManager2, bind (&Handler::wrapper, &h2, _1), bind (&Handler::onRemove, &h2, _1));
   
   sleep (1);
   BOOST_CHECK_EQUAL (h1.m_map.size (), 0);

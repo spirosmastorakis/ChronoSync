@@ -38,6 +38,7 @@
 
 using namespace std;
 using namespace boost;
+using namespace ndn;
 
 INIT_LOGGER ("SyncLogic");
 
@@ -57,31 +58,36 @@ INIT_LOGGER ("SyncLogic");
 namespace Sync
 {
 
-SyncLogic::SyncLogic (const std::string &syncPrefix,
-                      LogicUpdateCallback onUpdate,
-                      LogicRemoveCallback onRemove)
-  : m_state (new FullState)
-  , m_syncInterestTable (TIME_SECONDS (m_syncInterestReexpress))
-  , m_syncPrefix (syncPrefix)
-  , m_onUpdate (onUpdate)
-  , m_onRemove (onRemove)
-  , m_perBranch (false)
-  , m_ccnxHandle(new CcnxWrapper ())
+  SyncLogic::SyncLogic (const Name& syncPrefix,
+                        Ptr<SyncPolicyManager> syncPolicyManager, 
+                        LogicUpdateCallback onUpdate,
+                        LogicRemoveCallback onRemove)
+    : m_state (new FullState)
+    , m_syncInterestTable (TIME_SECONDS (m_syncInterestReexpress))
+    , m_syncPrefix (syncPrefix)
+    , m_onUpdate (onUpdate)
+    , m_onRemove (onRemove)
+    , m_perBranch (false)
+    , m_policyManager(syncPolicyManager)
 #ifndef NS3_MODULE
-  , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
-  , m_rangeUniformRandom (m_randomGenerator, uniform_int<> (200,1000))
-  , m_reexpressionJitter (m_randomGenerator, uniform_int<> (100,500))
+    , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
+    , m_rangeUniformRandom (m_randomGenerator, uniform_int<> (200,1000))
+    , m_reexpressionJitter (m_randomGenerator, uniform_int<> (100,500))
 #else
-  , m_rangeUniformRandom (200,1000)
-  , m_reexpressionJitter (10,500)
+    , m_rangeUniformRandom (200,1000)
+    , m_reexpressionJitter (10,500)
 #endif
-  , m_recoveryRetransmissionInterval (m_defaultRecoveryRetransmitInterval)
+    , m_recoveryRetransmissionInterval (m_defaultRecoveryRetransmitInterval)
 { 
 #ifndef NS3_MODULE
   // In NS3 module these functions are moved to StartApplication method
-  
-  m_ccnxHandle->setInterestFilter (m_syncPrefix,
-                                   bind (&SyncLogic::respondSyncInterest, this, _1));
+
+  Ptr<security::Keychain> keychain = Ptr<security::Keychain>(new security::Keychain(Ptr<security::IdentityManager>::Create(),
+                                                                                    m_policyManager,
+                                                                                    NULL));
+  m_handler = Ptr<Wrapper>(new Wrapper(keychain));
+  m_handler->setInterestFilter (m_syncPrefix, 
+                                bind (&SyncLogic::respondSyncInterest, this, _1));
 
   m_scheduler.schedule (TIME_SECONDS (0), // no need to add jitter
                         bind (&SyncLogic::sendSyncInterest, this),
@@ -89,14 +95,15 @@ SyncLogic::SyncLogic (const std::string &syncPrefix,
 #endif
 }
 
-SyncLogic::SyncLogic (const std::string &syncPrefix,
+SyncLogic::SyncLogic (const Name& syncPrefix,
+                      Ptr<SyncPolicyManager> syncPolicyManager,
                       LogicPerBranchCallback onUpdateBranch)
   : m_state (new FullState)
   , m_syncInterestTable (TIME_SECONDS (m_syncInterestReexpress))
   , m_syncPrefix (syncPrefix)
   , m_onUpdateBranch (onUpdateBranch)
   , m_perBranch(true)
-  , m_ccnxHandle(new CcnxWrapper())
+  , m_policyManager(syncPolicyManager)
 #ifndef NS3_MODULE
   , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
   , m_rangeUniformRandom (m_randomGenerator, uniform_int<> (200,1000))
@@ -109,8 +116,13 @@ SyncLogic::SyncLogic (const std::string &syncPrefix,
 { 
 #ifndef NS3_MODULE
   // In NS3 module these functions are moved to StartApplication method
+
+  Ptr<security::Keychain> keychain = Ptr<security::Keychain>(new security::Keychain(Ptr<security::IdentityManager>::Create(),
+                                                                                    m_policyManager,
+                                                                                    NULL));
+  m_handler = Ptr<Wrapper>(new Wrapper(keychain));
   
-  m_ccnxHandle->setInterestFilter (m_syncPrefix,
+  m_handler->setInterestFilter (m_syncPrefix,
                                    bind (&SyncLogic::respondSyncInterest, this, _1));
 
   m_scheduler.schedule (TIME_SECONDS (0), // no need to add jitter
@@ -121,7 +133,7 @@ SyncLogic::SyncLogic (const std::string &syncPrefix,
 
 SyncLogic::~SyncLogic ()
 {
-  m_ccnxHandle->clearInterestFilter (m_syncPrefix);
+  m_handler->clearInterestFilter (Name(m_syncPrefix));
 }
 
 #ifdef NS3_MODULE
@@ -152,7 +164,7 @@ SyncLogic::StopApplication ()
 void
 SyncLogic::stop()
 {
-  m_ccnxHandle->clearInterestFilter (m_syncPrefix);
+  m_handler->clearInterestFilter (Name(m_syncPrefix));
   m_scheduler.cancel (REEXPRESSING_INTEREST);
   m_scheduler.cancel (DELAYED_INTEREST_PROCESSING);
 }
@@ -166,9 +178,9 @@ SyncLogic::stop()
 boost::tuple<DigestConstPtr, std::string>
 SyncLogic::convertNameToDigestAndType (const std::string &name)
 {
-  BOOST_ASSERT (name.find (m_syncPrefix) == 0);
+  BOOST_ASSERT (name.find (m_syncPrefix.toUri()) == 0);
 
-  string hash = name.substr (m_syncPrefix.size (), name.size ()-m_syncPrefix.size ());
+  string hash = name.substr (m_syncPrefix.toUri().size (), name.size ()-m_syncPrefix.toUri().size ());
   if (hash[0] == '/')
     hash = hash.substr (1, hash.size ()-1);
   string interestType = "normal";
@@ -190,8 +202,10 @@ SyncLogic::convertNameToDigestAndType (const std::string &name)
 }
 
 void
-SyncLogic::respondSyncInterest (const string &name)
+SyncLogic::respondSyncInterest (ndn::Ptr<ndn::Interest> interest)
 {
+  _LOG_DEBUG("respondSyncInterest: " << interest->getName().toUri());
+  string name = interest->getName().toUri();
   try
     {
       _LOG_TRACE ("<< I " << name);
@@ -218,8 +232,12 @@ SyncLogic::respondSyncInterest (const string &name)
 }
 
 void
-SyncLogic::respondSyncData (const std::string &name, const char *wireData, size_t len)
+SyncLogic::respondSyncData (Ptr<Data> data)
 {
+  string name = data->getName().toUri();
+  const char *wireData = data->content().buf();
+  size_t len = data->content().size();
+
   try
     {
       _LOG_TRACE ("<< D " << name);
@@ -247,10 +265,32 @@ SyncLogic::respondSyncData (const std::string &name, const char *wireData, size_
     }
 }
 
+void
+SyncLogic::onSyncDataTimeout(Ptr<Closure> closure, Ptr<ndn::Interest> interest, int retry)
+{
+  if(retry > 0)
+    {
+      Ptr<Closure> newClosure = Ptr<Closure>(new Closure(closure->m_dataCallback,
+                                                         boost::bind(&SyncLogic::onSyncDataTimeout, 
+                                                                     this, 
+                                                                     _1, 
+                                                                     _2, 
+                                                                     retry - 1),
+                                                         closure->m_unverifiedCallback,
+                                                         closure->m_stepCount)
+                                             );
+      m_handler->sendInterest(interest, newClosure);
+    }
+}
+
+void
+SyncLogic::onSyncDataUnverified()
+{}
 
 void
 SyncLogic::processSyncInterest (const std::string &name, DigestConstPtr digest, bool timedProcessing/*=false*/)
 {
+  _LOG_DEBUG("processSyncInterest");
   DigestConstPtr rootDigest;
   {
     recursive_mutex::scoped_lock lock (m_stateMutex);
@@ -435,7 +475,7 @@ SyncLogic::processSyncData (const std::string &name, DigestConstPtr digest, cons
 void
 SyncLogic::processSyncRecoveryInterest (const std::string &name, DigestConstPtr digest)
 {
-  
+  _LOG_DEBUG("processSyncRecoveryInterest");
   DiffStateContainer::iterator stateInDiffLog = m_log.find (digest);
 
   if (stateInDiffLog == m_log.end ())
@@ -564,6 +604,7 @@ SyncLogic::remove(const string &prefix)
 void
 SyncLogic::sendSyncInterest ()
 {
+  _LOG_DEBUG("sendSyncInterest");
   ostringstream os;
 
   {
@@ -574,13 +615,25 @@ SyncLogic::sendSyncInterest ()
     _LOG_TRACE (">> I " << os.str ());
   }
 
+  _LOG_DEBUG("sendSyncInterest: " << os.str());
+
   m_scheduler.cancel (REEXPRESSING_INTEREST);
   m_scheduler.schedule (TIME_SECONDS_WITH_JITTER (m_syncInterestReexpress),
                         bind (&SyncLogic::sendSyncInterest, this),
                         REEXPRESSING_INTEREST);
-  
-  m_ccnxHandle->sendInterest (os.str (),
-                              bind (&SyncLogic::respondSyncData, this, _1, _2, _3));
+
+  Ptr<ndn::Interest> interestPtr = Ptr<ndn::Interest>(new ndn::Interest(os.str()));
+  Ptr<Closure> closure = Ptr<Closure> (new Closure(boost::bind(&SyncLogic::respondSyncData, 
+                                                               this, 
+                                                               _1),
+						   boost::bind(&SyncLogic::onSyncDataTimeout,
+                                                               this,
+                                                               _1, 
+                                                               _2,
+                                                               0),
+						   boost::bind(&SyncLogic::onSyncDataUnverified,
+                                                               this)));
+  m_handler->sendInterest(interestPtr, closure);
 }
 
 void
@@ -601,8 +654,18 @@ SyncLogic::sendSyncRecoveryInterests (DigestConstPtr digest)
                             REEXPRESSING_RECOVERY_INTEREST);
     }
 
-  m_ccnxHandle->sendInterest (os.str (),
-                              bind (&SyncLogic::respondSyncData, this, _1, _2, _3));
+  Ptr<ndn::Interest> interestPtr = Ptr<ndn::Interest>(new ndn::Interest(os.str()));
+  Ptr<Closure> closure = Ptr<Closure> (new Closure(boost::bind(&SyncLogic::respondSyncData, 
+                                                               this, 
+                                                               _1),
+						   boost::bind(&SyncLogic::onSyncDataTimeout,
+                                                               this,
+                                                               _1, 
+                                                               _2,
+                                                               0),
+						   boost::bind(&SyncLogic::onSyncDataUnverified,
+                                                               this)));
+  m_handler->sendInterest (interestPtr, closure);
 }
 
 
@@ -623,10 +686,13 @@ SyncLogic::sendSyncData (const std::string &name, DigestConstPtr digest, SyncSta
   int size = ssm.ByteSize();
   char *wireData = new char[size];
   ssm.SerializeToArray(wireData, size);
-  m_ccnxHandle->publishRawData (name,
-                             wireData,
-                             size,
-                             m_syncResponseFreshness); // in NS-3 it doesn't have any effect... yet
+  Blob blob(wireData, size);
+  Name dataName(name);
+  Name signingIdentity = m_policyManager->inferSigningIdentity(dataName);
+  m_handler->publishDataByIdentity (dataName,
+                                    blob,
+                                    signingIdentity,
+                                    m_syncResponseFreshness); // in NS-3 it doesn't have any effect... yet
   delete []wireData;
 
   // checking if our own interest got satisfied
