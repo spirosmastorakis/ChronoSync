@@ -85,11 +85,13 @@ public:
    */
   SyncLogic (const ndn::Name& syncPrefix,
              ndn::Ptr<SyncPolicyManager> syncPolicyManager,
+             ndn::Ptr<ndn::Wrapper> handler,
              LogicUpdateCallback onUpdate,
              LogicRemoveCallback onRemove);
 
   SyncLogic (const ndn::Name& syncPrefix,
              ndn::Ptr<SyncPolicyManager> syncPolicyManager,
+             ndn::Ptr<ndn::Wrapper> handler,
              LogicPerBranchCallback onUpdateBranch);
 
   ~SyncLogic ();

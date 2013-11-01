@@ -44,11 +44,12 @@ SyncIntroCertificate::SyncIntroCertificate (const Name& nameSpace,
     }
   certificateName.appendVersion();
  
-  setName(certificateName);
+  Data::setName(certificateName);
   setNotBefore(notBefore);
   setNotAfter(notAfter);
   setPublicKeyInfo(key);
   addSubjectDescription(CertificateSubDescrypt("2.5.4.41", keyName.toUri()));
+  encode();
 }
 
 SyncIntroCertificate::SyncIntroCertificate (const Name& nameSpace,

@@ -31,13 +31,18 @@ SyncSocket::SyncSocket (const string &syncPrefix,
                         RemoveCallback rmCallback )
   : m_newDataCallback(dataCallback)
   , m_syncPolicyManager(syncPolicyManager)
+  , m_handler(Ptr<Wrapper>(new Wrapper(Ptr<security::Keychain>(new security::Keychain(Ptr<security::IdentityManager>::Create(), 
+                                                                                      m_syncPolicyManager, 
+                                                                                      NULL)))))
   , m_syncLogic (syncPrefix,
                  syncPolicyManager,
+                 m_handler,
                  bind(&SyncSocket::passCallback, this, _1),
                  rmCallback)
 {
-  Ptr<security::Keychain> keychain = Ptr<security::Keychain>(new security::Keychain(Ptr<security::IdentityManager>::Create(), m_syncPolicyManager, NULL));
-  m_handler = Ptr<Wrapper>(new Wrapper(keychain));
+  // Ptr<security::Keychain> keychain = Ptr<security::Keychain>(new security::Keychain(Ptr<security::IdentityManager>::Create(), m_syncPolicyManager, NULL));
+  // m_handler = Ptr<Wrapper>(new Wrapper(keychain));
+  m_syncPolicyManager->setWrapper(m_handler);
 }
 
 SyncSocket::~SyncSocket()

@@ -60,6 +60,7 @@ namespace Sync
 
   SyncLogic::SyncLogic (const Name& syncPrefix,
                         Ptr<SyncPolicyManager> syncPolicyManager, 
+                        Ptr<Wrapper> handler,
                         LogicUpdateCallback onUpdate,
                         LogicRemoveCallback onRemove)
     : m_state (new FullState)
@@ -69,6 +70,7 @@ namespace Sync
     , m_onRemove (onRemove)
     , m_perBranch (false)
     , m_policyManager(syncPolicyManager)
+    , m_handler (handler)
 #ifndef NS3_MODULE
     , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
     , m_rangeUniformRandom (m_randomGenerator, uniform_int<> (200,1000))
@@ -82,10 +84,6 @@ namespace Sync
 #ifndef NS3_MODULE
   // In NS3 module these functions are moved to StartApplication method
 
-  Ptr<security::Keychain> keychain = Ptr<security::Keychain>(new security::Keychain(Ptr<security::IdentityManager>::Create(),
-                                                                                    m_policyManager,
-                                                                                    NULL));
-  m_handler = Ptr<Wrapper>(new Wrapper(keychain));
   m_handler->setInterestFilter (m_syncPrefix, 
                                 bind (&SyncLogic::respondSyncInterest, this, _1));
 
@@ -97,6 +95,7 @@ namespace Sync
 
 SyncLogic::SyncLogic (const Name& syncPrefix,
                       Ptr<SyncPolicyManager> syncPolicyManager,
+                      Ptr<Wrapper> handler,
                       LogicPerBranchCallback onUpdateBranch)
   : m_state (new FullState)
   , m_syncInterestTable (TIME_SECONDS (m_syncInterestReexpress))
@@ -104,6 +103,7 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
   , m_onUpdateBranch (onUpdateBranch)
   , m_perBranch(true)
   , m_policyManager(syncPolicyManager)
+  , m_handler (handler)
 #ifndef NS3_MODULE
   , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
   , m_rangeUniformRandom (m_randomGenerator, uniform_int<> (200,1000))
@@ -116,14 +116,9 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
 { 
 #ifndef NS3_MODULE
   // In NS3 module these functions are moved to StartApplication method
-
-  Ptr<security::Keychain> keychain = Ptr<security::Keychain>(new security::Keychain(Ptr<security::IdentityManager>::Create(),
-                                                                                    m_policyManager,
-                                                                                    NULL));
-  m_handler = Ptr<Wrapper>(new Wrapper(keychain));
   
   m_handler->setInterestFilter (m_syncPrefix,
-                                   bind (&SyncLogic::respondSyncInterest, this, _1));
+                                bind (&SyncLogic::respondSyncInterest, this, _1));
 
   m_scheduler.schedule (TIME_SECONDS (0), // no need to add jitter
                         bind (&SyncLogic::sendSyncInterest, this),
