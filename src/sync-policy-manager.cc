@@ -33,7 +33,7 @@ SyncPolicyManager::SyncPolicyManager(const Name& signingIdentity,
   m_syncPrefixRegex = Regex::fromName(syncPrefix);
   m_wotPrefixRegex = Regex::fromName(wotPrefix);
   m_chatDataPolicy = Ptr<IdentityPolicyRule>(new IdentityPolicyRule("^[^<FH>]*<FH>([^<chronos>]*)<chronos><>",
-                                                                    "^(<>*)<KEY><DSK-.*><ID-CERT><>$",
+                                                                    "^(<>*)<KEY><dsk-.*><ID-CERT>$",
                                                                     "==", "\\1", "\\1", true));  
 }
   
@@ -54,11 +54,11 @@ SyncPolicyManager::checkVerificationPolicy(Ptr<Data> data,
 					   const DataCallback& verifiedCallback,
 					   const UnverifiedCallback& unverifiedCallback)
 {
-#ifdef _DEBUG
-  _LOG_DEBUG("checkVerificationPolicy");
-  verifiedCallback(data);
-  return NULL;
-#else
+// #ifdef _DEBUG
+//   _LOG_DEBUG("checkVerificationPolicy");
+//   verifiedCallback(data);
+//   return NULL;
+// #else
   //TODO:
   if(stepCount > m_stepLimit)
     {
@@ -74,10 +74,13 @@ SyncPolicyManager::checkVerificationPolicy(Ptr<Data> data,
     }
 
   const Name& keyLocatorName = sha256sig->getKeyLocator().getKeyName();
+  _LOG_DEBUG("data name: " << data->getName());
+  _LOG_DEBUG("signer name: " << keyLocatorName);
   
   // if data is intro cert
   if(m_wotPrefixRegex->match(data->getName()))
     {
+      _LOG_DEBUG("Intro Cert");
       Name keyName = IdentityCertificate::certificateNameToPublicKeyName(keyLocatorName);
       map<Name, Publickey>::const_iterator it = m_trustedIntroducers.find(keyName);
       if(m_trustedIntroducers.end() != it)
@@ -95,11 +98,14 @@ SyncPolicyManager::checkVerificationPolicy(Ptr<Data> data,
   // if data is sync data or chat data
   if(m_syncPrefixRegex->match(data->getName()) || m_chatDataPolicy->satisfy(*data))
     {
+      _LOG_DEBUG("Sync/Chat Data");
       Name keyName = IdentityCertificate::certificateNameToPublicKeyName(keyLocatorName);
+      _LOG_DEBUG("keyName: " << keyName.toUri());
 
       map<Name, Publickey>::const_iterator it = m_trustedIntroducers.find(keyName);
       if(m_trustedIntroducers.end() != it)
 	{
+          _LOG_DEBUG("Find trusted introducer!");
 	  if(verifySignature(*data, it->second))
 	    verifiedCallback(data);
 	  else
@@ -110,19 +116,21 @@ SyncPolicyManager::checkVerificationPolicy(Ptr<Data> data,
       it = m_trustedProducers.find(keyName);
       if(m_trustedProducers.end() != it)
 	{
+          _LOG_DEBUG("Find trusted producer!");
 	  if(verifySignature(*data, it->second))
 	    verifiedCallback(data);
 	  else
 	    unverifiedCallback(data);
 	  return NULL;
 	}
-      
+
+      _LOG_DEBUG("Did not find any trusted one!");
       return prepareRequest(keyName, false, data, stepCount, verifiedCallback, unverifiedCallback);
     }
   
   unverifiedCallback(data);
   return NULL;
-#endif
+// #endif
 }
 
 bool 
@@ -130,12 +138,14 @@ SyncPolicyManager::checkSigningPolicy(const Name& dataName,
 				      const Name& certificateName)
 { 
 
-#ifdef _DEBUG
-  _LOG_DEBUG("checkSigningPolicy");
   return true;
-#else
-  return (m_syncPrefixRegex->match(dataName) && certificateName == m_signingCertificateName) ? true : false; 
-#endif
+
+// #ifdef _DEBUG
+//   _LOG_DEBUG("checkSigningPolicy");
+//   return true;
+// #else
+  // return (m_syncPrefixRegex->match(dataName) && certificateName.getPrefix(certificateName.size()-1) == m_signingCertificateName) ? true : false; 
+// #endif
 }
     
 Name 
@@ -145,6 +155,7 @@ SyncPolicyManager::inferSigningIdentity(const ndn::Name& dataName)
 void
 SyncPolicyManager::addTrustAnchor(const IdentityCertificate& identityCertificate, bool isIntroducer)
 {
+  _LOG_DEBUG("Add intro/producer: " << identityCertificate.getPublicKeyName());
   if(isIntroducer)
     m_trustedIntroducers.insert(pair <Name, Publickey > (identityCertificate.getPublicKeyName(), identityCertificate.getPublicKeyInfo()));
   else
@@ -198,6 +209,11 @@ SyncPolicyManager::prepareRequest(const Name& keyName,
   interestPrefixName->append("WOT").append(keyName).append("INTRO-CERT");
 
   Ptr<const std::vector<ndn::Name> > nameList = getAllIntroducerName();
+  if(0 == nameList->size())
+    {
+      unverifiedCallback(data);
+      return NULL;
+    }
 
   Name interestName = *interestPrefixName;
   interestName.append(nameList->at(0));
@@ -206,6 +222,7 @@ SyncPolicyManager::prepareRequest(const Name& keyName,
     interestName.append("INTRODUCER");
 
   Ptr<Interest> interest = Ptr<Interest>(new Interest(interestName));
+  _LOG_DEBUG("send interest for intro cert: " << interest->getName());
   interest->setChildSelector(Interest::CHILD_RIGHT);
 
   DataCallback requestedCertVerifiedCallback = boost::bind(&SyncPolicyManager::onIntroCertVerified, 

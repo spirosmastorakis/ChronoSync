@@ -58,7 +58,7 @@ public:
                   bool isIntroducer);
 
   inline void 
-  setWrapper(ndn::Wrapper* handler)
+  setWrapper(ndn::Ptr<ndn::Wrapper> handler)
   { m_handler = handler; }
 
 private:
@@ -118,7 +118,7 @@ private:
   std::map<ndn::Name, ndn::security::Publickey> m_trustedProducers;
   std::map<ndn::Name, SpecificPolicyRule> m_chatDataRules;
 
-  ndn::Wrapper* m_handler;
+  ndn::Ptr<ndn::Wrapper> m_handler;
 };
 
 #endif
