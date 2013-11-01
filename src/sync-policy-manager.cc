@@ -33,7 +33,7 @@ SyncPolicyManager::SyncPolicyManager(const Name& signingIdentity,
   m_syncPrefixRegex = Regex::fromName(syncPrefix);
   m_wotPrefixRegex = Regex::fromName(wotPrefix);
   m_chatDataPolicy = Ptr<IdentityPolicyRule>(new IdentityPolicyRule("^[^<FH>]*<FH>([^<chronos>]*)<chronos><>",
-                                                                    "^(<>*)<KEY><dsk-.*><ID-CERT>$",
+                                                                    "^([^<KEY>]*)<KEY>(<>*)[<dsk-.*><ksk-.*>]<ID-CERT>$",
                                                                     "==", "\\1", "\\1", true));  
 }
   
