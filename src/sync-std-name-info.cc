@@ -23,7 +23,7 @@
 #include "sync-std-name-info.h"
 #include "boost/thread/locks.hpp"
 
-using namespace std;
+// using namespace std;
 using namespace boost;
 
 namespace Sync {
@@ -48,7 +48,7 @@ StdNameInfo::FindOrCreate (const std::string &key)
     {
       ret = NameInfoPtr (new StdNameInfo (key));
       weak_ptr<const NameInfo> value (ret);
-      pair<NameMap::iterator,bool> inserted =
+      std::pair<NameMap::iterator,bool> inserted =
         m_names.insert (make_pair (key, value));
       
       BOOST_ASSERT (inserted.second); // previous call has to insert value
@@ -76,7 +76,7 @@ StdNameInfo::~StdNameInfo ()
   m_names.erase (toString ());
 }
 
-string
+std::string
 StdNameInfo::toString () const
 {
   return m_name;

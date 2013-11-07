@@ -62,7 +62,7 @@ FullState::getTimeFromLastUpdate () const
 DigestConstPtr
 FullState::getDigest ()
 {
-  if (m_digest == 0)
+  if (!m_digest)
     {
       m_digest = make_shared<Digest> ();
       if (m_leaves.get<ordered> ().size () > 0)

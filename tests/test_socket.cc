@@ -28,8 +28,7 @@ using boost::test_tools::output_test_stream;
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include "sync-logging.h"
-
-#include "ccnx/sync-socket.h"
+#include "sync-socket.h"
 
 extern "C" {
 #include <unistd.h>
@@ -157,92 +156,92 @@ BOOST_AUTO_TEST_CASE (AppSocketTest)
   s1.publishData (p1, 0, data0.c_str(), data0.size(), 10); 
   this_thread::sleep (posix_time::milliseconds (1000));
 
-  // from code logic, we won't be fetching our own data
-  a1.set(p1 + "/0/0", data0.c_str(), data0.size());
-  BOOST_CHECK_EQUAL(a1.toString(), a2.toString());
-  BOOST_CHECK_EQUAL(a2.toString(), a3.toString());
+  // // from code logic, we won't be fetching our own data
+  // a1.set(p1 + "/0/0", data0.c_str(), data0.size());
+  // BOOST_CHECK_EQUAL(a1.toString(), a2.toString());
+  // BOOST_CHECK_EQUAL(a2.toString(), a3.toString());
 
-  // single source, multiple data at once
-  string data1 = "Yes, give me that ketchup";
-  string data2 = "Don't look conspicuous, it draws fire";
+  // // single source, multiple data at once
+  // string data1 = "Yes, give me that ketchup";
+  // string data2 = "Don't look conspicuous, it draws fire";
 
-  _LOG_DEBUG ("s1 publish");
-  s1.publishData (p1, 0, data1.c_str(), data1.size(), 10);
-  _LOG_DEBUG ("s1 publish");
-  s1.publishData (p1, 0, data2.c_str(), data2.size(), 10);
-  this_thread::sleep (posix_time::milliseconds (1000));
-  
-  // from code logic, we won't be fetching our own data
-  a1.set(p1 + "/0/1", data1.c_str(), data1.size());
-  a1.set(p1 + "/0/2", data2.c_str(), data2.size());
-  BOOST_CHECK_EQUAL(a1.toString(), a2.toString());
-  BOOST_CHECK_EQUAL(a2.toString(), a3.toString());
-
-  // another single source
-  string data3 = "You surf the Internet, I surf the real world";
-  string data4 = "I got a fortune cookie once that said 'You like Chinese food'";
-  string data5 = "Real men wear pink. Why? Because their wives make them";
-  _LOG_DEBUG ("s3 publish");
-  s3.publishData(p3, 0, data3.c_str(), data3.size(), 10); 
-  this_thread::sleep (posix_time::milliseconds (200));
-  
-  // another single source, multiple data at once
-  s2.publishData(p2, 0, data4.c_str(), data4.size(), 10); 
-  s2.publishData(p2, 0, data5.c_str(), data5.size(), 10);
-  this_thread::sleep (posix_time::milliseconds (1000));
-
-  // from code logic, we won't be fetching our own data
-  a3.set(p3 + "/0/0", data3.c_str(), data3.size());
-  a2.set(p2 + "/0/0", data4.c_str(), data4.size());
-  a2.set(p2 + "/0/1", data5.c_str(), data5.size());
-  BOOST_CHECK_EQUAL(a1.toString(), a2.toString());
-  BOOST_CHECK_EQUAL(a2.toString(), a3.toString());
-
-  // not sure weither this is simultanous data generation from multiple sources
-  _LOG_DEBUG ("Simultaneous publishing");
-  string data6 = "Shakespeare says: 'Prose before hos.'";
-  string data7 = "Pick good people, talent never wears out";
-  s1.publishData(p1, 0, data6.c_str(), data6.size(), 10); 
+  // _LOG_DEBUG ("s1 publish");
+  // s1.publishData (p1, 0, data1.c_str(), data1.size(), 10);
+  // _LOG_DEBUG ("s1 publish");
+  // s1.publishData (p1, 0, data2.c_str(), data2.size(), 10);
   // this_thread::sleep (posix_time::milliseconds (1000));
-  s2.publishData(p2, 0, data7.c_str(), data7.size(), 10); 
-  this_thread::sleep (posix_time::milliseconds (1500));
+  
+  // // from code logic, we won't be fetching our own data
+  // a1.set(p1 + "/0/1", data1.c_str(), data1.size());
+  // a1.set(p1 + "/0/2", data2.c_str(), data2.size());
+  // BOOST_CHECK_EQUAL(a1.toString(), a2.toString());
+  // BOOST_CHECK_EQUAL(a2.toString(), a3.toString());
 
-  // from code logic, we won't be fetching our own data
-  a1.set(p1 + "/0/3", data6.c_str(), data6.size());
-  a2.set(p2 + "/0/2", data7.c_str(), data7.size());
-  // a1.set(p1 + "/0/1", data6);
-  // a2.set(p2 + "/0/0", data7);
-  BOOST_CHECK_EQUAL(a1.toString(), a2.toString());
-  BOOST_CHECK_EQUAL(a2.toString(), a3.toString());
+  // // another single source
+  // string data3 = "You surf the Internet, I surf the real world";
+  // string data4 = "I got a fortune cookie once that said 'You like Chinese food'";
+  // string data5 = "Real men wear pink. Why? Because their wives make them";
+  // _LOG_DEBUG ("s3 publish");
+  // s3.publishData(p3, 0, data3.c_str(), data3.size(), 10); 
+  // this_thread::sleep (posix_time::milliseconds (200));
+  
+  // // another single source, multiple data at once
+  // s2.publishData(p2, 0, data4.c_str(), data4.size(), 10); 
+  // s2.publishData(p2, 0, data5.c_str(), data5.size(), 10);
+  // this_thread::sleep (posix_time::milliseconds (1000));
 
-  _LOG_DEBUG("Begin new test");
-  std::cout << "Begin new Test " << std::endl;
-  string syncRawPrefix = "/this/is/the/prefix";
-  ndn::Ptr<SyncPolicyManager> policyManager2 = ndn::Ptr<SyncPolicyManager>(new SyncPolicyManager(ndn::Name("/ndn/ucla.edu/alice"), ndn::Name("/ndn/ucla.edu/alice/KEY/dsk-1382934202/ID-CERT/%FD%FF%FF%FF%FF%DEk%C0%0B"), ndn::Name(syncRawPrefix)));
+  // // from code logic, we won't be fetching our own data
+  // a3.set(p3 + "/0/0", data3.c_str(), data3.size());
+  // a2.set(p2 + "/0/0", data4.c_str(), data4.size());
+  // a2.set(p2 + "/0/1", data5.c_str(), data5.size());
+  // BOOST_CHECK_EQUAL(a1.toString(), a2.toString());
+  // BOOST_CHECK_EQUAL(a2.toString(), a3.toString());
 
-  a1.sum = 0;
-  a2.sum = 0;
-  SyncSocket s4 (syncRawPrefix, policyManager2, bind(&TestSocketApp::fetchNumbers, &a1, _1, _2), bind(&TestSocketApp::pass, &a1, _1));
-  SyncSocket s5 (syncRawPrefix, policyManager2, bind(&TestSocketApp::fetchNumbers, &a2, _1, _2), bind(&TestSocketApp::pass, &a2, _1));
+  // // not sure weither this is simultanous data generation from multiple sources
+  // _LOG_DEBUG ("Simultaneous publishing");
+  // string data6 = "Shakespeare says: 'Prose before hos.'";
+  // string data7 = "Pick good people, talent never wears out";
+  // s1.publishData(p1, 0, data6.c_str(), data6.size(), 10); 
+  // // this_thread::sleep (posix_time::milliseconds (1000));
+  // s2.publishData(p2, 0, data7.c_str(), data7.size(), 10); 
+  // this_thread::sleep (posix_time::milliseconds (1500));
 
-  int num[5] = {0, 1, 2, 3, 4};
+  // // from code logic, we won't be fetching our own data
+  // a1.set(p1 + "/0/3", data6.c_str(), data6.size());
+  // a2.set(p2 + "/0/2", data7.c_str(), data7.size());
+  // // a1.set(p1 + "/0/1", data6);
+  // // a2.set(p2 + "/0/0", data7);
+  // BOOST_CHECK_EQUAL(a1.toString(), a2.toString());
+  // BOOST_CHECK_EQUAL(a2.toString(), a3.toString());
 
-  string p4 = "/xiaonei.com";
-  string p5 = "/mitbbs.com";
+  // _LOG_DEBUG("Begin new test");
+  // std::cout << "Begin new Test " << std::endl;
+  // string syncRawPrefix = "/this/is/the/prefix";
+  // ndn::Ptr<SyncPolicyManager> policyManager2 = ndn::Ptr<SyncPolicyManager>(new SyncPolicyManager(ndn::Name("/ndn/ucla.edu/alice"), ndn::Name("/ndn/ucla.edu/alice/KEY/dsk-1382934202/ID-CERT/%FD%FF%FF%FF%FF%DEk%C0%0B"), ndn::Name(syncRawPrefix)));
 
-  s4.publishData(p4, 0,(const char *) num, sizeof(num), 10);
-  a1.setNum(p4, (const char *) num, sizeof (num));
+  // a1.sum = 0;
+  // a2.sum = 0;
+  // SyncSocket s4 (syncRawPrefix, policyManager2, bind(&TestSocketApp::fetchNumbers, &a1, _1, _2), bind(&TestSocketApp::pass, &a1, _1));
+  // SyncSocket s5 (syncRawPrefix, policyManager2, bind(&TestSocketApp::fetchNumbers, &a2, _1, _2), bind(&TestSocketApp::pass, &a2, _1));
 
-  this_thread::sleep (posix_time::milliseconds (1000));
-  BOOST_CHECK(a1.sum == a2.sum && a1.sum == 10);
+  // int num[5] = {0, 1, 2, 3, 4};
 
-  int newNum[5] = {9, 7, 2, 1, 1};
+  // string p4 = "/xiaonei.com";
+  // string p5 = "/mitbbs.com";
 
-  s5.publishData(p5, 0,(const char *) newNum, sizeof(newNum), 10);
-  a2.setNum(p5, (const char *)newNum, sizeof (newNum));
-  this_thread::sleep (posix_time::milliseconds (1000));
-  BOOST_CHECK_EQUAL(a1.sum, a2.sum);
-  BOOST_CHECK_EQUAL(a1.sum, 30);
+  // s4.publishData(p4, 0,(const char *) num, sizeof(num), 10);
+  // a1.setNum(p4, (const char *) num, sizeof (num));
 
-  _LOG_DEBUG ("Finish");
+  // this_thread::sleep (posix_time::milliseconds (1000));
+  // BOOST_CHECK(a1.sum == a2.sum && a1.sum == 10);
+
+  // int newNum[5] = {9, 7, 2, 1, 1};
+
+  // s5.publishData(p5, 0,(const char *) newNum, sizeof(newNum), 10);
+  // a2.setNum(p5, (const char *)newNum, sizeof (newNum));
+  // this_thread::sleep (posix_time::milliseconds (1000));
+  // BOOST_CHECK_EQUAL(a1.sum, a2.sum);
+  // BOOST_CHECK_EQUAL(a1.sum, 30);
+
+  // _LOG_DEBUG ("Finish");
 }

@@ -54,7 +54,7 @@ Scheduler::threadLoop ()
         {
 	  boost::system_time nextTime;
           {
-            unique_lock<mutex> lock (m_eventsMutex);
+            boost::unique_lock<boost::mutex> lock (m_eventsMutex);
             while (m_threadRunning && m_events.size () == 0)
               {
                 m_eventsCondition.wait (lock);
@@ -84,7 +84,7 @@ Scheduler::threadLoop ()
 	  Event event;
 	  
 	  {
-	    lock_guard<mutex> lock (m_eventsMutex);
+            boost::lock_guard<boost::mutex> lock (m_eventsMutex);
 
 	    if (m_events.size () == 0)
               {
@@ -110,7 +110,7 @@ Scheduler::threadLoop ()
 void
 Scheduler::schedule (const TimeDuration &reltime, Event event, uint32_t label)
 {
-  lock_guard<mutex> lock (m_eventsMutex);
+  boost::lock_guard<boost::mutex> lock (m_eventsMutex);
   m_events.insert (LogicEvent (boost::get_system_time () + reltime, event, label));
 
   m_eventsCondition.notify_one ();
@@ -121,7 +121,7 @@ void
 Scheduler::cancel (uint32_t label)
 {
   // cout << "Canceling label " << label << " size: " << m_events.size () << endl;
-  lock_guard<mutex> lock (m_eventsMutex);
+  boost::lock_guard<boost::mutex> lock (m_eventsMutex);
   m_events.get<byLabel> ().erase (label);
   // cout << "Canceled label " << label << " size: " << m_events.size () << endl;
 

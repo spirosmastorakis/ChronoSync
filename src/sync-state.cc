@@ -30,10 +30,10 @@
 #include <boost/throw_exception.hpp>
 #include <boost/lexical_cast.hpp>
 
-using namespace std;
+// using namespace std;
 using namespace boost;
 
-typedef error_info<struct tag_errmsg, string> info_str; 
+typedef error_info<struct tag_errmsg, std::string> info_str; 
 
 using namespace Sync::Error;
 

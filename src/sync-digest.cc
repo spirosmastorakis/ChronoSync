@@ -45,6 +45,7 @@ using namespace std;
 
 // Other options: VP_md2, EVP_md5, EVP_sha, EVP_sha1, EVP_sha256, EVP_dss, EVP_dss1, EVP_mdc2, EVP_ripemd160
 #define HASH_FUNCTION EVP_sha256
+#define HASH_FUNCTION_LEN 32
 
 
 // #ifndef DIGEST_BASE64
@@ -62,8 +63,8 @@ struct hex_from_4_bit
   }
 };
 
-typedef transform_iterator<hex_from_4_bit<string::const_iterator::value_type>,
-                           transform_width<string::const_iterator, 4, 8, string::const_iterator::value_type> > string_from_binary;
+typedef transform_iterator<hex_from_4_bit<std::vector<uint8_t>::const_iterator::value_type>,
+                           transform_width<std::vector<uint8_t>::const_iterator, 4, 8, std::vector<uint8_t>::const_iterator::value_type> > string_from_binary;
 
 
 template<class CharType>
@@ -96,18 +97,9 @@ struct hex_to_4_bit
 
 typedef transform_width<transform_iterator<hex_to_4_bit<string::const_iterator::value_type>, string::const_iterator>, 8, 4> string_to_binary;
 
-// #else
-
-// typedef base64_from_binary<transform_width<string::const_iterator, 6, 8> > string_from_binary;
-// typedef binary_from_base64<transform_width<string::const_iterator, 8, 6> > string_to_binary;
-
-// #endif
-
 namespace Sync {
 
 Digest::Digest ()
-  : m_buffer (0)
-  , m_hashLength (0)
 {
   m_context = EVP_MD_CTX_create ();
 
@@ -116,37 +108,30 @@ Digest::Digest ()
 
 Digest::~Digest ()
 {
-  if (m_buffer != 0)
-    delete [] m_buffer;
-
   EVP_MD_CTX_destroy (m_context);
 }
 
 bool
 Digest::empty () const
 {
-  return m_buffer == 0;
+  return m_buffer.empty ();
 }
 
 bool
 Digest::isZero () const
 {
-  if (m_buffer == 0)
+  if (m_buffer.empty ())
     BOOST_THROW_EXCEPTION (Error::DigestCalculationError ()
                            << errmsg_info_str ("Digest has not been yet finalized"));
 
-  return (m_hashLength == 1 && m_buffer[0] == 0);
+  return (m_buffer.size () == 1 && m_buffer[0] == 0);
 }
 
 
 void
 Digest::reset ()
 {
-  if (m_buffer != 0)
-    {
-      delete [] m_buffer;
-      m_buffer = 0;
-    }
+  m_buffer.clear ();
 
   int ok = EVP_DigestInit_ex (m_context, HASH_FUNCTION (), 0);
   if (!ok)
@@ -159,12 +144,13 @@ Digest::reset ()
 void
 Digest::finalize ()
 {
-  if (m_buffer != 0) return;
+  if (!m_buffer.empty ()) return;
 
-  m_buffer = new uint8_t [EVP_MAX_MD_SIZE];
-
+  m_buffer.resize (HASH_FUNCTION_LEN);
+  
+  unsigned int tmp;
   int ok = EVP_DigestFinal_ex (m_context,
-			       m_buffer, &m_hashLength);
+			       &m_buffer[0], &tmp);
   if (!ok)
     BOOST_THROW_EXCEPTION (Error::DigestCalculationError ()
                            << errmsg_info_str ("EVP_DigestFinal_ex returned error")
@@ -176,39 +162,30 @@ Digest::getHash () const
 {
   if (isZero ()) return 0;
   
-  if (sizeof (std::size_t) > m_hashLength)
+  if (sizeof (std::size_t) > m_buffer.size ())
     {
       BOOST_THROW_EXCEPTION (Error::DigestCalculationError ()
                              << errmsg_info_str ("Hash is not zero and length is less than size_t")
-                             << errmsg_info_int (m_hashLength));
+                             << errmsg_info_int (m_buffer.size ()));
     }
   
   // just getting first sizeof(std::size_t) bytes
   // not ideal, but should work pretty well
-  return *(reinterpret_cast<std::size_t*> (m_buffer));
+  return *(reinterpret_cast<const std::size_t*> (&m_buffer[0]));
 }
 
 bool
 Digest::operator == (const Digest &digest) const
 {
-  if (m_buffer == 0)
+  if (m_buffer.empty ())
     BOOST_THROW_EXCEPTION (Error::DigestCalculationError ()
                            << errmsg_info_str ("Digest1 is empty"));
 
-  if (digest.m_buffer == 0)
+  if (digest.m_buffer.empty ())
     BOOST_THROW_EXCEPTION (Error::DigestCalculationError ()
                            << errmsg_info_str ("Digest2 is empty"));
 
-  if (m_hashLength != digest.m_hashLength)
-    return false;
-
-  // Allow different hash size
-  // BOOST_THROW_EXCEPTION (Error::DigestCalculationError ()
-  //                        << errmsg_info_str ("Digest lengths are not the same")
-  //                        << errmsg_info_int (m_hashLength)
-  //                        << errmsg_info_int (digest.m_hashLength));
-
-  return memcmp (m_buffer, digest.m_buffer, m_hashLength) == 0;
+  return m_buffer == digest.m_buffer;
 }
 
 
@@ -218,7 +195,7 @@ Digest::update (const uint8_t *buffer, size_t size)
   // cout << "Update: " << (void*)buffer << " / size: " << size << "\n";
   
   // cannot update Digest when it has been finalized
-  if (m_buffer != 0)
+  if (!m_buffer.empty ())
     BOOST_THROW_EXCEPTION (Error::DigestCalculationError ()
                            << errmsg_info_str ("Digest has been already finalized"));
 
@@ -233,11 +210,11 @@ Digest::update (const uint8_t *buffer, size_t size)
 Digest &
 Digest::operator << (const Digest &src)
 {
-  if (src.m_buffer == 0) 
+  if (src.m_buffer.empty ()) 
     BOOST_THROW_EXCEPTION (Error::DigestCalculationError ()
                            << errmsg_info_str ("Digest has not been yet finalized"));
 
-  update (src.m_buffer, src.m_hashLength);
+  update (&src.m_buffer[0], src.m_buffer.size ());
 
   return *this;
 }
@@ -245,12 +222,12 @@ Digest::operator << (const Digest &src)
 std::ostream &
 operator << (std::ostream &os, const Digest &digest)
 {
-  BOOST_ASSERT (digest.m_hashLength != 0);
+  BOOST_ASSERT (!digest.m_buffer.empty ());
   
   ostreambuf_iterator<char> out_it (os); // ostream iterator
   // need to encode to base64
-  copy (string_from_binary (reinterpret_cast<const char*> (digest.m_buffer)),
-        string_from_binary (reinterpret_cast<const char*> (digest.m_buffer+digest.m_hashLength)),
+  copy (string_from_binary (digest.m_buffer.begin ()),
+        string_from_binary (digest.m_buffer.end ()),
         out_it);
 
   return os;
@@ -270,16 +247,15 @@ operator >> (std::istream &is, Digest &digest)
   // for (uint8_t i = 0; i < padding; i++) str.push_back ('=');
 
   // only empty digest object can be used for reading
-  if (digest.m_buffer != 0)
+  if (!digest.m_buffer.empty ())
     BOOST_THROW_EXCEPTION (Error::DigestCalculationError ()
                            << errmsg_info_str ("Digest has been already finalized"));
 
-  digest.m_buffer = new uint8_t [EVP_MAX_MD_SIZE];
-  uint8_t *end = copy (string_to_binary (str.begin ()),
-                       string_to_binary (str.end ()),
-                       digest.m_buffer);
-
-  digest.m_hashLength = end - digest.m_buffer;
+  digest.m_buffer.clear ();
+  
+  copy (string_to_binary (str.begin ()),
+        string_to_binary (str.end ()),
+        std::back_inserter (digest.m_buffer));
 
   return is;
 }

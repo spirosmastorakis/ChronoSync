@@ -26,6 +26,7 @@
 #include <boost/exception/all.hpp>
 #include <openssl/evp.h>
 #include <boost/cstdint.hpp>
+#include <vector>
 
 namespace Sync {
 
@@ -134,8 +135,7 @@ private:
   
 private:
   EVP_MD_CTX *m_context;
-  uint8_t *m_buffer;
-  uint32_t m_hashLength;
+  std::vector<uint8_t> m_buffer;
 };
 
 namespace Error {

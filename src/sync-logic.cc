@@ -190,7 +190,7 @@ SyncLogic::convertNameToDigestAndType (const std::string &name)
 
   _LOG_TRACE (hash << ", " << interestType);
 
-  DigestPtr digest = make_shared<Digest> ();
+  DigestPtr digest = boost::make_shared<Digest> ();
   istringstream is (hash);
   is >> *digest;
 
@@ -289,7 +289,7 @@ SyncLogic::processSyncInterest (const std::string &name, DigestConstPtr digest, 
   _LOG_DEBUG("processSyncInterest");
   DigestConstPtr rootDigest;
   {
-    recursive_mutex::scoped_lock lock (m_stateMutex);
+    boost::recursive_mutex::scoped_lock lock (m_stateMutex);
     rootDigest = m_state->getDigest();
   }
 
@@ -299,7 +299,7 @@ SyncLogic::processSyncInterest (const std::string &name, DigestConstPtr digest, 
       
       SyncStateMsg ssm;
       {
-        recursive_mutex::scoped_lock lock (m_stateMutex);
+        boost::recursive_mutex::scoped_lock lock (m_stateMutex);
         ssm << (*m_state);
       }
       sendSyncData (name, digest, ssm);
@@ -351,7 +351,7 @@ SyncLogic::processSyncInterest (const std::string &name, DigestConstPtr digest, 
 void
 SyncLogic::processSyncData (const std::string &name, DigestConstPtr digest, const char *wireData, size_t len)
 {
-  DiffStatePtr diffLog = make_shared<DiffState> ();
+  DiffStatePtr diffLog = boost::make_shared<DiffState> ();
   bool ownInterestSatisfied = false;
   
   try
@@ -385,7 +385,7 @@ SyncLogic::processSyncData (const std::string &name, DigestConstPtr digest, cons
               bool updated = false;
               SeqNo oldSeq;
               {
-                recursive_mutex::scoped_lock lock (m_stateMutex);
+                boost::recursive_mutex::scoped_lock lock (m_stateMutex);
                 tie (inserted, updated, oldSeq) = m_state->update (info, seq);
               }
 
@@ -419,7 +419,7 @@ SyncLogic::processSyncData (const std::string &name, DigestConstPtr digest, cons
             }
           else if (diffLeaf->getOperation() == REMOVE)
             {
-              recursive_mutex::scoped_lock lock (m_stateMutex);
+              boost::recursive_mutex::scoped_lock lock (m_stateMutex);
               if (m_state->remove (info))
                 {
                   diffLog->remove (info);
@@ -482,7 +482,7 @@ SyncLogic::processSyncRecoveryInterest (const std::string &name, DigestConstPtr 
 
   SyncStateMsg ssm;
   {
-    recursive_mutex::scoped_lock lock (m_stateMutex);
+    boost::recursive_mutex::scoped_lock lock (m_stateMutex);
     ssm << (*m_state);
   }
   sendSyncData (name, digest, ssm);
@@ -491,9 +491,9 @@ SyncLogic::processSyncRecoveryInterest (const std::string &name, DigestConstPtr 
 void
 SyncLogic::satisfyPendingSyncInterests (DiffStateConstPtr diffLog)
 {
-  DiffStatePtr fullStateLog = make_shared<DiffState> ();
+  DiffStatePtr fullStateLog = boost::make_shared<DiffState> ();
   {
-    recursive_mutex::scoped_lock lock (m_stateMutex);
+    boost::recursive_mutex::scoped_lock lock (m_stateMutex);
     BOOST_FOREACH (LeafConstPtr leaf, m_state->getLeaves ()/*.get<timed> ()*/)
       {
         fullStateLog->update (leaf->getInfo (), leaf->getSeq ());
@@ -547,7 +547,7 @@ SyncLogic::addLocalNames (const string &prefix, uint32_t session, uint32_t seq)
   DiffStatePtr diff;
   {
     //cout << "Add local names" <<endl;
-    recursive_mutex::scoped_lock lock (m_stateMutex);
+    boost::recursive_mutex::scoped_lock lock (m_stateMutex);
     NameInfoConstPtr info = StdNameInfo::FindOrCreate(prefix);
 
     _LOG_DEBUG ("addLocalNames (): old state " << *m_state->getDigest ());
@@ -557,7 +557,7 @@ SyncLogic::addLocalNames (const string &prefix, uint32_t session, uint32_t seq)
 
     _LOG_DEBUG ("addLocalNames (): new state " << *m_state->getDigest ());
     
-    diff = make_shared<DiffState>();
+    diff = boost::make_shared<DiffState>();
     diff->update(info, seqN);
     insertToDiffLog (diff);
   }
@@ -571,7 +571,7 @@ SyncLogic::remove(const string &prefix)
 {
   DiffStatePtr diff;
   {
-    recursive_mutex::scoped_lock lock (m_stateMutex);
+    boost::recursive_mutex::scoped_lock lock (m_stateMutex);
     NameInfoConstPtr info = StdNameInfo::FindOrCreate(prefix);
     m_state->remove(info);	
 
@@ -587,7 +587,7 @@ SyncLogic::remove(const string &prefix)
       }
     m_state->update (forwarderInfo, seqNo);
 
-    diff = make_shared<DiffState>();
+    diff = boost::make_shared<DiffState>();
     diff->remove(info);
     diff->update(forwarderInfo, seqNo);
 
@@ -604,7 +604,7 @@ SyncLogic::sendSyncInterest ()
   ostringstream os;
 
   {
-    recursive_mutex::scoped_lock lock (m_stateMutex);
+    boost::recursive_mutex::scoped_lock lock (m_stateMutex);
 
     os << m_syncPrefix << "/" << *m_state->getDigest();
     m_outstandingInterestName = os.str ();
@@ -694,7 +694,7 @@ SyncLogic::sendSyncData (const std::string &name, DigestConstPtr digest, SyncSta
   // checking if our own interest got satisfied
   bool satisfiedOwnInterest = false;
   {
-    recursive_mutex::scoped_lock lock (m_stateMutex);
+    boost::recursive_mutex::scoped_lock lock (m_stateMutex);
     satisfiedOwnInterest = (m_outstandingInterestName == name);
   }
   
@@ -713,7 +713,7 @@ string
 SyncLogic::getRootDigest() 
 {
   ostringstream os;
-  recursive_mutex::scoped_lock lock (m_stateMutex);
+  boost::recursive_mutex::scoped_lock lock (m_stateMutex);
   os << *m_state->getDigest();
   return os.str();
 }
@@ -721,14 +721,14 @@ SyncLogic::getRootDigest()
 size_t
 SyncLogic::getNumberOfBranches () const
 {
-  recursive_mutex::scoped_lock lock (m_stateMutex);
+  boost::recursive_mutex::scoped_lock lock (m_stateMutex);
   return m_state->getLeaves ().size ();
 }
 
 void
 SyncLogic::printState () const
 {
-  recursive_mutex::scoped_lock lock (m_stateMutex);
+  boost::recursive_mutex::scoped_lock lock (m_stateMutex);
 
   BOOST_FOREACH (const boost::shared_ptr<Sync::Leaf> leaf, m_state->getLeaves ())
     {
@@ -739,7 +739,7 @@ SyncLogic::printState () const
 std::map<std::string, bool>
 SyncLogic::getBranchPrefixes() const
 {
-  recursive_mutex::scoped_lock lock (m_stateMutex);
+  boost::recursive_mutex::scoped_lock lock (m_stateMutex);
 
   std::map<std::string, bool> m;
 
