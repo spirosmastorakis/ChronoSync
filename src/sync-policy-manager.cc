@@ -74,13 +74,13 @@ SyncPolicyManager::checkVerificationPolicy(Ptr<Data> data,
     }
 
   const Name& keyLocatorName = sha256sig->getKeyLocator().getKeyName();
-  _LOG_DEBUG("data name: " << data->getName());
-  _LOG_DEBUG("signer name: " << keyLocatorName);
+  // _LOG_DEBUG("data name: " << data->getName());
+  // _LOG_DEBUG("signer name: " << keyLocatorName);
   
   // if data is intro cert
   if(m_wotPrefixRegex->match(data->getName()))
     {
-      _LOG_DEBUG("Intro Cert");
+      // _LOG_DEBUG("Intro Cert");
       Name keyName = IdentityCertificate::certificateNameToPublicKeyName(keyLocatorName);
       map<Name, Publickey>::const_iterator it = m_trustedIntroducers.find(keyName);
       if(m_trustedIntroducers.end() != it)
@@ -98,14 +98,14 @@ SyncPolicyManager::checkVerificationPolicy(Ptr<Data> data,
   // if data is sync data or chat data
   if(m_syncPrefixRegex->match(data->getName()) || m_chatDataPolicy->satisfy(*data))
     {
-      _LOG_DEBUG("Sync/Chat Data");
+      // _LOG_DEBUG("Sync/Chat Data");
       Name keyName = IdentityCertificate::certificateNameToPublicKeyName(keyLocatorName);
-      _LOG_DEBUG("keyName: " << keyName.toUri());
+      // _LOG_DEBUG("keyName: " << keyName.toUri());
 
       map<Name, Publickey>::const_iterator it = m_trustedIntroducers.find(keyName);
       if(m_trustedIntroducers.end() != it)
 	{
-          _LOG_DEBUG("Find trusted introducer!");
+          // _LOG_DEBUG("Find trusted introducer!");
 	  if(verifySignature(*data, it->second))
 	    verifiedCallback(data);
 	  else
@@ -116,7 +116,7 @@ SyncPolicyManager::checkVerificationPolicy(Ptr<Data> data,
       it = m_trustedProducers.find(keyName);
       if(m_trustedProducers.end() != it)
 	{
-          _LOG_DEBUG("Find trusted producer!");
+          // _LOG_DEBUG("Find trusted producer!");
 	  if(verifySignature(*data, it->second))
 	    verifiedCallback(data);
 	  else
@@ -124,7 +124,7 @@ SyncPolicyManager::checkVerificationPolicy(Ptr<Data> data,
 	  return NULL;
 	}
 
-      _LOG_DEBUG("Did not find any trusted one!");
+      // _LOG_DEBUG("Did not find any trusted one!");
       return prepareRequest(keyName, false, data, stepCount, verifiedCallback, unverifiedCallback);
     }
   
@@ -155,7 +155,7 @@ SyncPolicyManager::inferSigningIdentity(const ndn::Name& dataName)
 void
 SyncPolicyManager::addTrustAnchor(const IdentityCertificate& identityCertificate, bool isIntroducer)
 {
-  _LOG_DEBUG("Add intro/producer: " << identityCertificate.getPublicKeyName());
+  // _LOG_DEBUG("Add intro/producer: " << identityCertificate.getPublicKeyName());
   if(isIntroducer)
     m_trustedIntroducers.insert(pair <Name, Publickey > (identityCertificate.getPublicKeyName(), identityCertificate.getPublicKeyInfo()));
   else
@@ -222,7 +222,7 @@ SyncPolicyManager::prepareRequest(const Name& keyName,
     interestName.append("INTRODUCER");
 
   Ptr<Interest> interest = Ptr<Interest>(new Interest(interestName));
-  _LOG_DEBUG("send interest for intro cert: " << interest->getName());
+  // _LOG_DEBUG("send interest for intro cert: " << interest->getName());
   interest->setChildSelector(Interest::CHILD_RIGHT);
 
   DataCallback requestedCertVerifiedCallback = boost::bind(&SyncPolicyManager::onIntroCertVerified, 
