@@ -129,6 +129,7 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
 SyncLogic::~SyncLogic ()
 {
   m_handler->clearInterestFilter (Name(m_syncPrefix));
+  m_handler->shutdown();
 }
 
 #ifdef NS3_MODULE

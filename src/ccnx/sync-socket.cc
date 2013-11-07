@@ -46,7 +46,9 @@ SyncSocket::SyncSocket (const string &syncPrefix,
 }
 
 SyncSocket::~SyncSocket()
-{}
+{
+  m_handler->shutdown();
+}
 
 bool 
 SyncSocket::publishData(const std::string &prefix, uint32_t session, const char *buf, size_t len, int freshness)
