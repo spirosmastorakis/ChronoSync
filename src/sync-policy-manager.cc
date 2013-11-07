@@ -32,7 +32,7 @@ SyncPolicyManager::SyncPolicyManager(const Name& signingIdentity,
   wotPrefix.append("WOT");
   m_syncPrefixRegex = Regex::fromName(syncPrefix);
   m_wotPrefixRegex = Regex::fromName(wotPrefix);
-  m_chatDataPolicy = Ptr<IdentityPolicyRule>(new IdentityPolicyRule("^[^<FH>]*<FH>([^<chronos>]*)<chronos><>",
+  m_chatDataPolicy = Ptr<IdentityPolicyRule>(new IdentityPolicyRule("^[^<%F0.>]*<%F0.>([^<chronos>]*)<chronos><>",
                                                                     "^([^<KEY>]*)<KEY>(<>*)[<dsk-.*><ksk-.*>]<ID-CERT>$",
                                                                     "==", "\\1", "\\1", true));  
 }
