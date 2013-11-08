@@ -56,6 +56,7 @@ def configure(conf):
 def build (bld):
     libsync = bld (
         target="ChronoSync",
+        vnum = "1.0.0",
         features=['cxx', 'cxxshlib'],
         source =  bld.path.ant_glob (['src/**/*.cc', 'src/**/*.proto']),
         use = 'BOOST BOOST_IOSTREAMS BOOST_THREAD SSL NDNCXX OPENSSL',
