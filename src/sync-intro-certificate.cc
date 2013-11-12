@@ -113,7 +113,7 @@ SyncIntroCertificate::SyncIntroCertificate (const Data& data)
   if(i >= certificateName.size())
     throw SecException("Wrong SyncIntroCertificate Name!");
 
-  m_keyName = certificateName.getSubName(keyNameStart, keyNameEnd);
+  m_keyName = certificateName.getSubName(keyNameStart, keyNameEnd - keyNameStart);
 
   string typeComponent = certificateName.get(certificateName.size() - 2).toUri();
   if(typeComponent == string("PRODUCER"))

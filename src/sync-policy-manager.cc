@@ -12,6 +12,7 @@
 
 #include "sync-intro-certificate.h"
 #include "sync-logging.h"
+#include <ndn.cxx/security/identity/identity-manager.h>
 
 using namespace ndn;
 using namespace ndn::security;
@@ -27,6 +28,7 @@ SyncPolicyManager::SyncPolicyManager(const Name& signingIdentity,
   , m_signingCertificateName(signingCertificateName.getPrefix(signingCertificateName.size()-1))
   , m_syncPrefix(syncPrefix)
   , m_stepLimit(stepLimit)
+  , m_identityManager(Ptr<security::IdentityManager>::Create())
 {
   Name wotPrefix = syncPrefix;
   wotPrefix.append("WOT");
@@ -263,9 +265,37 @@ SyncPolicyManager::onIntroCertVerified(Ptr<Data> introCertificateData,
 {
   Ptr<SyncIntroCertificate> introCertificate = Ptr<SyncIntroCertificate>(new SyncIntroCertificate(*introCertificateData));
   if(forIntroducer)
-    m_trustedIntroducers.insert(pair <Name, Publickey > (introCertificate->getPublicKeyName(), introCertificate->getPublicKeyInfo()));
+    {
+      m_trustedIntroducers.insert(pair <Name, Publickey > (introCertificate->getPublicKeyName(), introCertificate->getPublicKeyInfo()));
+      SyncIntroCertificate syncIntroCertificate(m_syncPrefix,
+                                                introCertificate->getPublicKeyName(),
+                                                m_identityManager->getDefaultKeyNameForIdentity(m_signingIdentity),
+                                                introCertificate->getNotBefore(),
+                                                introCertificate->getNotAfter(),
+                                                introCertificate->getPublicKeyInfo(),
+                                                SyncIntroCertificate::INTRODUCER);
+                                                // : SyncIntroCertificate::PRODUCER)
+      ndn::Name certName = m_identityManager->getDefaultCertificateNameByIdentity(m_signingIdentity);
+      _LOG_DEBUG("Publish Intro Certificate on Verified: " << syncIntroCertificate.getName());
+      m_identityManager->signByCertificate(syncIntroCertificate, certName);
+      m_handler->putToNdnd(*syncIntroCertificate.encodeToWire());
+    }
   else
-    m_trustedProducers.insert(pair <Name, Publickey > (introCertificate->getPublicKeyName(), introCertificate->getPublicKeyInfo()));
+    {
+      m_trustedProducers.insert(pair <Name, Publickey > (introCertificate->getPublicKeyName(), introCertificate->getPublicKeyInfo()));
+      SyncIntroCertificate syncIntroCertificate(m_syncPrefix,
+                                                introCertificate->getPublicKeyName(),
+                                                m_identityManager->getDefaultKeyNameForIdentity(m_signingIdentity),
+                                                introCertificate->getNotBefore(),
+                                                introCertificate->getNotAfter(),
+                                                introCertificate->getPublicKeyInfo(),
+                                                SyncIntroCertificate::PRODUCER);
+      // : SyncIntroCertificate::PRODUCER)
+      ndn::Name certName = m_identityManager->getDefaultCertificateNameByIdentity(m_signingIdentity);
+      _LOG_DEBUG("Publish Intro Certificate on Verified: " << syncIntroCertificate.getName());
+      m_identityManager->signByCertificate(syncIntroCertificate, certName);
+      m_handler->putToNdnd(*syncIntroCertificate.encodeToWire());
+    }
 
   if(verifySignature(*originalData, introCertificate->getPublicKeyInfo()))      
     verifiedCallback(originalData);    

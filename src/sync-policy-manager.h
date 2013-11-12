@@ -118,6 +118,7 @@ private:
   std::map<ndn::Name, ndn::security::Publickey> m_trustedProducers;
   std::map<ndn::Name, SpecificPolicyRule> m_chatDataRules;
 
+  ndn::Ptr<ndn::security::IdentityManager> m_identityManager;
   ndn::Ptr<ndn::Wrapper> m_handler;
 };
 
