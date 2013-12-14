@@ -15,9 +15,11 @@ def options(opt):
     syncopt.add_option('--log4cxx', action='store_true',default=False,dest='log4cxx',help='''Compile with log4cxx''')
     syncopt.add_option('--test', action='store_true',default=False,dest='_test',help='''build unit tests''')
 
+    opt.load('ndn_cpp', tooldir=['waf-tools'])
+
 def configure(conf):
     conf.load('compiler_c compiler_cxx gnu_dirs boost')
-    # conf.load('ndnx')
+    conf.load('ndn_cpp')
 
     if conf.options.debug:
         conf.define ('_DEBUG', 1)
@@ -34,7 +36,9 @@ def configure(conf):
 
     # conf.check_ndnx ()
 
-    conf.check_cfg(package='libndn.cxx', args=['--cflags', '--libs'], uselib_store='NDNCXX', mandatory=True)
+    conf.check_ndncpp (path=conf.options.ndn_cpp_dir)
+    conf.check_cfg(package='libndn-cpp-et', args=['--cflags', '--libs'], uselib_store='NDN-CPP-ET', mandatory=True)
+    
     conf.check_cfg(package='openssl', args=['--cflags', '--libs'], uselib_store='OPENSSL', mandatory=True)
     # conf.check_openssl ()
 
@@ -56,10 +60,10 @@ def configure(conf):
 def build (bld):
     libsync = bld (
         target="ChronoSync",
-        vnum = "1.0.0",
+        # vnum = "1.0.0",
         features=['cxx', 'cxxshlib'],
         source =  bld.path.ant_glob (['src/**/*.cc', 'src/**/*.proto']),
-        use = 'BOOST BOOST_IOSTREAMS BOOST_THREAD SSL NDNCXX OPENSSL',
+        use = 'BOOST BOOST_IOSTREAMS BOOST_THREAD SSL NDNCPP NDN-CPP-ET OPENSSL',
         includes = ['src'],
         )
     
