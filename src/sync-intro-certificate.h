@@ -11,10 +11,10 @@
 #ifndef SYNC_INTRO_CERTIFICATE_H
 #define SYNC_INTRO_CERTIFICATE_H
 
-#include <ndn.cxx/security/certificate/certificate.h>
-#include <ndn.cxx/security/certificate/identity-certificate.h>
+#include <ndn-cpp/security/certificate/certificate.hpp>
+#include <ndn-cpp/security/certificate/identity-certificate.hpp>
 
-class SyncIntroCertificate : public ndn::security::Certificate
+class SyncIntroCertificate : public ndn::Certificate
 {
 public:
   enum IntroType{
@@ -28,13 +28,13 @@ public:
   SyncIntroCertificate (const ndn::Name& nameSpace,
                         const ndn::Name& keyName,
                         const ndn::Name& signerName,
-                        const ndn::Time& notBefore,
-                        const ndn::Time& notAfter,
-                        const ndn::security::Publickey& key,
+                        const ndn::MillisecondsSince1970& notBefore,
+                        const ndn::MillisecondsSince1970& notAfter,
+                        const ndn::PublicKey& key,
                         const IntroType& introType = PRODUCER);
   
   SyncIntroCertificate (const ndn::Name& nameSpace,
-                        const ndn::security::IdentityCertificate& identityCertificate,
+                        const ndn::IdentityCertificate& identityCertificate,
                         const ndn::Name& signerName,
                         const IntroType& introType);
   
@@ -47,7 +47,7 @@ public:
   ~SyncIntroCertificate ()
   {}
   
-  ndn::Data &
+  ndn::Data&
   setName (const ndn::Name& name);
   
   inline virtual ndn::Name 
@@ -59,7 +59,7 @@ public:
   { return m_introType; }
 
   static bool
-  isSyncIntroCertificate(const ndn::security::Certificate& certificate);
+  isSyncIntroCertificate(const ndn::Certificate& certificate);
 
 protected:
   ndn::Name m_keyName;

@@ -8,14 +8,17 @@
  * Author: Yingdi Yu <yingdi@cs.ucla.edu>
  */
 
-#include "sync-policy-manager.h"
-
 #include "sync-intro-certificate.h"
 #include "sync-logging.h"
-#include <ndn.cxx/security/identity/identity-manager.h>
+#include <ndn-cpp/security/identity/basic-identity-storage.hpp>
+#include <ndn-cpp/security/identity/osx-private-key-storage.hpp>
+#include <ndn-cpp/sha256-with-rsa-signature.hpp>
+#include <ndn-cpp/security/signature/sha256-with-rsa-handler.hpp>
+
+#include "sync-policy-manager.h"
 
 using namespace ndn;
-using namespace ndn::security;
+using namespace ndn::ptr_lib;
 using namespace std;
 
 INIT_LOGGER("SyncPolicyManager");
@@ -28,19 +31,51 @@ SyncPolicyManager::SyncPolicyManager(const Name& signingIdentity,
   , m_signingCertificateName(signingCertificateName.getPrefix(signingCertificateName.size()-1))
   , m_syncPrefix(syncPrefix)
   , m_stepLimit(stepLimit)
-  , m_identityManager(Ptr<security::IdentityManager>::Create())
 {
+  m_transport = make_shared<TcpTransport>();
+  m_face = make_shared<Face>(m_transport, make_shared<TcpTransport::ConnectionInfo>("localhost"));
+
+  connectToDaemon();
+  
+  shared_ptr<IdentityStorage> publicStorage = make_shared<BasicIdentityStorage>();
+  shared_ptr<PrivateKeyStorage> privateStorage = make_shared<OSXPrivateKeyStorage>();
+  m_identityManager = make_shared<IdentityManager>(publicStorage, privateStorage);
+
   Name wotPrefix = syncPrefix;
   wotPrefix.append("WOT");
   m_syncPrefixRegex = Regex::fromName(syncPrefix);
   m_wotPrefixRegex = Regex::fromName(wotPrefix);
-  m_chatDataPolicy = Ptr<IdentityPolicyRule>(new IdentityPolicyRule("^[^<%F0.>]*<%F0.>([^<chronos>]*)<chronos><>",
-                                                                    "^([^<KEY>]*)<KEY>(<>*)[<dsk-.*><ksk-.*>]<ID-CERT>$",
-                                                                    "==", "\\1", "\\1", true));  
+  m_chatDataPolicy = make_shared<IdentityPolicyRule>("^[^<%F0.>]*<%F0.>([^<chronos>]*)<chronos><>",
+                                                              "^([^<KEY>]*)<KEY>(<>*)[<dsk-.*><ksk-.*>]<ID-CERT>$",
+                                                              "==", "\\1", "\\1", true);  
 }
   
 SyncPolicyManager::~SyncPolicyManager()
 {}
+
+void
+SyncPolicyManager::connectToDaemon()
+{
+  //Hack! transport does not connect to daemon unless an interest is expressed.
+  Name name("/ndn");
+  shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(name);
+  m_face->expressInterest(*interest, 
+                          bind(&SyncPolicyManager::onConnectionData, this, _1, _2),
+                          bind(&SyncPolicyManager::onConnectionDataTimeout, this, _1));
+}
+
+void
+SyncPolicyManager::onConnectionData(const shared_ptr<const ndn::Interest>& interest,
+                                    const shared_ptr<Data>& data)
+{
+  _LOG_DEBUG("onConnectionData");
+}
+
+void
+SyncPolicyManager::onConnectionDataTimeout(const shared_ptr<const ndn::Interest>& interest)
+{
+  _LOG_DEBUG("onConnectionDataTimeout");
+}
 
 bool 
 SyncPolicyManager::skipVerifyAndTrust (const Data& data)
@@ -50,104 +85,82 @@ bool
 SyncPolicyManager::requireVerify (const Data& data)
 { return true; }
 
-Ptr<ValidationRequest>
-SyncPolicyManager::checkVerificationPolicy(Ptr<Data> data, 
-					   const int& stepCount, 
-					   const DataCallback& verifiedCallback,
-					   const UnverifiedCallback& unverifiedCallback)
+shared_ptr<ValidationRequest>
+SyncPolicyManager::checkVerificationPolicy(const shared_ptr<Data>& data, 
+					   int stepCount, 
+					   const OnVerified& onVerified,
+					   const OnVerifyFailed& onVerifyFailed)
 {
-// #ifdef _DEBUG
-//   _LOG_DEBUG("checkVerificationPolicy");
-//   verifiedCallback(data);
-//   return NULL;
-// #else
-  //TODO:
   if(stepCount > m_stepLimit)
     {
-      unverifiedCallback(data);
-      return NULL;
+      onVerifyFailed(data);
+      return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
     }
 
-  Ptr<const signature::Sha256WithRsa> sha256sig = DynamicCast<const signature::Sha256WithRsa> (data->getSignature());
-  if(KeyLocator::KEYNAME != sha256sig->getKeyLocator().getType())
+  const Sha256WithRsaSignature* sigPtr = dynamic_cast<const Sha256WithRsaSignature*> (data->getSignature());
+  if(ndn_KeyLocatorType_KEYNAME != sigPtr->getKeyLocator().getType())
     {
-      unverifiedCallback(data);
-      return NULL;
+      onVerifyFailed(data);
+      return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
     }
 
-  const Name& keyLocatorName = sha256sig->getKeyLocator().getKeyName();
-  // _LOG_DEBUG("data name: " << data->getName());
-  // _LOG_DEBUG("signer name: " << keyLocatorName);
+  const Name& keyLocatorName = sigPtr->getKeyLocator().getKeyName();
   
   // if data is intro cert
   if(m_wotPrefixRegex->match(data->getName()))
     {
       // _LOG_DEBUG("Intro Cert");
       Name keyName = IdentityCertificate::certificateNameToPublicKeyName(keyLocatorName);
-      map<Name, Publickey>::const_iterator it = m_trustedIntroducers.find(keyName);
+      map<string, PublicKey>::const_iterator it = m_trustedIntroducers.find(keyName.toUri());
       if(m_trustedIntroducers.end() != it)
 	{
-	  if(verifySignature(*data, it->second))
-	    verifiedCallback(data);
+	  if(Sha256WithRsaHandler::verifySignature(*data, it->second))
+	    onVerified(data);
 	  else
-	    unverifiedCallback(data);
-	  return NULL;
+	    onVerifyFailed(data);
+	  return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
 	}
       else
-	return prepareRequest(keyName, true, data, stepCount, verifiedCallback, unverifiedCallback);
+	return prepareRequest(keyName, true, data, stepCount, onVerified, onVerifyFailed);
     }
 
   // if data is sync data or chat data
   if(m_syncPrefixRegex->match(data->getName()) || m_chatDataPolicy->satisfy(*data))
     {
-      // _LOG_DEBUG("Sync/Chat Data");
       Name keyName = IdentityCertificate::certificateNameToPublicKeyName(keyLocatorName);
-      // _LOG_DEBUG("keyName: " << keyName.toUri());
 
-      map<Name, Publickey>::const_iterator it = m_trustedIntroducers.find(keyName);
+      map<string, PublicKey>::const_iterator it = m_trustedIntroducers.find(keyName.toUri());
       if(m_trustedIntroducers.end() != it)
 	{
-          // _LOG_DEBUG("Find trusted introducer!");
-	  if(verifySignature(*data, it->second))
-	    verifiedCallback(data);
+	  if(Sha256WithRsaHandler::verifySignature(*data, it->second))
+	    onVerified(data);
 	  else
-	    unverifiedCallback(data);
-	  return NULL;
+	    onVerifyFailed(data);
+	  return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
 	}
 
-      it = m_trustedProducers.find(keyName);
+      it = m_trustedProducers.find(keyName.toUri());
       if(m_trustedProducers.end() != it)
 	{
-          // _LOG_DEBUG("Find trusted producer!");
-	  if(verifySignature(*data, it->second))
-	    verifiedCallback(data);
+	  if(Sha256WithRsaHandler::verifySignature(*data, it->second))
+	    onVerified(data);
 	  else
-	    unverifiedCallback(data);
-	  return NULL;
+	    onVerifyFailed(data);
+	  return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
 	}
 
-      // _LOG_DEBUG("Did not find any trusted one!");
-      return prepareRequest(keyName, false, data, stepCount, verifiedCallback, unverifiedCallback);
+      return prepareRequest(keyName, false, data, stepCount, onVerified, onVerifyFailed);
     }
   
-  unverifiedCallback(data);
-  return NULL;
-// #endif
+  onVerifyFailed(data);
+  return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
 }
 
 bool 
 SyncPolicyManager::checkSigningPolicy(const Name& dataName, 
 				      const Name& certificateName)
 { 
-
   return true;
-
-// #ifdef _DEBUG
-//   _LOG_DEBUG("checkSigningPolicy");
-//   return true;
-// #else
-  // return (m_syncPrefixRegex->match(dataName) && certificateName.getPrefix(certificateName.size()-1) == m_signingCertificateName) ? true : false; 
-// #endif
 }
     
 Name 
@@ -159,9 +172,11 @@ SyncPolicyManager::addTrustAnchor(const IdentityCertificate& identityCertificate
 {
   // _LOG_DEBUG("Add intro/producer: " << identityCertificate.getPublicKeyName());
   if(isIntroducer)
-    m_trustedIntroducers.insert(pair <Name, Publickey > (identityCertificate.getPublicKeyName(), identityCertificate.getPublicKeyInfo()));
+    m_trustedIntroducers.insert(pair <string, PublicKey > (identityCertificate.getPublicKeyName().toUri(),
+                                                           identityCertificate.getPublicKeyInfo()));
   else
-    m_trustedProducers.insert(pair <Name, Publickey > (identityCertificate.getPublicKeyName(), identityCertificate.getPublicKeyInfo()));
+    m_trustedProducers.insert(pair <string, PublicKey > (identityCertificate.getPublicKeyName().toUri(),
+                                                         identityCertificate.getPublicKeyInfo()));
 }
 
 void
@@ -187,34 +202,34 @@ SyncPolicyManager::addChatDataRule(const Name& prefix,
 }
 
 
-Ptr<const vector<Name> >
+shared_ptr<const vector<Name> >
 SyncPolicyManager::getAllIntroducerName()
 {
-  Ptr<vector<Name> > nameList = Ptr<vector<Name> >(new vector<Name>);
+  shared_ptr<vector<Name> > nameList = make_shared<vector<Name> >();
   
-  map<Name, Publickey>::iterator it =  m_trustedIntroducers.begin();
+  map<string, PublicKey>::iterator it =  m_trustedIntroducers.begin();
   for(; it != m_trustedIntroducers.end(); it++)
-    nameList->push_back(it->first);
+    nameList->push_back(Name(it->first));
   
   return nameList;
 }
 
-Ptr<ValidationRequest>
+shared_ptr<ValidationRequest>
 SyncPolicyManager::prepareRequest(const Name& keyName, 
 				  bool forIntroducer,
-				  Ptr<Data> data,
+				  shared_ptr<Data> data,
 				  const int & stepCount, 
-				  const DataCallback& verifiedCallback,
-				  const UnverifiedCallback& unverifiedCallback)
+				  const OnVerified& onVerified,
+				  const OnVerifyFailed& onVerifyFailed)
 {
-  Ptr<Name> interestPrefixName = Ptr<Name>(new Name(m_syncPrefix));
+  shared_ptr<Name> interestPrefixName = make_shared<Name>(m_syncPrefix);
   interestPrefixName->append("WOT").append(keyName).append("INTRO-CERT");
 
-  Ptr<const std::vector<ndn::Name> > nameList = getAllIntroducerName();
+  shared_ptr<const vector<Name> > nameList = getAllIntroducerName();
   if(0 == nameList->size())
     {
-      unverifiedCallback(data);
-      return NULL;
+      onVerifyFailed(data);
+      return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
     }
 
   Name interestName = *interestPrefixName;
@@ -223,50 +238,70 @@ SyncPolicyManager::prepareRequest(const Name& keyName,
   if(forIntroducer)
     interestName.append("INTRODUCER");
 
-  Ptr<Interest> interest = Ptr<Interest>(new Interest(interestName));
+  shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(interestName);
   // _LOG_DEBUG("send interest for intro cert: " << interest->getName());
-  interest->setChildSelector(Interest::CHILD_RIGHT);
+  interest->setChildSelector(ndn_Interest_CHILD_SELECTOR_RIGHT);
 
-  DataCallback requestedCertVerifiedCallback = boost::bind(&SyncPolicyManager::onIntroCertVerified, 
-							   this, 
-							   _1,
-							   forIntroducer, 
-							   data,
-							   verifiedCallback,
-							   unverifiedCallback);
+  OnVerified requestedCertVerifiedCallback = boost::bind(&SyncPolicyManager::onIntroCertVerified, 
+                                                         this, 
+                                                         _1,
+                                                         forIntroducer, 
+                                                         data,
+                                                         onVerified,
+                                                         onVerifyFailed);
                                                              
-  UnverifiedCallback requestedCertUnverifiedCallback = boost::bind(&SyncPolicyManager::onIntroCertUnverified, 
-								   this, 
-								   _1, 
-								   interestPrefixName,
-								   forIntroducer,
-								   nameList,
-								   1,
-								   data,
-								   verifiedCallback,
-								   unverifiedCallback);
+  OnVerifyFailed requestedCertUnverifiedCallback = boost::bind(&SyncPolicyManager::onIntroCertVerifyFailed, 
+                                                               this, 
+                                                               _1, 
+                                                               interestPrefixName,
+                                                               forIntroducer,
+                                                               nameList,
+                                                               1,
+                                                               data,
+                                                               onVerified,
+                                                               onVerifyFailed);
 
     
-  Ptr<ValidationRequest> nextStep = Ptr<ValidationRequest>(new ValidationRequest(interest, 
-										 requestedCertVerifiedCallback,
-										 requestedCertUnverifiedCallback,
-										 1,
-										 m_stepLimit-1)
-							   );
+  shared_ptr<ValidationRequest> nextStep = make_shared<ValidationRequest>(interest, 
+                                                                          requestedCertVerifiedCallback,
+                                                                          requestedCertUnverifiedCallback,
+                                                                          1,
+                                                                          m_stepLimit-1);
   return nextStep;
 }
 
 void
-SyncPolicyManager::onIntroCertVerified(Ptr<Data> introCertificateData,
-				       bool forIntroducer,
-				       Ptr<Data> originalData,
-				       const DataCallback& verifiedCallback,
-				       const UnverifiedCallback& unverifiedCallback)
+SyncPolicyManager::OnIntroCertInterest(const shared_ptr<const Name>& prefix, 
+                                       const shared_ptr<const ndn::Interest>& interest, 
+                                       Transport& transport, 
+                                       uint64_t registeredPrefixId)
 {
-  Ptr<SyncIntroCertificate> introCertificate = Ptr<SyncIntroCertificate>(new SyncIntroCertificate(*introCertificateData));
+  map<string, Data>::const_iterator it = m_introCert.find(prefix->toUri());
+
+  if(m_introCert.end() != it)
+    {
+      Blob encodedData = it->second.wireEncode();
+      transport.send(*encodedData);
+    }
+}
+
+void
+SyncPolicyManager::OnIntroCertRegisterFailed(const shared_ptr<const Name>& prefix)
+{
+}
+
+void
+SyncPolicyManager::onIntroCertVerified(const shared_ptr<Data>& introCertificateData,
+				       bool forIntroducer,
+				       shared_ptr<Data> originalData,
+				       const OnVerified& onVerified,
+				       const OnVerifyFailed& onVerifyFailed)
+{
+  shared_ptr<SyncIntroCertificate> introCertificate = make_shared<SyncIntroCertificate>(*introCertificateData);
   if(forIntroducer)
     {
-      m_trustedIntroducers.insert(pair <Name, Publickey > (introCertificate->getPublicKeyName(), introCertificate->getPublicKeyInfo()));
+      m_trustedIntroducers.insert(pair <string, PublicKey > (introCertificate->getPublicKeyName().toUri(),
+                                                             introCertificate->getPublicKeyInfo()));
       SyncIntroCertificate syncIntroCertificate(m_syncPrefix,
                                                 introCertificate->getPublicKeyName(),
                                                 m_identityManager->getDefaultKeyNameForIdentity(m_signingIdentity),
@@ -274,15 +309,32 @@ SyncPolicyManager::onIntroCertVerified(Ptr<Data> introCertificateData,
                                                 introCertificate->getNotAfter(),
                                                 introCertificate->getPublicKeyInfo(),
                                                 SyncIntroCertificate::INTRODUCER);
-                                                // : SyncIntroCertificate::PRODUCER)
-      ndn::Name certName = m_identityManager->getDefaultCertificateNameByIdentity(m_signingIdentity);
+
+      Name certName = m_identityManager->getDefaultCertificateNameForIdentity(m_signingIdentity);
       _LOG_DEBUG("Publish Intro Certificate on Verified: " << syncIntroCertificate.getName());
       m_identityManager->signByCertificate(syncIntroCertificate, certName);
-      m_handler->putToNdnd(*syncIntroCertificate.encodeToWire());
+
+      m_transport->send(*syncIntroCertificate.wireEncode());
+
+      // Name prefix = syncIntroCertificate.getName().getPrefix(syncIntroCertificate.getName().size()-1);
+
+      // map<string, Data>::const_iterator it = m_introCert.find(prefix.toEscapedString());
+      // if(m_introCert.end() != it)
+      //   {
+      //     it->second = syncIntroCertificate;
+      //   }
+      // else
+      //   {         
+      //     m_introCert.insert(pair <string, Data> (prefix.toEscapedString(), syncIntroCertificate));
+      //     m_face->registerPrefix(prefix, 
+      //                           boost::bind(&SyncPolicyManager::onIntroCertInterest, this, _1, _2, _3, _4), 
+      //                           boost::bind(&SyncPolicyManager::onIntroCertRegisterFailed, this, _1));
+      //   }
     }
   else
     {
-      m_trustedProducers.insert(pair <Name, Publickey > (introCertificate->getPublicKeyName(), introCertificate->getPublicKeyInfo()));
+      m_trustedProducers.insert(pair <string, PublicKey > (introCertificate->getPublicKeyName().toUri(), 
+                                                           introCertificate->getPublicKeyInfo()));
       SyncIntroCertificate syncIntroCertificate(m_syncPrefix,
                                                 introCertificate->getPublicKeyName(),
                                                 m_identityManager->getDefaultKeyNameForIdentity(m_signingIdentity),
@@ -290,99 +342,161 @@ SyncPolicyManager::onIntroCertVerified(Ptr<Data> introCertificateData,
                                                 introCertificate->getNotAfter(),
                                                 introCertificate->getPublicKeyInfo(),
                                                 SyncIntroCertificate::PRODUCER);
-      // : SyncIntroCertificate::PRODUCER)
-      ndn::Name certName = m_identityManager->getDefaultCertificateNameByIdentity(m_signingIdentity);
+
+      Name certName = m_identityManager->getDefaultCertificateNameForIdentity(m_signingIdentity);
       _LOG_DEBUG("Publish Intro Certificate on Verified: " << syncIntroCertificate.getName());
       m_identityManager->signByCertificate(syncIntroCertificate, certName);
-      m_handler->putToNdnd(*syncIntroCertificate.encodeToWire());
+      
+      m_transport->send(*syncIntroCertificate.wireEncode());
+
+      // Name prefix = syncIntroCertificate.getName().getPrefix(syncIntroCertificate.getName().size()-1);
+
+      // map<string, Data>::const_iterator it = m_introCert.find(prefix.toEscapedString());
+      // if(m_introCert.end() != it)
+      //   {
+      //     it->second = syncIntroCertificate;
+      //   }
+      // else
+      //   {
+      //     m_introCert.insert(pair <string, Data> (prefix.toEscapedString(), syncIntroCertificate));
+      //     m_face->registerPrefix(prefix, 
+      //                           boost::bind(&SyncPolicyManager::onIntroCertInterest, this, _1, _2, _3, _4), 
+      //                           boost::bind(&SyncPolicyManager::onIntroCertRegisterFailed, this, _1));
+      //   }
     }
 
-  if(verifySignature(*originalData, introCertificate->getPublicKeyInfo()))      
-    verifiedCallback(originalData);    
+  if(Sha256WithRsaHandler::verifySignature(*originalData, introCertificate->getPublicKeyInfo()))      
+    onVerified(originalData);    
   else
-    unverifiedCallback(originalData);
+    onVerifyFailed(originalData);
 }
 
 void 
-SyncPolicyManager::onIntroCertUnverified(Ptr<Data> introCertificateData,
-					 Ptr<Name> interestPrefixName,
-					 bool forIntroducer,
-					 Ptr<const std::vector<ndn::Name> > introNameList,
-					 const int& nextIntroducerIndex,
-					 Ptr<Data> originalData,
-					 const DataCallback& verifiedCallback,
-					 const UnverifiedCallback& unverifiedCallback)
+SyncPolicyManager::onIntroCertVerifyFailed(const shared_ptr<Data>& introCertificateData,
+                                           shared_ptr<Name> interestPrefixName,
+                                           bool forIntroducer,
+                                           shared_ptr<const vector<Name> > introNameList,
+                                           int nextIntroducerIndex,
+                                           shared_ptr<Data> originalData,
+                                           const OnVerified& onVerified,
+                                           const OnVerifyFailed& onVerifyFailed)
 {
   Name interestName = *interestPrefixName;
   if(nextIntroducerIndex < introNameList->size())
     interestName.append(introNameList->at(nextIntroducerIndex));
   else
-    unverifiedCallback(originalData);
+    onVerifyFailed(originalData);
 
   if(forIntroducer)
     interestName.append("INTRODUCER");
   
-  Ptr<Interest> interest = Ptr<Interest>(new Interest(interestName));
-  interest->setChildSelector(Interest::CHILD_RIGHT);
+  shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(interestName);
+  interest->setChildSelector(ndn_Interest_CHILD_SELECTOR_RIGHT);
 
-  DataCallback requestedCertVerifiedCallback = boost::bind(&SyncPolicyManager::onIntroCertVerified, 
-							   this, 
-							   _1,
-							   forIntroducer, 
-							   originalData,
-							   verifiedCallback,
-							   unverifiedCallback);
-    
-  UnverifiedCallback requestedCertUnverifiedCallback = boost::bind(&SyncPolicyManager::onIntroCertUnverified, 
-								   this, 
-								   _1,
-								   interestPrefixName,
-								   forIntroducer,
-								   introNameList,
-								   nextIntroducerIndex + 1,
-								   originalData, 
-								   verifiedCallback,
-								   unverifiedCallback);
-  
-  TimeoutCallback requestedCertTimeoutCallback = boost::bind(&SyncPolicyManager::onIntroCertTimeOut, 
-							     this, 
-							     _1, 
-							     _2, 
-							     1,
-							     requestedCertUnverifiedCallback,
-							     originalData);
-      
-  Ptr<Closure> closure = Ptr<Closure> (new Closure(requestedCertVerifiedCallback,
-						   requestedCertTimeoutCallback,
-						   requestedCertUnverifiedCallback,
-						   m_stepLimit-1)
-				       );
-    
-  m_handler->sendInterest(interest, closure);
+  OnVerified onRecursiveVerified = boost::bind(&SyncPolicyManager::onIntroCertVerified, 
+                                      this, 
+                                      _1,
+                                      forIntroducer, 
+                                      originalData,
+                                      onVerified,
+                                      onVerifyFailed);
+
+  OnVerifyFailed onRecursiveVerifyFailed = boost::bind(&SyncPolicyManager::onIntroCertVerifyFailed, 
+                                              this, 
+                                              _1,
+                                              interestPrefixName,
+                                              forIntroducer,
+                                              introNameList,
+                                              nextIntroducerIndex + 1,
+                                              originalData, 
+                                              onVerified,
+                                              onVerifyFailed);
+        
+  m_face->expressInterest(*interest, 
+                          boost::bind(&SyncPolicyManager::onIntroCertData,
+                                      this,
+                                      _1,
+                                      _2,     
+                                      m_stepLimit-1,
+                                      onRecursiveVerified,
+                                      onRecursiveVerifyFailed,
+                                      originalData,
+                                      onVerifyFailed),
+                          boost::bind(&SyncPolicyManager::onIntroCertTimeout, 
+                                      this,
+                                      _1,
+                                      1,
+                                      m_stepLimit-1,
+                                      onRecursiveVerified,
+                                      onRecursiveVerifyFailed,
+                                      originalData,
+                                      onVerifyFailed));
 }
 
 void
-SyncPolicyManager::onIntroCertTimeOut(Ptr<Closure> closure, 
-				      Ptr<Interest> interest, 
+SyncPolicyManager::onIntroCertData(const shared_ptr<const ndn::Interest> &interest,
+                                   const shared_ptr<Data>& introCertificateData,
+                                   int stepCount,
+                                   const OnVerified& onRecursiveVerified,
+                                   const OnVerifyFailed& onRecursiveVerifyFailed,
+                                   shared_ptr<Data> originalData,
+                                   const OnVerifyFailed& onVerifyFailed)
+{
+  shared_ptr<ValidationRequest> nextStep = checkVerificationPolicy(introCertificateData, stepCount, onRecursiveVerified, onRecursiveVerifyFailed);
+  if (nextStep)
+    m_face->expressInterest
+      (*nextStep->interest_, 
+       boost::bind(&SyncPolicyManager::onIntroCertData, 
+                   this, 
+                   _1, 
+                   _2,
+                   nextStep->stepCount_,
+                   nextStep->onVerified_, 
+                   nextStep->onVerifyFailed_,
+                   introCertificateData,
+                   onRecursiveVerifyFailed), 
+       boost::bind(&SyncPolicyManager::onIntroCertTimeout, 
+                   this, 
+                   _1, 
+                   nextStep->retry_, 
+                   nextStep->stepCount_, 
+                   nextStep->onVerified_, 
+                   nextStep->onVerifyFailed_,
+                   introCertificateData,
+                   onRecursiveVerifyFailed));
+}
+
+void
+SyncPolicyManager::onIntroCertTimeout(const shared_ptr<const ndn::Interest>& interest, 
 				      int retry, 
-				      const UnverifiedCallback& unverifiedCallback,
-				      Ptr<Data> data)
+                                      int stepCount,
+                                      const OnVerified& onRecursiveVerified,
+                                      const OnVerifyFailed& onRecursiveVerifyFailed,
+                                      shared_ptr<Data> originalData,
+                                      const OnVerifyFailed& onVerifyFailed)
 {
   if(retry > 0)
     {
-      Ptr<Closure> newClosure = Ptr<Closure>(new Closure(closure->m_dataCallback,
-							 boost::bind(&SyncPolicyManager::onIntroCertTimeOut, 
-								     this, 
-								     _1, 
-								     _2, 
-								     retry - 1, 
-								     unverifiedCallback,
-								     data),
-							 closure->m_unverifiedCallback,
-							 closure->m_stepCount)
-					     );
-      m_handler->sendInterest(interest, newClosure);
+      m_face->expressInterest(*interest, 
+                              boost::bind(&SyncPolicyManager::onIntroCertData, 
+                                          this,
+                                          _1,
+                                          _2,
+                                          stepCount,
+                                          onRecursiveVerified,
+                                          onRecursiveVerifyFailed,
+                                          originalData,
+                                          onVerifyFailed),
+                              boost::bind(&SyncPolicyManager::onIntroCertTimeout, 
+                                          this,
+                                          _1,
+                                          retry - 1,
+                                          stepCount,
+                                          onRecursiveVerified,
+                                          onRecursiveVerifyFailed,
+                                          originalData,
+                                          onVerifyFailed));
     }
   else
-    unverifiedCallback(data);
+    onVerifyFailed(originalData);
 }

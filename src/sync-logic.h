@@ -29,7 +29,9 @@
 #include <memory>
 #include <map>
 
-#include <ndn.cxx/wrapper/wrapper.h>
+#include <ndn-cpp/face.hpp>
+#include <ndn-cpp/security/identity/identity-manager.hpp>
+
 #include "sync-interest-table.h"
 #include "sync-diff-state.h"
 #include "sync-full-state.h"
@@ -84,14 +86,12 @@ public:
    * the app data when new remote names are learned
    */
   SyncLogic (const ndn::Name& syncPrefix,
-             ndn::Ptr<SyncPolicyManager> syncPolicyManager,
-             ndn::Ptr<ndn::Wrapper> handler,
+             ndn::ptr_lib::shared_ptr<SyncPolicyManager> syncPolicyManager,
              LogicUpdateCallback onUpdate,
              LogicRemoveCallback onRemove);
 
   SyncLogic (const ndn::Name& syncPrefix,
-             ndn::Ptr<SyncPolicyManager> syncPolicyManager,
-             ndn::Ptr<ndn::Wrapper> handler,
+             ndn::ptr_lib::shared_ptr<SyncPolicyManager> syncPolicyManager,
              LogicPerBranchCallback onUpdateBranch);
 
   ~SyncLogic ();
@@ -105,14 +105,14 @@ public:
    * @brief respond to the Sync Interest; a lot of logic needs to go in here
    * @param interest the Sync Interest in string format
    */
-  void respondSyncInterest (ndn::Ptr<ndn::Interest>);
+  void respondSyncInterest (ndn::ptr_lib::shared_ptr<ndn::Interest> interest);
 
   /**
    * @brief process the fetched sync data
    * @param name the data name
    * @param dataBuffer the sync data
    */
-  void respondSyncData (ndn::Ptr<ndn::Data> data);
+  void respondSyncData (ndn::ptr_lib::shared_ptr<ndn::Data> data);
 
   /**
    * @brief remove a participant's subtree from the sync tree
@@ -144,13 +144,57 @@ public:
 
 private:
   void
+  connectToDaemon();
+
+  void
+  onConnectionData(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest,
+                   const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
+ 
+  void
+  onConnectionDataTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest);
+ 
+  void
   delayedChecksLoop ();
 
   void
-  onSyncDataTimeout(ndn::Ptr<ndn::Closure> closure, ndn::Ptr<ndn::Interest> interest, int retry);
+  onSyncInterest (const ndn::ptr_lib::shared_ptr<const ndn::Name>& prefix, 
+                  const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
+                  ndn::Transport& transport, 
+                  uint64_t registeredPrefixId);
 
   void
-  onSyncDataUnverified();
+  onSyncRegisterFailed(const ndn::ptr_lib::shared_ptr<const ndn::Name>& prefix);
+
+  void
+  onSyncData(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
+             const ndn::ptr_lib::shared_ptr<ndn::Data>& data,
+             int stepCount,
+             const ndn::OnVerified& onVerified,
+             const ndn::OnVerifyFailed& onVerifyFailed);
+
+  void
+  onSyncDataTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
+                    int retry,
+                    int stepCount,
+                    const ndn::OnVerified& onVerified,
+                    const ndn::OnVerifyFailed& onVerifyFailed);
+
+  void
+  onSyncDataVerifyFailed(const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
+
+  void
+  onSyncDataVerified(const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
+
+  void
+  onSyncCert(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
+             const ndn::ptr_lib::shared_ptr<ndn::Data>& cert,
+             ndn::ptr_lib::shared_ptr<ndn::ValidationRequest> previousStep);
+
+  void
+  onSyncCertTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest,
+                    const ndn::OnVerifyFailed& onVerifyFailed,
+                    const ndn::ptr_lib::shared_ptr<ndn::Data>& data,
+                    ndn::ptr_lib::shared_ptr<ndn::ValidationRequest> nextStep);
 
   void
   processSyncInterest (const std::string &name,
@@ -203,8 +247,11 @@ private:
   LogicRemoveCallback m_onRemove;
   LogicPerBranchCallback m_onUpdateBranch;
   bool m_perBranch;
-  ndn::Ptr<SyncPolicyManager> m_policyManager;
-  ndn::Ptr<ndn::Wrapper> m_handler;
+  ndn::ptr_lib::shared_ptr<SyncPolicyManager> m_policyManager;
+  ndn::ptr_lib::shared_ptr<ndn::IdentityManager> m_identityManager;
+  ndn::ptr_lib::shared_ptr<ndn::Face> m_face;
+  ndn::ptr_lib::shared_ptr<ndn::Transport> m_transport;
+  uint64_t m_syncRegisteredPrefixId;
 
   Scheduler m_scheduler;
 

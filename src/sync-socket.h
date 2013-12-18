@@ -25,7 +25,8 @@
 #include <boost/function.hpp>
 #include <boost/unordered_map.hpp>
 #include "sync-seq-no.h"
-#include <ndn.cxx/wrapper/wrapper.h>
+#include <ndn-cpp/face.hpp>
+#include <ndn-cpp/security/identity/identity-manager.hpp>
 #include <utility>
 #include <map>
 #include <vector>
@@ -54,7 +55,7 @@ public:
    * @param dataCallback the callback to process data
    */
   SyncSocket (const std::string &syncPrefix, 
-              ndn::Ptr<SyncPolicyManager> syncPolicyManager,
+              ndn::ptr_lib::shared_ptr<SyncPolicyManager> syncPolicyManager,
               NewDataCallback dataCallback, 
               RemoveCallback rmCallback);
 
@@ -68,7 +69,7 @@ public:
   { m_syncLogic.remove(prefix); }
 
   void 
-  fetchData(const std::string &prefix, const SeqNo &seq, const ndn::DataCallback& callback, int retry = 0);
+  fetchData(const std::string &prefix, const SeqNo &seq, const ndn::OnVerified& onVerified, int retry = 0);
 
   std::string 
   getRootDigest() 
@@ -87,22 +88,54 @@ public:
   GetLocalPrefix (); 
   
 private:
+  void
+  connectToDaemon();
+
+  void
+  onConnectionData(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest,
+                   const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
+ 
+  void
+  onConnectionDataTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest);
+
   void 
   passCallback(const std::vector<MissingDataInfo> &v) 
   { m_newDataCallback(v, this); }
 
   void
-  onChatDataTimeout(ndn::Ptr<ndn::Closure> closure, ndn::Ptr<ndn::Interest> interest, int retry);
+  onChatCert(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest,
+             const ndn::ptr_lib::shared_ptr<ndn::Data>& cert,
+             ndn::ptr_lib::shared_ptr<ndn::ValidationRequest> previousStep);
 
   void
-  onChatDataUnverified(ndn::Ptr<ndn::Data> data);
+  onChatCertTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest,
+                    const ndn::OnVerifyFailed& onVerifyFailed,
+                    const ndn::ptr_lib::shared_ptr<ndn::Data>& data,
+                    ndn::ptr_lib::shared_ptr<ndn::ValidationRequest> nextStep);
+
+  void
+  onChatData(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
+             const ndn::ptr_lib::shared_ptr<ndn::Data>& data,
+             const ndn::OnVerified& onVerified,
+             const ndn::OnVerifyFailed& onVerifyFailed);
+
+  void
+  onChatDataTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
+                    int retry,
+                    const ndn::OnVerified& onVerified,
+                    const ndn::OnVerifyFailed& onVerifyFailed);
+
+  void
+  onChatDataVerifyFailed(const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
 
 private:
   typedef boost::unordered_map<std::string, SeqNo> SequenceLog;
   NewDataCallback m_newDataCallback;
   SequenceLog m_sequenceLog;
-  ndn::Ptr<SyncPolicyManager> m_syncPolicyManager;
-  ndn::Ptr<ndn::Wrapper> m_handler;
+  ndn::ptr_lib::shared_ptr<SyncPolicyManager> m_syncPolicyManager;
+  ndn::ptr_lib::shared_ptr<ndn::IdentityManager> m_identityManager;
+  ndn::ptr_lib::shared_ptr<ndn::Face> m_face;
+  ndn::ptr_lib::shared_ptr<ndn::Transport> m_transport;
   SyncLogic      m_syncLogic;
 };
 

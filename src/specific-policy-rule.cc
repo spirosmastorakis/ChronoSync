@@ -9,15 +9,15 @@
  */
 
 #include "specific-policy-rule.h"
-#include <ndn.cxx/fields/signature-sha256-with-rsa.h>
+#include <ndn-cpp/sha256-with-rsa-signature.hpp>
 
 using namespace ndn;
+using namespace ndn::ptr_lib;
 using namespace std;
-using namespace ndn::security;
 
 
-SpecificPolicyRule::SpecificPolicyRule(Ptr<Regex> dataRegex,
-				       Ptr<Regex> signerRegex)
+SpecificPolicyRule::SpecificPolicyRule(shared_ptr<Regex> dataRegex,
+				       shared_ptr<Regex> signerRegex)
   : PolicyRule(PolicyRule::IDENTITY_POLICY, true)
   , m_dataRegex(dataRegex)
   , m_signerRegex(signerRegex)
@@ -30,14 +30,14 @@ SpecificPolicyRule::SpecificPolicyRule(const SpecificPolicyRule& rule)
 {}
 
 bool 
-SpecificPolicyRule::matchDataName(const Data & data)
+SpecificPolicyRule::matchDataName(const Data& data)
 { return m_dataRegex->match(data.getName()); }
 
 bool 
-SpecificPolicyRule::matchSignerName(const Data & data)
+SpecificPolicyRule::matchSignerName(const Data& data)
 { 
-  Ptr<const signature::Sha256WithRsa> sigPtr = DynamicCast<const signature::Sha256WithRsa> (data.getSignature());
-  Name signerName = sigPtr->getKeyLocator ().getKeyName ();
+  const Sha256WithRsaSignature* sigPtr = dynamic_cast<const Sha256WithRsaSignature*> (data.getSignature());
+  Name signerName = sigPtr->getKeyLocator().getKeyName ();
   return m_signerRegex->match(signerName); 
 }
 

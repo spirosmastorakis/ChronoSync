@@ -9,11 +9,13 @@
  */
 
 #include "sync-intro-certificate.h"
-#include <ndn.cxx/security/exception.h>
+#include <ndn-cpp/security/security-exception.hpp>
+
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 using namespace ndn;
-using namespace ndn::security;
 using namespace std;
+using namespace boost;
 
 SyncIntroCertificate::SyncIntroCertificate ()
   : Certificate()
@@ -22,9 +24,9 @@ SyncIntroCertificate::SyncIntroCertificate ()
 SyncIntroCertificate::SyncIntroCertificate (const Name& nameSpace,
 					    const Name& keyName,
 					    const Name& signerName,
-					    const Time& notBefore,
-					    const Time& notAfter,
-					    const Publickey& key,
+					    const MillisecondsSince1970& notBefore,
+					    const MillisecondsSince1970& notAfter,
+					    const PublicKey& key,
 					    const IntroType& introType)
   : m_keyName(keyName)
   , m_introType(introType)
@@ -40,15 +42,18 @@ SyncIntroCertificate::SyncIntroCertificate (const Name& nameSpace,
       certificateName.append("INTRODUCER");
       break;
     default:
-      throw SecException("Wrong Introduction Type!");
+      throw SecurityException("Wrong Introduction Type!");
     }
-  certificateName.appendVersion();
+
+  posix_time::time_duration now = posix_time::microsec_clock::universal_time () - posix_time::ptime(gregorian::date (1970, boost::gregorian::Jan, 1));
+  uint64_t version = (now.total_seconds () << 12) | (0xFFF & (now.fractional_seconds () / 244));
+  certificateName.appendVersion(version);
  
   Data::setName(certificateName);
   setNotBefore(notBefore);
   setNotAfter(notAfter);
   setPublicKeyInfo(key);
-  addSubjectDescription(CertificateSubDescrypt("2.5.4.41", keyName.toUri()));
+  addSubjectDescription(CertificateSubjectDescription("2.5.4.41", keyName.toUri()));
   encode();
 }
 
@@ -71,15 +76,17 @@ SyncIntroCertificate::SyncIntroCertificate (const Name& nameSpace,
       certificateName.append("INTRODUCER");
       break;
     default:
-      throw SecException("Wrong Introduction Type!");
+      throw SecurityException("Wrong Introduction Type!");
     }
-  certificateName.appendVersion();
+  posix_time::time_duration now = posix_time::microsec_clock::universal_time () - posix_time::ptime(gregorian::date (1970, boost::gregorian::Jan, 1));
+  uint64_t version = (now.total_seconds () << 12) | (0xFFF & (now.fractional_seconds () / 244));
+  certificateName.appendVersion(version);
  
   setName(certificateName);
   setNotBefore(identityCertificate.getNotBefore());
   setNotAfter(identityCertificate.getNotAfter());
   setPublicKeyInfo(identityCertificate.getPublicKeyInfo());
-  addSubjectDescription(CertificateSubDescrypt("2.5.4.41", m_keyName.toUri()));
+  addSubjectDescription(CertificateSubjectDescription("2.5.4.41", m_keyName.toUri()));
 }
   
 SyncIntroCertificate::SyncIntroCertificate (const Data& data)
@@ -91,7 +98,7 @@ SyncIntroCertificate::SyncIntroCertificate (const Data& data)
   int keyNameEnd = 0;
   for(; i < certificateName.size(); i++)
     {
-      if(certificateName.get(i).toUri() == string("WOT"))
+      if(certificateName.get(i).toEscapedString() == string("WOT"))
 	{
 	  keyNameStart = i + 1;
 	  break;
@@ -99,11 +106,11 @@ SyncIntroCertificate::SyncIntroCertificate (const Data& data)
     }
   
   if(i >= certificateName.size())
-    throw SecException("Wrong SyncIntroCertificate Name!");
+    throw SecurityException("Wrong SyncIntroCertificate Name!");
     
   for(; i< certificateName.size(); i++)
     {
-      if(certificateName.get(i).toUri() == string("INTRO-CERT"))
+      if(certificateName.get(i).toEscapedString() == string("INTRO-CERT"))
 	{
 	  keyNameEnd = i;
 	  break;
@@ -111,17 +118,17 @@ SyncIntroCertificate::SyncIntroCertificate (const Data& data)
     }
 
   if(i >= certificateName.size())
-    throw SecException("Wrong SyncIntroCertificate Name!");
+    throw SecurityException("Wrong SyncIntroCertificate Name!");
 
   m_keyName = certificateName.getSubName(keyNameStart, keyNameEnd - keyNameStart);
 
-  string typeComponent = certificateName.get(certificateName.size() - 2).toUri();
+  string typeComponent = certificateName.get(certificateName.size() - 2).toEscapedString();
   if(typeComponent == string("PRODUCER"))
     m_introType = PRODUCER;
   else if(typeComponent == string("INTRODUCER"))
     m_introType = INTRODUCER;
   else
-    throw SecException("Wrong SyncIntroCertificate Name!");
+    throw SecurityException("Wrong SyncIntroCertificate Name!");
 }
 
 SyncIntroCertificate::SyncIntroCertificate (const SyncIntroCertificate& chronosIntroCertificate)
@@ -138,7 +145,7 @@ SyncIntroCertificate::setName (const Name& certificateName)
   int keyNameEnd = 0;
   for(; i < certificateName.size(); i++)
     {
-      if(certificateName.get(i).toUri() == string("WOT"))
+      if(certificateName.get(i).toEscapedString() == string("WOT"))
 	{
 	  keyNameStart = i + 1;
 	  break;
@@ -146,11 +153,11 @@ SyncIntroCertificate::setName (const Name& certificateName)
     }
     
   if(i >= certificateName.size())
-    throw SecException("Wrong SyncIntroCertificate Name!");
+    throw SecurityException("Wrong SyncIntroCertificate Name!");
   
   for(; i< certificateName.size(); i++)
     {
-      if(certificateName.get(i).toUri() == string("INTRO-CERT"))
+      if(certificateName.get(i).toEscapedString() == string("INTRO-CERT"))
 	{
 	  keyNameEnd = i;
 	  break;
@@ -158,17 +165,17 @@ SyncIntroCertificate::setName (const Name& certificateName)
     }
 
   if(i >= certificateName.size())
-    throw SecException("Wrong SyncIntroCertificate Name!");
+    throw SecurityException("Wrong SyncIntroCertificate Name!");
 
-  m_keyName = certificateName.getSubName(keyNameStart, keyNameEnd);
+  m_keyName = certificateName.getSubName(keyNameStart, keyNameEnd - keyNameStart);
 
-  string typeComponent = certificateName.get(certificateName.size() - 2).toUri();
+  string typeComponent = certificateName.get(certificateName.size() - 2).toEscapedString();
   if(typeComponent == string("PRODUCER"))
     m_introType = PRODUCER;
   else if(typeComponent == string("INTRODUCER"))
     m_introType = INTRODUCER;
   else
-    throw SecException("Wrong SyncIntroCertificate Name!");
+    throw SecurityException("Wrong SyncIntroCertificate Name!");
     
   return *this;
 }
@@ -177,7 +184,7 @@ bool
 SyncIntroCertificate::isSyncIntroCertificate(const Certificate& certificate)
 {
   const Name& certificateName = certificate.getName();
-  string introType = certificateName.get(certificateName.size() - 2).toUri();
+  string introType = certificateName.get(certificateName.size() - 2).toEscapedString();
   if(introType != string("PRODUCER") && introType != string("INTRODUCER"))
     return false;
 
@@ -186,7 +193,7 @@ SyncIntroCertificate::isSyncIntroCertificate(const Certificate& certificate)
   bool findIntroCert = false;
   for(; i < certificateName.size(); i++)
     {
-      if(certificateName.get(i).toUri() == string("WOT"))
+      if(certificateName.get(i).toEscapedString() == string("WOT"))
 	{
 	  findWot = true;
 	  break;
@@ -198,7 +205,7 @@ SyncIntroCertificate::isSyncIntroCertificate(const Certificate& certificate)
   
   for(; i < certificateName.size(); i++)
     {
-      if(certificateName.get(i).toUri() == string("INTRO-CERT"))
+      if(certificateName.get(i).toEscapedString() == string("INTRO-CERT"))
 	{
 	  findIntroCert = true;
 	  break;

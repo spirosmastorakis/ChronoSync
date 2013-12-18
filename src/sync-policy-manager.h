@@ -11,15 +11,19 @@
 #ifndef SYNC_POLICY_MANAGER_H
 #define SYNC_POLICY_MANAGER_H
 
-#include <ndn.cxx/security/policy/policy-manager.h>
-#include <ndn.cxx/security/policy/identity-policy-rule.h>
-#include <ndn.cxx/security/certificate/identity-certificate.h>
-#include <ndn.cxx/regex/regex.h>
-#include <ndn.cxx/wrapper/wrapper.h>
+#include <ndn-cpp/face.hpp>
+#include <ndn-cpp/security/identity/identity-manager.hpp>
+#include <ndn-cpp/security/policy/policy-manager.hpp>
+#include <ndn-cpp/security/certificate/identity-certificate.hpp>
+#include <ndn-cpp-et/regex/regex.hpp>
+#include <ndn-cpp-et/policy-manager/identity-policy-rule.hpp>
+#include <map>
+
 #include "specific-policy-rule.h"
 
+static ndn::ptr_lib::shared_ptr<ndn::ValidationRequest> SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
 
-class SyncPolicyManager : public ndn::security::PolicyManager
+class SyncPolicyManager : public ndn::PolicyManager
 {
 public:
   SyncPolicyManager(const ndn::Name& signingIdentity,
@@ -36,11 +40,11 @@ public:
   bool
   requireVerify (const ndn::Data& data);
 
-  ndn::Ptr<ndn::security::ValidationRequest>
-  checkVerificationPolicy(ndn::Ptr<ndn::Data> data, 
-                          const int& stepCount, 
-                          const ndn::DataCallback& verifiedCallback,
-                          const ndn::UnverifiedCallback& unverifiedCallback);
+  ndn::ptr_lib::shared_ptr<ndn::ValidationRequest>
+  checkVerificationPolicy(const ndn::ptr_lib::shared_ptr<ndn::Data>& data, 
+                          int stepCount, 
+                          const ndn::OnVerified& onVerified,
+                          const ndn::OnVerifyFailed& onVerifyFailed);
 
   bool 
   checkSigningPolicy(const ndn::Name& dataName, 
@@ -50,59 +54,89 @@ public:
   inferSigningIdentity(const ndn::Name& dataName);
 
   void
-  addTrustAnchor(const ndn::security::IdentityCertificate& identityCertificate, bool isIntroducer);
+  addTrustAnchor(const ndn::IdentityCertificate& identityCertificate, bool isIntroducer);
 
   void
   addChatDataRule(const ndn::Name& prefix, 
-                  const ndn::security::IdentityCertificate& identityCertificate,
+                  const ndn::IdentityCertificate& identityCertificate,
                   bool isIntroducer);
 
-  inline void 
-  setWrapper(ndn::Ptr<ndn::Wrapper> handler)
-  { m_handler = handler; }
+  // inline void 
+  // setFace(ndn::ndn::ptr_lib::shared_ptr<Face> face) 
+  // { face_ = face; }
 
 private:
-  ndn::Ptr<ndn::security::ValidationRequest>
+  void
+  connectToDaemon();
+
+  void
+  onConnectionData(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest,
+                   const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
+ 
+  void
+  onConnectionDataTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest);
+
+  ndn::ptr_lib::shared_ptr<ndn::ValidationRequest>
   prepareIntroducerRequest(const ndn::Name& keyName,
-                           ndn::Ptr<ndn::Data> data, 
+                           ndn::ptr_lib::shared_ptr<ndn::Data> data, 
                            const int & stepCount, 
-                           const ndn::DataCallback& verifiedCallback,
-                           const ndn::UnverifiedCallback& unverifiedCallback);
+                           const ndn::OnVerified& onVerified,
+                           const ndn::OnVerifyFailed& onVerifyFailed);
   
-  ndn::Ptr<const std::vector<ndn::Name> >
+  ndn::ptr_lib::shared_ptr<const std::vector<ndn::Name> >
   getAllIntroducerName();
 
-  ndn::Ptr<ndn::security::ValidationRequest>
+  ndn::ptr_lib::shared_ptr<ndn::ValidationRequest>
   prepareRequest(const ndn::Name& keyName, 
                  bool forIntroducer,
-                 ndn::Ptr<ndn::Data> data,
+                 ndn::ptr_lib::shared_ptr<ndn::Data> data,
                  const int & stepCount, 
-                 const ndn::DataCallback& verifiedCallback,
-                 const ndn::UnverifiedCallback& unverifiedCallback);
+                 const ndn::OnVerified& onVerified,
+                 const ndn::OnVerifyFailed& onVerifyFailed);
 
   void
-  onIntroCertVerified(ndn::Ptr<ndn::Data> introCertificateData,
+  OnIntroCertInterest(const ndn::ptr_lib::shared_ptr<const ndn::Name>& prefix, 
+                      const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
+                      ndn::Transport& transport, 
+                      uint64_t registeredPrefixId);
+
+  void
+  OnIntroCertRegisterFailed(const ndn::ptr_lib::shared_ptr<const ndn::Name>& prefix);
+
+  void
+  onIntroCertVerified(const ndn::ptr_lib::shared_ptr<ndn::Data>& introCertificateData,
                       bool forIntroducer,
-                      ndn::Ptr<ndn::Data> originalData,
-                      const ndn::DataCallback& verifiedCallback,
-                      const ndn::UnverifiedCallback& unverifiedCallback);
+                      ndn::ptr_lib::shared_ptr<ndn::Data> originalData,
+                      const ndn::OnVerified& onVerified,
+                      const ndn::OnVerifyFailed& onVerifyFailed);
 
   void 
-  onIntroCertUnverified(ndn::Ptr<ndn::Data> introCertificateData,
-                        ndn::Ptr<ndn::Name> interestPrefixName,
-                        bool forIntroducer,
-                        ndn::Ptr<const std::vector<ndn::Name> > introNameList,
-                        const int& nextIntroducerIndex,
-                        ndn::Ptr<ndn::Data> originalData,
-                        const ndn::DataCallback& verifiedCallback,
-                        const ndn::UnverifiedCallback& unverifiedCallback);
+  onIntroCertVerifyFailed(const ndn::ptr_lib::shared_ptr<ndn::Data>& introCertificateData,
+                          ndn::ptr_lib::shared_ptr<ndn::Name> interestPrefixName,
+                          bool forIntroducer,
+                          ndn::ptr_lib::shared_ptr<const std::vector<ndn::Name> > introNameList,
+                          int nextIntroducerIndex,
+                          ndn::ptr_lib::shared_ptr<ndn::Data> originalData,
+                          const ndn::OnVerified& onVerified,
+                          const ndn::OnVerifyFailed& onVerifyFailed);
+
+  void 
+  onIntroCertData(const ndn::ptr_lib::shared_ptr<const ndn::Interest> &interest,
+                  const ndn::ptr_lib::shared_ptr<ndn::Data>& introCertificateData,                  
+                  int stepCount,
+                  const ndn::OnVerified& onRecursiveVerified,
+                  const ndn::OnVerifyFailed& onRecursiveVerifyFailed,
+                  ndn::ptr_lib::shared_ptr<ndn::Data> originalData,
+                  const ndn::OnVerifyFailed& onVerifyFailed);
 
   void
-  onIntroCertTimeOut(ndn::Ptr<ndn::Closure> closure, 
-                     ndn::Ptr<ndn::Interest> interest, 
-                     int retry, 
-                     const ndn::UnverifiedCallback& unverifiedCallback,
-                     ndn::Ptr<ndn::Data> data);
+  onIntroCertTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
+                     int retry,                      
+                     int stepCount,
+                     const ndn::OnVerified& onRecursiveVerified,
+                     const ndn::OnVerifyFailed& onRecursiveVerifyFailed,
+                     ndn::ptr_lib::shared_ptr<ndn::Data> originalData,
+                     const ndn::OnVerifyFailed& onVerifyFailed);
 
 
 
@@ -111,15 +145,18 @@ private:
   ndn::Name m_signingCertificateName;
   ndn::Name m_syncPrefix;
   int m_stepLimit;
-  ndn::Ptr<ndn::Regex> m_syncPrefixRegex;
-  ndn::Ptr<ndn::Regex> m_wotPrefixRegex;
-  ndn::Ptr<ndn::security::IdentityPolicyRule> m_chatDataPolicy; 
-  std::map<ndn::Name, ndn::security::Publickey> m_trustedIntroducers;
-  std::map<ndn::Name, ndn::security::Publickey> m_trustedProducers;
-  std::map<ndn::Name, SpecificPolicyRule> m_chatDataRules;
+  ndn::ptr_lib::shared_ptr<ndn::Regex> m_syncPrefixRegex;
+  ndn::ptr_lib::shared_ptr<ndn::Regex> m_wotPrefixRegex;
+  ndn::ptr_lib::shared_ptr<ndn::IdentityPolicyRule> m_chatDataPolicy; 
+  std::map<std::string, ndn::PublicKey> m_trustedIntroducers;
+  std::map<std::string, ndn::PublicKey> m_trustedProducers;
+  std::map<std::string, SpecificPolicyRule> m_chatDataRules;
+  std::map<std::string, ndn::Data> m_introCert;
 
-  ndn::Ptr<ndn::security::IdentityManager> m_identityManager;
-  ndn::Ptr<ndn::Wrapper> m_handler;
+  ndn::ptr_lib::shared_ptr<ndn::IdentityManager> m_identityManager;
+  ndn::ptr_lib::shared_ptr<ndn::Transport> m_transport;
+  ndn::ptr_lib::shared_ptr<ndn::Face> m_face;
+
 };
 
 #endif
