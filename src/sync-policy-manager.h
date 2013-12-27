@@ -29,6 +29,8 @@ public:
   SyncPolicyManager(const ndn::Name& signingIdentity,
                     const ndn::Name& signingCertificateName,
                     const ndn::Name& syncPrefix,
+                    ndn::ptr_lib::shared_ptr<ndn::Face> face,
+                    ndn::ptr_lib::shared_ptr<ndn::Transport> transport,
                     int m_stepLimit = 3);
   
   virtual
@@ -66,15 +68,15 @@ public:
   // { face_ = face; }
 
 private:
-  void
-  connectToDaemon();
+  // void
+  // connectToDaemon();
 
-  void
-  onConnectionData(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest,
-                   const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
+  // void
+  // onConnectionData(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest,
+  //                  const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
  
-  void
-  onConnectionDataTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest);
+  // void
+  // onConnectionDataTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest);
 
   ndn::ptr_lib::shared_ptr<ndn::ValidationRequest>
   prepareIntroducerRequest(const ndn::Name& keyName,

@@ -87,11 +87,15 @@ public:
    */
   SyncLogic (const ndn::Name& syncPrefix,
              ndn::ptr_lib::shared_ptr<SyncPolicyManager> syncPolicyManager,
+             ndn::ptr_lib::shared_ptr<ndn::Face> face,
+             ndn::ptr_lib::shared_ptr<ndn::Transport> transport,
              LogicUpdateCallback onUpdate,
              LogicRemoveCallback onRemove);
 
   SyncLogic (const ndn::Name& syncPrefix,
              ndn::ptr_lib::shared_ptr<SyncPolicyManager> syncPolicyManager,
+             ndn::ptr_lib::shared_ptr<ndn::Face> face,
+             ndn::ptr_lib::shared_ptr<ndn::Transport> transport,
              LogicPerBranchCallback onUpdateBranch);
 
   ~SyncLogic ();
@@ -143,15 +147,15 @@ public:
   getBranchPrefixes() const;
 
 private:
-  void
-  connectToDaemon();
+  // void
+  // connectToDaemon();
 
-  void
-  onConnectionData(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest,
-                   const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
+  // void
+  // onConnectionData(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest,
+  //                  const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
  
-  void
-  onConnectionDataTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest);
+  // void
+  // onConnectionDataTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest);
  
   void
   delayedChecksLoop ();

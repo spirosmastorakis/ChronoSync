@@ -26,16 +26,18 @@ INIT_LOGGER("SyncPolicyManager");
 SyncPolicyManager::SyncPolicyManager(const Name& signingIdentity,
 				     const Name& signingCertificateName,
 				     const Name& syncPrefix,
+                                     shared_ptr<Face> face,
+                                     shared_ptr<Transport> transport,
                                      int stepLimit)
   : m_signingIdentity(signingIdentity)
   , m_signingCertificateName(signingCertificateName.getPrefix(signingCertificateName.size()-1))
   , m_syncPrefix(syncPrefix)
   , m_stepLimit(stepLimit)
 {
-  m_transport = make_shared<TcpTransport>();
-  m_face = make_shared<Face>(m_transport, make_shared<TcpTransport::ConnectionInfo>("localhost"));
+  // m_transport = make_shared<TcpTransport>();
+  // m_face = make_shared<Face>(m_transport, make_shared<TcpTransport::ConnectionInfo>("localhost"));
 
-  connectToDaemon();
+  // connectToDaemon();
   
   shared_ptr<IdentityStorage> publicStorage = make_shared<BasicIdentityStorage>();
   shared_ptr<PrivateKeyStorage> privateStorage = make_shared<OSXPrivateKeyStorage>();
@@ -53,29 +55,29 @@ SyncPolicyManager::SyncPolicyManager(const Name& signingIdentity,
 SyncPolicyManager::~SyncPolicyManager()
 {}
 
-void
-SyncPolicyManager::connectToDaemon()
-{
-  //Hack! transport does not connect to daemon unless an interest is expressed.
-  Name name("/ndn");
-  shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(name);
-  m_face->expressInterest(*interest, 
-                          bind(&SyncPolicyManager::onConnectionData, this, _1, _2),
-                          bind(&SyncPolicyManager::onConnectionDataTimeout, this, _1));
-}
+// void
+// SyncPolicyManager::connectToDaemon()
+// {
+//   //Hack! transport does not connect to daemon unless an interest is expressed.
+//   Name name("/ndn");
+//   shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(name);
+//   m_face->expressInterest(*interest, 
+//                           bind(&SyncPolicyManager::onConnectionData, this, _1, _2),
+//                           bind(&SyncPolicyManager::onConnectionDataTimeout, this, _1));
+// }
 
-void
-SyncPolicyManager::onConnectionData(const shared_ptr<const ndn::Interest>& interest,
-                                    const shared_ptr<Data>& data)
-{
-  _LOG_DEBUG("onConnectionData");
-}
+// void
+// SyncPolicyManager::onConnectionData(const shared_ptr<const ndn::Interest>& interest,
+//                                     const shared_ptr<Data>& data)
+// {
+//   _LOG_DEBUG("onConnectionData");
+// }
 
-void
-SyncPolicyManager::onConnectionDataTimeout(const shared_ptr<const ndn::Interest>& interest)
-{
-  _LOG_DEBUG("onConnectionDataTimeout");
-}
+// void
+// SyncPolicyManager::onConnectionDataTimeout(const shared_ptr<const ndn::Interest>& interest)
+// {
+//   _LOG_DEBUG("onConnectionDataTimeout");
+// }
 
 bool 
 SyncPolicyManager::skipVerifyAndTrust (const Data& data)

@@ -33,21 +33,22 @@ INIT_LOGGER ("SyncSocket");
 namespace Sync {
 
 SyncSocket::SyncSocket (const string &syncPrefix, 
-                        shared_ptr<SyncPolicyManager> syncPolicyManager, 
+                        shared_ptr<SyncPolicyManager> syncPolicyManager,
+                        shared_ptr<Face> face,
+                        shared_ptr<Transport> transport,
                         NewDataCallback dataCallback, 
                         RemoveCallback rmCallback )
   : m_newDataCallback(dataCallback)
   , m_syncPolicyManager(syncPolicyManager)
+  , m_transport(transport)
+  , m_face(face)
   , m_syncLogic (syncPrefix,
                  syncPolicyManager,
+                 face,
+                 transport,
                  bind(&SyncSocket::passCallback, this, _1),
                  rmCallback)
 {
-  m_transport = make_shared<TcpTransport>();
-  m_face = make_shared<Face>(m_transport, make_shared<TcpTransport::ConnectionInfo>("localhost"));
-
-  connectToDaemon();
-
   shared_ptr<BasicIdentityStorage> publicStorage = make_shared<BasicIdentityStorage>();
   shared_ptr<OSXPrivateKeyStorage> privateStorage = make_shared<OSXPrivateKeyStorage>();
   m_identityManager = make_shared<IdentityManager>(publicStorage, privateStorage);
@@ -55,32 +56,31 @@ SyncSocket::SyncSocket (const string &syncPrefix,
 
 SyncSocket::~SyncSocket()
 {
-  m_face->shutdown();
 }
 
-void
-SyncSocket::connectToDaemon()
-{
-  //Hack! transport does not connect to daemon unless an interest is expressed.
-  Name name("/ndn");
-  shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(name);
-  m_face->expressInterest(*interest, 
-                          bind(&SyncSocket::onConnectionData, this, _1, _2),
-                          bind(&SyncSocket::onConnectionDataTimeout, this, _1));
-}
+// void
+// SyncSocket::connectToDaemon()
+// {
+//   //Hack! transport does not connect to daemon unless an interest is expressed.
+//   Name name("/ndn");
+//   shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(name);
+//   m_face->expressInterest(*interest, 
+//                           bind(&SyncSocket::onConnectionData, this, _1, _2),
+//                           bind(&SyncSocket::onConnectionDataTimeout, this, _1));
+// }
 
-void
-SyncSocket::onConnectionData(const shared_ptr<const ndn::Interest>& interest,
-                             const shared_ptr<Data>& data)
-{
-  _LOG_DEBUG("onConnectionData");
-}
+// void
+// SyncSocket::onConnectionData(const shared_ptr<const ndn::Interest>& interest,
+//                              const shared_ptr<Data>& data)
+// {
+//   _LOG_DEBUG("onConnectionData");
+// }
 
-void
-SyncSocket::onConnectionDataTimeout(const shared_ptr<const ndn::Interest>& interest)
-{
-  _LOG_DEBUG("onConnectionDataTimeout");
-}
+// void
+// SyncSocket::onConnectionDataTimeout(const shared_ptr<const ndn::Interest>& interest)
+// {
+//   _LOG_DEBUG("onConnectionDataTimeout");
+// }
 
 bool 
 SyncSocket::publishData(const std::string &prefix, uint32_t session, const char *buf, size_t len, int freshness)

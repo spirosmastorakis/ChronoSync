@@ -65,6 +65,8 @@ namespace Sync
 
   SyncLogic::SyncLogic (const Name& syncPrefix,
                         shared_ptr<SyncPolicyManager> syncPolicyManager, 
+                        shared_ptr<Face> face,
+                        shared_ptr<Transport> transport,
                         LogicUpdateCallback onUpdate,
                         LogicRemoveCallback onRemove)
     : m_state (new FullState)
@@ -74,6 +76,8 @@ namespace Sync
     , m_onRemove (onRemove)
     , m_perBranch (false)
     , m_policyManager(syncPolicyManager)
+    , m_face(face)
+    , m_transport(transport)
 #ifndef NS3_MODULE
     , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
     , m_rangeUniformRandom (m_randomGenerator, uniform_int<> (200,1000))
@@ -87,10 +91,10 @@ namespace Sync
 #ifndef NS3_MODULE
   // In NS3 module these functions are moved to StartApplication method
 
-  m_transport = make_shared<TcpTransport>();
-  m_face = make_shared<Face>(m_transport, make_shared<TcpTransport::ConnectionInfo>("localhost"));
+  // m_transport = make_shared<TcpTransport>();
+  // m_face = make_shared<Face>(m_transport, make_shared<TcpTransport::ConnectionInfo>("localhost"));
 
-  connectToDaemon();
+  // connectToDaemon();
 
   shared_ptr<BasicIdentityStorage> publicStorage = make_shared<BasicIdentityStorage>();
   shared_ptr<OSXPrivateKeyStorage> privateStorage = make_shared<OSXPrivateKeyStorage>();
@@ -109,6 +113,8 @@ namespace Sync
 
 SyncLogic::SyncLogic (const Name& syncPrefix,
                       shared_ptr<SyncPolicyManager> syncPolicyManager,
+                      shared_ptr<Face> face,
+                      shared_ptr<Transport> transport,
                       LogicPerBranchCallback onUpdateBranch)
   : m_state (new FullState)
   , m_syncInterestTable (TIME_SECONDS (m_syncInterestReexpress))
@@ -116,6 +122,8 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
   , m_onUpdateBranch (onUpdateBranch)
   , m_perBranch(true)
   , m_policyManager(syncPolicyManager)
+  , m_face(face)
+  , m_transport(transport)
 #ifndef NS3_MODULE
   , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
   , m_rangeUniformRandom (m_randomGenerator, uniform_int<> (200,1000))
@@ -129,10 +137,10 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
 #ifndef NS3_MODULE
   // In NS3 module these functions are moved to StartApplication method
 
-  m_transport = make_shared<TcpTransport>();
-  m_face = make_shared<Face>(m_transport, make_shared<TcpTransport::ConnectionInfo>("localhost"));
+  // m_transport = make_shared<TcpTransport>();
+  // m_face = make_shared<Face>(m_transport, make_shared<TcpTransport::ConnectionInfo>("localhost"));
 
-  connectToDaemon();
+  // connectToDaemon();
 
   shared_ptr<BasicIdentityStorage> publicStorage = make_shared<BasicIdentityStorage>();
   shared_ptr<OSXPrivateKeyStorage> privateStorage = make_shared<OSXPrivateKeyStorage>();
@@ -151,32 +159,31 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
 SyncLogic::~SyncLogic ()
 {
   m_face->removeRegisteredPrefix(m_syncRegisteredPrefixId);
-  m_face->shutdown();
 }
 
-void
-SyncLogic::connectToDaemon()
-{
-  //Hack! transport does not connect to daemon unless an interest is expressed.
-  Name name("/ndn");
-  shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(name);
-  m_face->expressInterest(*interest, 
-                          bind(&SyncLogic::onConnectionData, this, _1, _2),
-                          bind(&SyncLogic::onConnectionDataTimeout, this, _1));
-}
+// void
+// SyncLogic::connectToDaemon()
+// {
+//   //Hack! transport does not connect to daemon unless an interest is expressed.
+//   Name name("/ndn");
+//   shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(name);
+//   m_face->expressInterest(*interest, 
+//                           bind(&SyncLogic::onConnectionData, this, _1, _2),
+//                           bind(&SyncLogic::onConnectionDataTimeout, this, _1));
+// }
 
-void
-SyncLogic::onConnectionData(const shared_ptr<const ndn::Interest>& interest,
-                            const shared_ptr<Data>& data)
-{
-  _LOG_DEBUG("onConnectionData");
-}
+// void
+// SyncLogic::onConnectionData(const shared_ptr<const ndn::Interest>& interest,
+//                             const shared_ptr<Data>& data)
+// {
+//   _LOG_DEBUG("onConnectionData");
+// }
 
-void
-SyncLogic::onConnectionDataTimeout(const shared_ptr<const ndn::Interest>& interest)
-{
-  _LOG_DEBUG("onConnectionDataTimeout");
-}
+// void
+// SyncLogic::onConnectionDataTimeout(const shared_ptr<const ndn::Interest>& interest)
+// {
+//   _LOG_DEBUG("onConnectionDataTimeout");
+// }
 
 #ifdef NS3_MODULE
 void
