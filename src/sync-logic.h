@@ -30,7 +30,8 @@
 #include <map>
 
 #include <ndn-cpp/face.hpp>
-#include <ndn-cpp/security/identity/identity-manager.hpp>
+#include <ndn-cpp/security/verifier.hpp>
+#include <ndn-cpp/security/key-chain.hpp>
 
 #include "sync-interest-table.h"
 #include "sync-diff-state.h"
@@ -88,14 +89,12 @@ public:
   SyncLogic (const ndn::Name& syncPrefix,
              ndn::ptr_lib::shared_ptr<SyncPolicyManager> syncPolicyManager,
              ndn::ptr_lib::shared_ptr<ndn::Face> face,
-             ndn::ptr_lib::shared_ptr<ndn::Transport> transport,
              LogicUpdateCallback onUpdate,
              LogicRemoveCallback onRemove);
 
   SyncLogic (const ndn::Name& syncPrefix,
              ndn::ptr_lib::shared_ptr<SyncPolicyManager> syncPolicyManager,
              ndn::ptr_lib::shared_ptr<ndn::Face> face,
-             ndn::ptr_lib::shared_ptr<ndn::Transport> transport,
              LogicPerBranchCallback onUpdateBranch);
 
   ~SyncLogic ();
@@ -172,14 +171,12 @@ private:
   void
   onSyncData(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
              const ndn::ptr_lib::shared_ptr<ndn::Data>& data,
-             int stepCount,
              const ndn::OnVerified& onVerified,
              const ndn::OnVerifyFailed& onVerifyFailed);
 
   void
   onSyncDataTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
                     int retry,
-                    int stepCount,
                     const ndn::OnVerified& onVerified,
                     const ndn::OnVerifyFailed& onVerifyFailed);
 
@@ -188,17 +185,6 @@ private:
 
   void
   onSyncDataVerified(const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
-
-  void
-  onSyncCert(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
-             const ndn::ptr_lib::shared_ptr<ndn::Data>& cert,
-             ndn::ptr_lib::shared_ptr<ndn::ValidationRequest> previousStep);
-
-  void
-  onSyncCertTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest,
-                    const ndn::OnVerifyFailed& onVerifyFailed,
-                    const ndn::ptr_lib::shared_ptr<ndn::Data>& data,
-                    ndn::ptr_lib::shared_ptr<ndn::ValidationRequest> nextStep);
 
   void
   processSyncInterest (const std::string &name,
@@ -252,9 +238,9 @@ private:
   LogicPerBranchCallback m_onUpdateBranch;
   bool m_perBranch;
   ndn::ptr_lib::shared_ptr<SyncPolicyManager> m_policyManager;
-  ndn::ptr_lib::shared_ptr<ndn::IdentityManager> m_identityManager;
+  ndn::ptr_lib::shared_ptr<ndn::Verifier> m_verifier;
+  ndn::ptr_lib::shared_ptr<ndn::KeyChain> m_keyChain;
   ndn::ptr_lib::shared_ptr<ndn::Face> m_face;
-  ndn::ptr_lib::shared_ptr<ndn::Transport> m_transport;
   uint64_t m_syncRegisteredPrefixId;
 
   Scheduler m_scheduler;

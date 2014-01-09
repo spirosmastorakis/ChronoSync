@@ -35,52 +35,25 @@ namespace Sync {
 SyncSocket::SyncSocket (const string &syncPrefix, 
                         shared_ptr<SyncPolicyManager> syncPolicyManager,
                         shared_ptr<Face> face,
-                        shared_ptr<Transport> transport,
                         NewDataCallback dataCallback, 
                         RemoveCallback rmCallback )
   : m_newDataCallback(dataCallback)
   , m_syncPolicyManager(syncPolicyManager)
-  , m_transport(transport)
+  , m_verifier(new Verifier(syncPolicyManager))
+  , m_keyChain(new KeyChain())
   , m_face(face)
   , m_syncLogic (syncPrefix,
                  syncPolicyManager,
                  face,
-                 transport,
                  bind(&SyncSocket::passCallback, this, _1),
                  rmCallback)
 {
-  shared_ptr<BasicIdentityStorage> publicStorage = make_shared<BasicIdentityStorage>();
-  shared_ptr<OSXPrivateKeyStorage> privateStorage = make_shared<OSXPrivateKeyStorage>();
-  m_identityManager = make_shared<IdentityManager>(publicStorage, privateStorage);
+  m_verifier->setFace(face);
 }
 
 SyncSocket::~SyncSocket()
 {
 }
-
-// void
-// SyncSocket::connectToDaemon()
-// {
-//   //Hack! transport does not connect to daemon unless an interest is expressed.
-//   Name name("/ndn");
-//   shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(name);
-//   m_face->expressInterest(*interest, 
-//                           bind(&SyncSocket::onConnectionData, this, _1, _2),
-//                           bind(&SyncSocket::onConnectionDataTimeout, this, _1));
-// }
-
-// void
-// SyncSocket::onConnectionData(const shared_ptr<const ndn::Interest>& interest,
-//                              const shared_ptr<Data>& data)
-// {
-//   _LOG_DEBUG("onConnectionData");
-// }
-
-// void
-// SyncSocket::onConnectionDataTimeout(const shared_ptr<const ndn::Interest>& interest)
-// {
-//   _LOG_DEBUG("onConnectionDataTimeout");
-// }
 
 bool 
 SyncSocket::publishData(const std::string &prefix, uint32_t session, const char *buf, size_t len, int freshness)
@@ -90,17 +63,15 @@ SyncSocket::publishData(const std::string &prefix, uint32_t session, const char 
   contentNameWithSeqno << prefix << "/" << session << "/" << sequence;
   
   Name dataName(contentNameWithSeqno.str ());
-  Blob blob((const uint8_t*)buf, len);
   Name signingIdentity = m_syncPolicyManager->inferSigningIdentity(dataName);
 
   shared_ptr<Data> data = make_shared<Data>(dataName);
-  data->setContent(blob.buf(), blob.size());
-  data->getMetaInfo().setTimestampMilliseconds(time(NULL) * 1000.0);
+  data->setContent(reinterpret_cast<const uint8_t*>(buf), len);
 
-  Name certificateName = m_identityManager->getDefaultCertificateNameForIdentity(signingIdentity);
-  m_identityManager->signByCertificate(*data, certificateName);
+  Name certificateName = m_keyChain->getDefaultCertificateNameForIdentity(signingIdentity);
+  m_keyChain->sign(*data, certificateName);
   
-  m_transport->send(*data->wireEncode());
+  m_face->put(*data);
   
   SeqNo s(session, sequence + 1);
   m_sequenceLog[prefix] = s;
@@ -126,58 +97,12 @@ SyncSocket::fetchData(const string &prefix, const SeqNo &seq, const OnVerified& 
 }
 
 void
-SyncSocket::onChatCert(const shared_ptr<const ndn::Interest>& interest,
-                       const shared_ptr<Data>& cert,
-                       shared_ptr<ValidationRequest> previousStep)
-{
-  shared_ptr<ValidationRequest> nextStep = m_syncPolicyManager->checkVerificationPolicy(cert, 
-                                                                                        previousStep->stepCount_, 
-                                                                                        previousStep->onVerified_, 
-                                                                                        previousStep->onVerifyFailed_);
-  
-  if (nextStep)
-    m_face->expressInterest
-      (*nextStep->interest_, 
-       bind(&SyncSocket::onChatCert, this, _1, _2, nextStep), 
-       bind(&SyncSocket::onChatCertTimeout, this, _1, previousStep->onVerifyFailed_, cert, nextStep));
-}
-
-void
-SyncSocket::onChatCertTimeout(const shared_ptr<const ndn::Interest>& interest,
-                              const OnVerifyFailed& onVerifyFailed,
-                              const shared_ptr<Data>& data,
-                              shared_ptr<ValidationRequest> nextStep)
-{
-  if(nextStep->retry_ > 0)
-    m_face->expressInterest(*interest, 
-                            bind(&SyncSocket::onChatCert,
-                                 this,
-                                 _1,
-                                 _2,
-                                 nextStep),
-                            bind(&SyncSocket::onChatCertTimeout,
-                                 this,
-                                 _1,
-                                 onVerifyFailed,
-                                 data,
-                                 nextStep));
-  else
-    onVerifyFailed(data);
-}
-
-void
 SyncSocket::onChatData(const shared_ptr<const ndn::Interest>& interest, 
                        const shared_ptr<Data>& data,
                        const OnVerified& onVerified,
                        const OnVerifyFailed& onVerifyFailed)
 {
-  shared_ptr<ValidationRequest> nextStep = m_syncPolicyManager->checkVerificationPolicy(data, 0, onVerified, onVerifyFailed);
-
-  if (nextStep)
-    m_face->expressInterest
-      (*nextStep->interest_, 
-       bind(&SyncSocket::onChatCert, this, _1, _2, nextStep), 
-       bind(&SyncSocket::onChatCertTimeout, this, _1, onVerifyFailed, data, nextStep));
+  m_verifier->verifyData(data, onVerified, onVerifyFailed);
 }
 
 void

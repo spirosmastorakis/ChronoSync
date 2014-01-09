@@ -17,6 +17,8 @@
 class SyncIntroCertificate : public ndn::Certificate
 {
 public:
+  struct Error : public ndn::Certificate::Error { Error(const std::string &what) : ndn::Certificate::Error(what) {} };
+
   enum IntroType{
     PRODUCER,
     INTRODUCER

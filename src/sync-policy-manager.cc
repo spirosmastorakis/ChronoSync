@@ -10,10 +10,8 @@
 
 #include "sync-intro-certificate.h"
 #include "sync-logging.h"
-#include <ndn-cpp/security/identity/basic-identity-storage.hpp>
-#include <ndn-cpp/security/identity/osx-private-key-storage.hpp>
-#include <ndn-cpp/sha256-with-rsa-signature.hpp>
-#include <ndn-cpp/security/signature/sha256-with-rsa-handler.hpp>
+#include <ndn-cpp/security/verifier.hpp>
+#include <ndn-cpp/security/signature/signature-sha256-with-rsa.hpp>
 
 #include "sync-policy-manager.h"
 
@@ -27,22 +25,13 @@ SyncPolicyManager::SyncPolicyManager(const Name& signingIdentity,
 				     const Name& signingCertificateName,
 				     const Name& syncPrefix,
                                      shared_ptr<Face> face,
-                                     shared_ptr<Transport> transport,
                                      int stepLimit)
   : m_signingIdentity(signingIdentity)
   , m_signingCertificateName(signingCertificateName.getPrefix(signingCertificateName.size()-1))
   , m_syncPrefix(syncPrefix)
   , m_stepLimit(stepLimit)
-{
-  // m_transport = make_shared<TcpTransport>();
-  // m_face = make_shared<Face>(m_transport, make_shared<TcpTransport::ConnectionInfo>("localhost"));
-
-  // connectToDaemon();
-  
-  shared_ptr<IdentityStorage> publicStorage = make_shared<BasicIdentityStorage>();
-  shared_ptr<PrivateKeyStorage> privateStorage = make_shared<OSXPrivateKeyStorage>();
-  m_identityManager = make_shared<IdentityManager>(publicStorage, privateStorage);
-
+  , m_keyChain(new KeyChain())
+{  
   Name wotPrefix = syncPrefix;
   wotPrefix.append("WOT");
   m_syncPrefixRegex = Regex::fromName(syncPrefix);
@@ -54,30 +43,6 @@ SyncPolicyManager::SyncPolicyManager(const Name& signingIdentity,
   
 SyncPolicyManager::~SyncPolicyManager()
 {}
-
-// void
-// SyncPolicyManager::connectToDaemon()
-// {
-//   //Hack! transport does not connect to daemon unless an interest is expressed.
-//   Name name("/ndn");
-//   shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(name);
-//   m_face->expressInterest(*interest, 
-//                           bind(&SyncPolicyManager::onConnectionData, this, _1, _2),
-//                           bind(&SyncPolicyManager::onConnectionDataTimeout, this, _1));
-// }
-
-// void
-// SyncPolicyManager::onConnectionData(const shared_ptr<const ndn::Interest>& interest,
-//                                     const shared_ptr<Data>& data)
-// {
-//   _LOG_DEBUG("onConnectionData");
-// }
-
-// void
-// SyncPolicyManager::onConnectionDataTimeout(const shared_ptr<const ndn::Interest>& interest)
-// {
-//   _LOG_DEBUG("onConnectionDataTimeout");
-// }
 
 bool 
 SyncPolicyManager::skipVerifyAndTrust (const Data& data)
@@ -99,61 +64,66 @@ SyncPolicyManager::checkVerificationPolicy(const shared_ptr<Data>& data,
       return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
     }
 
-  const Sha256WithRsaSignature* sigPtr = dynamic_cast<const Sha256WithRsaSignature*> (data->getSignature());
-  if(ndn_KeyLocatorType_KEYNAME != sigPtr->getKeyLocator().getType())
-    {
-      onVerifyFailed(data);
-      return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
-    }
+  try{
+    SignatureSha256WithRsa sig(data->getSignature());
 
-  const Name& keyLocatorName = sigPtr->getKeyLocator().getKeyName();
+    const Name& keyLocatorName = sig.getKeyLocator().getName();
   
-  // if data is intro cert
-  if(m_wotPrefixRegex->match(data->getName()))
-    {
-      // _LOG_DEBUG("Intro Cert");
-      Name keyName = IdentityCertificate::certificateNameToPublicKeyName(keyLocatorName);
-      map<string, PublicKey>::const_iterator it = m_trustedIntroducers.find(keyName.toUri());
-      if(m_trustedIntroducers.end() != it)
-	{
-	  if(Sha256WithRsaHandler::verifySignature(*data, it->second))
-	    onVerified(data);
-	  else
-	    onVerifyFailed(data);
-	  return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
-	}
-      else
-	return prepareRequest(keyName, true, data, stepCount, onVerified, onVerifyFailed);
-    }
+    // if data is intro cert
+    if(m_wotPrefixRegex->match(data->getName()))
+      {
+        // _LOG_DEBUG("Intro Cert");
+        Name keyName = IdentityCertificate::certificateNameToPublicKeyName(keyLocatorName);
+        map<string, PublicKey>::const_iterator it = m_trustedIntroducers.find(keyName.toUri());
+        if(m_trustedIntroducers.end() != it)
+          {
+            if(Verifier::verifySignature(*data, sig, it->second))
+              onVerified(data);
+            else
+              onVerifyFailed(data);
+            return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
+          }
+        else
+          return prepareRequest(keyName, true, data, stepCount, onVerified, onVerifyFailed);
+      }
 
-  // if data is sync data or chat data
-  if(m_syncPrefixRegex->match(data->getName()) || m_chatDataPolicy->satisfy(*data))
-    {
-      Name keyName = IdentityCertificate::certificateNameToPublicKeyName(keyLocatorName);
+    // if data is sync data or chat data
+    if(m_syncPrefixRegex->match(data->getName()) || m_chatDataPolicy->satisfy(*data))
+      {
+        Name keyName = IdentityCertificate::certificateNameToPublicKeyName(keyLocatorName);
 
-      map<string, PublicKey>::const_iterator it = m_trustedIntroducers.find(keyName.toUri());
-      if(m_trustedIntroducers.end() != it)
-	{
-	  if(Sha256WithRsaHandler::verifySignature(*data, it->second))
-	    onVerified(data);
-	  else
-	    onVerifyFailed(data);
-	  return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
-	}
+        map<string, PublicKey>::const_iterator it = m_trustedIntroducers.find(keyName.toUri());
+        if(m_trustedIntroducers.end() != it)
+          {
+            if(Verifier::verifySignature(*data, sig, it->second))
+              onVerified(data);
+            else
+              onVerifyFailed(data);
+            return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
+          }
 
-      it = m_trustedProducers.find(keyName.toUri());
-      if(m_trustedProducers.end() != it)
-	{
-	  if(Sha256WithRsaHandler::verifySignature(*data, it->second))
-	    onVerified(data);
-	  else
-	    onVerifyFailed(data);
-	  return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
-	}
+        it = m_trustedProducers.find(keyName.toUri());
+        if(m_trustedProducers.end() != it)
+          {
+            if(Verifier::verifySignature(*data, sig, it->second))
+              onVerified(data);
+            else
+              onVerifyFailed(data);
+            return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
+          }
 
-      return prepareRequest(keyName, false, data, stepCount, onVerified, onVerifyFailed);
-    }
-  
+        return prepareRequest(keyName, false, data, stepCount, onVerified, onVerifyFailed);
+      }
+  }catch(SignatureSha256WithRsa::Error &e){
+    _LOG_DEBUG("SyncPolicyManager Error: " << e.what());
+    onVerifyFailed(data);
+    return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
+  }catch(KeyLocator::Error &e){
+    _LOG_DEBUG("SyncPolicyManager Error: " << e.what());
+    onVerifyFailed(data);
+    return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
+  }
+    
   onVerifyFailed(data);
   return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
 }
@@ -186,20 +156,6 @@ SyncPolicyManager::addChatDataRule(const Name& prefix,
                                    const IdentityCertificate& identityCertificate,
                                    bool isIntroducer)
 {
-  // Name dataPrefix = prefix;
-  // dataPrefix.append("chronos").append(m_syncPrefix.get(-1));
-  // Ptr<Regex> dataRegex = Regex::fromName(prefix);
-  // Name certName = identityCertificate.getName();
-  // Name signerName = certName.getPrefix(certName.size()-1);
-  // Ptr<Regex> signerRegex = Regex::fromName(signerName, true);
-  
-  // SpecificPolicyRule rule(dataRegex, signerRegex);
-  // map<Name, SpecificPolicyRule>::iterator it = m_chatDataRules.find(dataPrefix);
-  // if(it != m_chatDataRules.end())
-  //   it->second = rule;
-  // else
-  //   m_chatDataRules.insert(pair <Name, SpecificPolicyRule > (dataPrefix, rule));
-
   addTrustAnchor(identityCertificate, isIntroducer);
 }
 
@@ -242,7 +198,6 @@ SyncPolicyManager::prepareRequest(const Name& keyName,
 
   shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(interestName);
   // _LOG_DEBUG("send interest for intro cert: " << interest->getName());
-  interest->setChildSelector(ndn_Interest_CHILD_SELECTOR_RIGHT);
 
   OnVerified requestedCertVerifiedCallback = boost::bind(&SyncPolicyManager::onIntroCertVerified, 
                                                          this, 
@@ -281,10 +236,7 @@ SyncPolicyManager::OnIntroCertInterest(const shared_ptr<const Name>& prefix,
   map<string, Data>::const_iterator it = m_introCert.find(prefix->toUri());
 
   if(m_introCert.end() != it)
-    {
-      Blob encodedData = it->second.wireEncode();
-      transport.send(*encodedData);
-    }
+    m_face->put(it->second);
 }
 
 void
@@ -306,17 +258,17 @@ SyncPolicyManager::onIntroCertVerified(const shared_ptr<Data>& introCertificateD
                                                              introCertificate->getPublicKeyInfo()));
       SyncIntroCertificate syncIntroCertificate(m_syncPrefix,
                                                 introCertificate->getPublicKeyName(),
-                                                m_identityManager->getDefaultKeyNameForIdentity(m_signingIdentity),
+                                                m_keyChain->getDefaultKeyNameForIdentity(m_signingIdentity),
                                                 introCertificate->getNotBefore(),
                                                 introCertificate->getNotAfter(),
                                                 introCertificate->getPublicKeyInfo(),
                                                 SyncIntroCertificate::INTRODUCER);
 
-      Name certName = m_identityManager->getDefaultCertificateNameForIdentity(m_signingIdentity);
+      Name certName = m_keyChain->getDefaultCertificateNameForIdentity(m_signingIdentity);
       _LOG_DEBUG("Publish Intro Certificate on Verified: " << syncIntroCertificate.getName());
-      m_identityManager->signByCertificate(syncIntroCertificate, certName);
+      m_keyChain->sign(syncIntroCertificate, certName);
 
-      m_transport->send(*syncIntroCertificate.wireEncode());
+      m_face->put(syncIntroCertificate);
 
       // Name prefix = syncIntroCertificate.getName().getPrefix(syncIntroCertificate.getName().size()-1);
 
@@ -339,17 +291,17 @@ SyncPolicyManager::onIntroCertVerified(const shared_ptr<Data>& introCertificateD
                                                            introCertificate->getPublicKeyInfo()));
       SyncIntroCertificate syncIntroCertificate(m_syncPrefix,
                                                 introCertificate->getPublicKeyName(),
-                                                m_identityManager->getDefaultKeyNameForIdentity(m_signingIdentity),
+                                                m_keyChain->getDefaultKeyNameForIdentity(m_signingIdentity),
                                                 introCertificate->getNotBefore(),
                                                 introCertificate->getNotAfter(),
                                                 introCertificate->getPublicKeyInfo(),
                                                 SyncIntroCertificate::PRODUCER);
 
-      Name certName = m_identityManager->getDefaultCertificateNameForIdentity(m_signingIdentity);
+      Name certName = m_keyChain->getDefaultCertificateNameForIdentity(m_signingIdentity);
       _LOG_DEBUG("Publish Intro Certificate on Verified: " << syncIntroCertificate.getName());
-      m_identityManager->signByCertificate(syncIntroCertificate, certName);
+      m_keyChain->sign(syncIntroCertificate, certName);
       
-      m_transport->send(*syncIntroCertificate.wireEncode());
+      m_face->put(syncIntroCertificate);
 
       // Name prefix = syncIntroCertificate.getName().getPrefix(syncIntroCertificate.getName().size()-1);
 
@@ -367,10 +319,17 @@ SyncPolicyManager::onIntroCertVerified(const shared_ptr<Data>& introCertificateD
       //   }
     }
 
-  if(Sha256WithRsaHandler::verifySignature(*originalData, introCertificate->getPublicKeyInfo()))      
-    onVerified(originalData);    
-  else
+  try{
+    SignatureSha256WithRsa sig(originalData->getSignature());
+    if(Verifier::verifySignature(*originalData, sig, introCertificate->getPublicKeyInfo()))      
+      onVerified(originalData);    
+    else
+      onVerifyFailed(originalData);
+  }catch(SignatureSha256WithRsa::Error &e){
     onVerifyFailed(originalData);
+  }catch(KeyLocator::Error &e){
+    onVerifyFailed(originalData);
+  }
 }
 
 void 
@@ -393,7 +352,6 @@ SyncPolicyManager::onIntroCertVerifyFailed(const shared_ptr<Data>& introCertific
     interestName.append("INTRODUCER");
   
   shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(interestName);
-  interest->setChildSelector(ndn_Interest_CHILD_SELECTOR_RIGHT);
 
   OnVerified onRecursiveVerified = boost::bind(&SyncPolicyManager::onIntroCertVerified, 
                                       this, 

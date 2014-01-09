@@ -31,16 +31,12 @@
 #include "sync-logging.h"
 #include "sync-state.h"
 
-#include <ndn-cpp/security/identity/basic-identity-storage.hpp>
-#include <ndn-cpp/security/identity/osx-private-key-storage.hpp>
-
 #include <boost/make_shared.hpp>
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
 #include <vector>
 
 using namespace std;
-using namespace boost;
 using namespace ndn;
 using namespace ndn::ptr_lib;
 using namespace ndn::func_lib;
@@ -66,7 +62,6 @@ namespace Sync
   SyncLogic::SyncLogic (const Name& syncPrefix,
                         shared_ptr<SyncPolicyManager> syncPolicyManager, 
                         shared_ptr<Face> face,
-                        shared_ptr<Transport> transport,
                         LogicUpdateCallback onUpdate,
                         LogicRemoveCallback onRemove)
     : m_state (new FullState)
@@ -76,8 +71,9 @@ namespace Sync
     , m_onRemove (onRemove)
     , m_perBranch (false)
     , m_policyManager(syncPolicyManager)
+    , m_verifier(new Verifier(syncPolicyManager))
+    , m_keyChain(new KeyChain())
     , m_face(face)
-    , m_transport(transport)
 #ifndef NS3_MODULE
     , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
     , m_rangeUniformRandom (m_randomGenerator, uniform_int<> (200,1000))
@@ -91,22 +87,13 @@ namespace Sync
 #ifndef NS3_MODULE
   // In NS3 module these functions are moved to StartApplication method
 
-  // m_transport = make_shared<TcpTransport>();
-  // m_face = make_shared<Face>(m_transport, make_shared<TcpTransport::ConnectionInfo>("localhost"));
-
-  // connectToDaemon();
-
-  shared_ptr<BasicIdentityStorage> publicStorage = make_shared<BasicIdentityStorage>();
-  shared_ptr<OSXPrivateKeyStorage> privateStorage = make_shared<OSXPrivateKeyStorage>();
-  m_identityManager = make_shared<IdentityManager>(publicStorage, privateStorage);
-
-  m_syncRegisteredPrefixId = m_face->registerPrefix(m_syncPrefix, 
-                                                    bind(&SyncLogic::onSyncInterest, this, _1, _2, _3, _4), 
-                                                    bind(&SyncLogic::onSyncRegisterFailed, this, _1));
+  m_syncRegisteredPrefixId = m_face->setInterestFilter(m_syncPrefix, 
+                                                       func_lib::bind(&SyncLogic::onSyncInterest, this, _1, _2, _3, _4), 
+                                                       func_lib::bind(&SyncLogic::onSyncRegisterFailed, this, _1));
 
 
   m_scheduler.schedule (TIME_SECONDS (0), // no need to add jitter
-                        bind (&SyncLogic::sendSyncInterest, this),
+                        func_lib::bind (&SyncLogic::sendSyncInterest, this),
                         REEXPRESSING_INTEREST);
 #endif
 }
@@ -114,7 +101,6 @@ namespace Sync
 SyncLogic::SyncLogic (const Name& syncPrefix,
                       shared_ptr<SyncPolicyManager> syncPolicyManager,
                       shared_ptr<Face> face,
-                      shared_ptr<Transport> transport,
                       LogicPerBranchCallback onUpdateBranch)
   : m_state (new FullState)
   , m_syncInterestTable (TIME_SECONDS (m_syncInterestReexpress))
@@ -122,8 +108,9 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
   , m_onUpdateBranch (onUpdateBranch)
   , m_perBranch(true)
   , m_policyManager(syncPolicyManager)
+  , m_verifier(new Verifier(syncPolicyManager))
+  , m_keyChain(new KeyChain())
   , m_face(face)
-  , m_transport(transport)
 #ifndef NS3_MODULE
   , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
   , m_rangeUniformRandom (m_randomGenerator, uniform_int<> (200,1000))
@@ -136,54 +123,21 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
 { 
 #ifndef NS3_MODULE
   // In NS3 module these functions are moved to StartApplication method
-
-  // m_transport = make_shared<TcpTransport>();
-  // m_face = make_shared<Face>(m_transport, make_shared<TcpTransport::ConnectionInfo>("localhost"));
-
-  // connectToDaemon();
-
-  shared_ptr<BasicIdentityStorage> publicStorage = make_shared<BasicIdentityStorage>();
-  shared_ptr<OSXPrivateKeyStorage> privateStorage = make_shared<OSXPrivateKeyStorage>();
-  m_identityManager = make_shared<IdentityManager>(publicStorage, privateStorage);
   
-  m_syncRegisteredPrefixId = m_face->registerPrefix(m_syncPrefix, 
-                                                    bind(&SyncLogic::onSyncInterest, this, _1, _2, _3, _4), 
-                                                    bind(&SyncLogic::onSyncRegisterFailed, this, _1));
+  m_syncRegisteredPrefixId = m_face->setInterestFilter(m_syncPrefix, 
+                                                       func_lib::bind(&SyncLogic::onSyncInterest, this, _1, _2, _3, _4), 
+                                                       func_lib::bind(&SyncLogic::onSyncRegisterFailed, this, _1));
 
   m_scheduler.schedule (TIME_SECONDS (0), // no need to add jitter
-                        bind (&SyncLogic::sendSyncInterest, this),
+                        func_lib::bind (&SyncLogic::sendSyncInterest, this),
                         REEXPRESSING_INTEREST);
 #endif
 }
 
 SyncLogic::~SyncLogic ()
 {
-  m_face->removeRegisteredPrefix(m_syncRegisteredPrefixId);
+  m_face->unsetInterestFilter(m_syncRegisteredPrefixId);
 }
-
-// void
-// SyncLogic::connectToDaemon()
-// {
-//   //Hack! transport does not connect to daemon unless an interest is expressed.
-//   Name name("/ndn");
-//   shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(name);
-//   m_face->expressInterest(*interest, 
-//                           bind(&SyncLogic::onConnectionData, this, _1, _2),
-//                           bind(&SyncLogic::onConnectionDataTimeout, this, _1));
-// }
-
-// void
-// SyncLogic::onConnectionData(const shared_ptr<const ndn::Interest>& interest,
-//                             const shared_ptr<Data>& data)
-// {
-//   _LOG_DEBUG("onConnectionData");
-// }
-
-// void
-// SyncLogic::onConnectionDataTimeout(const shared_ptr<const ndn::Interest>& interest)
-// {
-//   _LOG_DEBUG("onConnectionDataTimeout");
-// }
 
 #ifdef NS3_MODULE
 void
@@ -193,10 +147,10 @@ SyncLogic::StartApplication ()
   m_ccnxHandle->StartApplication ();
 
   m_ccnxHandle->setInterestFilter (m_syncPrefix,
-                                   bind (&SyncLogic::respondSyncInterest, this, _1));
+                                   func_lib::bind (&SyncLogic::respondSyncInterest, this, _1));
 
   m_scheduler.schedule (TIME_SECONDS (0), // need to send first interests at exactly the same time
-                        bind (&SyncLogic::sendSyncInterest, this),
+                        func_lib::bind (&SyncLogic::sendSyncInterest, this),
                         REEXPRESSING_INTEREST);
 }
 
@@ -213,7 +167,7 @@ SyncLogic::StopApplication ()
 void
 SyncLogic::stop()
 {
-  m_face->removeRegisteredPrefix(m_syncRegisteredPrefixId);
+  m_face->unsetInterestFilter(m_syncRegisteredPrefixId);
   m_scheduler.cancel (REEXPRESSING_INTEREST);
   m_scheduler.cancel (DELAYED_INTEREST_PROCESSING);
 }
@@ -292,41 +246,31 @@ SyncLogic::onSyncRegisterFailed(const shared_ptr<const Name>& prefix)
 void
 SyncLogic::onSyncData(const shared_ptr<const ndn::Interest>& interest, 
                       const shared_ptr<Data>& data,
-                      int stepCount,
                       const OnVerified& onVerified,
                       const OnVerifyFailed& onVerifyFailed)
 {
-  shared_ptr<ValidationRequest> nextStep = m_policyManager->checkVerificationPolicy(data, stepCount, onVerified, onVerifyFailed);
-
-  if (nextStep)
-    m_face->expressInterest
-      (*nextStep->interest_, 
-       bind(&SyncLogic::onSyncCert, this, _1, _2, nextStep), 
-       bind(&SyncLogic::onSyncCertTimeout, this, _1, onVerifyFailed, data, nextStep));
+  m_verifier->verifyData(data, onVerified, onVerifyFailed);
 }
 
 void
 SyncLogic::onSyncDataTimeout(const shared_ptr<const ndn::Interest>& interest, 
                              int retry,
-                             int stepCount,
                              const OnVerified& onVerified,
                              const OnVerifyFailed& onVerifyFailed)
 {
   if(retry > 0)
     {
       m_face->expressInterest(*interest, 
-                              bind(&SyncLogic::onSyncData,
+                              func_lib::bind(&SyncLogic::onSyncData,
                                    this,
                                    _1,
                                    _2,     
-                                   stepCount,
                                    onVerified,
                                    onVerifyFailed),
-                              bind(&SyncLogic::onSyncDataTimeout, 
+                              func_lib::bind(&SyncLogic::onSyncDataTimeout, 
                                    this,
                                    _1,
                                    retry - 1,
-                                   stepCount,
                                    onVerified,
                                    onVerifyFailed));
     }
@@ -344,8 +288,8 @@ void
 SyncLogic::onSyncDataVerified(const shared_ptr<Data>& data)
 {
   string name = data->getName().toUri();
-  const char* wireData = (const char*)data->getContent().buf();
-  size_t len = data->getContent().size();
+  const char* wireData = (const char*)data->getContent().value();
+  size_t len = data->getContent().value_size();
 
   try
     {
@@ -372,46 +316,6 @@ SyncLogic::onSyncDataVerified(const shared_ptr<Data>& data)
       // log error. ignoring it for now, later we should log it
       return;
     }
-}
-
-void
-SyncLogic::onSyncCert(const shared_ptr<const ndn::Interest>& interest, 
-                      const shared_ptr<Data>& cert,
-                      shared_ptr<ValidationRequest> previousStep)
-{
-  shared_ptr<ValidationRequest> nextStep = m_policyManager->checkVerificationPolicy(cert, 
-                                                                                    previousStep->stepCount_, 
-                                                                                    previousStep->onVerified_, 
-                                                                                    previousStep->onVerifyFailed_);
-
-  if (nextStep)
-    m_face->expressInterest
-      (*nextStep->interest_, 
-       bind(&SyncLogic::onSyncCert, this, _1, _2, nextStep), 
-       bind(&SyncLogic::onSyncCertTimeout, this, _1, previousStep->onVerifyFailed_, cert, nextStep));
-}
-
-void
-SyncLogic::onSyncCertTimeout(const ptr_lib::shared_ptr<const ndn::Interest>& interest,
-                             const OnVerifyFailed& onVerifyFailed,
-                             const shared_ptr<Data>& data,
-                             shared_ptr<ValidationRequest> nextStep)
-{
-  if(nextStep->retry_ > 0)
-      m_face->expressInterest(*interest, 
-                              bind(&SyncLogic::onSyncCert,
-                                   this,
-                                   _1,
-                                   _2,
-                                   nextStep),
-                              bind(&SyncLogic::onSyncCertTimeout,
-                                   this,
-                                   _1,
-                                   onVerifyFailed,
-                                   data,
-                                   nextStep));
-  else
-    onVerifyFailed(data);
 }
 
 void
@@ -467,7 +371,7 @@ SyncLogic::processSyncInterest (const std::string &name, DigestConstPtr digest, 
       _LOG_DEBUG ("Digest is not in the log. Schedule processing after small delay: " << waitDelay << "ms");
 
       m_scheduler.schedule (TIME_MILLISECONDS (waitDelay),
-                            bind (&SyncLogic::processSyncInterest, this, name, digest, true),
+                            func_lib::bind (&SyncLogic::processSyncInterest, this, name, digest, true),
                             DELAYED_INTEREST_PROCESSING);
     }
   else
@@ -594,7 +498,7 @@ SyncLogic::processSyncData (const std::string &name, DigestConstPtr digest, cons
       // if state has changed, then it is safe to express a new interest
       m_scheduler.cancel (REEXPRESSING_INTEREST);
       m_scheduler.schedule (TIME_SECONDS_WITH_JITTER (0),
-                            bind (&SyncLogic::sendSyncInterest, this),
+                            func_lib::bind (&SyncLogic::sendSyncInterest, this),
                             REEXPRESSING_INTEREST);
     }
 }
@@ -746,17 +650,17 @@ SyncLogic::sendSyncInterest ()
 
   m_scheduler.cancel (REEXPRESSING_INTEREST);
   m_scheduler.schedule (TIME_SECONDS_WITH_JITTER (m_syncInterestReexpress),
-                        bind (&SyncLogic::sendSyncInterest, this),
+                        func_lib::bind (&SyncLogic::sendSyncInterest, this),
                         REEXPRESSING_INTEREST);
 
   shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(os.str());
 
-  OnVerified onVerified = bind(&SyncLogic::onSyncDataVerified, this, _1);
-  OnVerifyFailed onVerifyFailed = bind(&SyncLogic::onSyncDataVerifyFailed, this, _1);
+  OnVerified onVerified = func_lib::bind(&SyncLogic::onSyncDataVerified, this, _1);
+  OnVerifyFailed onVerifyFailed = func_lib::bind(&SyncLogic::onSyncDataVerifyFailed, this, _1);
 
   m_face->expressInterest(*interest,
-                          bind(&SyncLogic::onSyncData, this, _1, _2, 0, onVerified, onVerifyFailed),
-                          bind(&SyncLogic::onSyncDataTimeout, this, _1, 1, 0, onVerified, onVerifyFailed));
+                          func_lib::bind(&SyncLogic::onSyncData, this, _1, _2, onVerified, onVerifyFailed),
+                          func_lib::bind(&SyncLogic::onSyncDataTimeout, this, _1, 1, onVerified, onVerifyFailed));
 }
 
 void
@@ -773,18 +677,18 @@ SyncLogic::sendSyncRecoveryInterests (DigestConstPtr digest)
   if (m_recoveryRetransmissionInterval < 100*1000) // <100 seconds
     {
       m_scheduler.schedule (nextRetransmission,
-                            bind (&SyncLogic::sendSyncRecoveryInterests, this, digest),
+                            func_lib::bind (&SyncLogic::sendSyncRecoveryInterests, this, digest),
                             REEXPRESSING_RECOVERY_INTEREST);
     }
 
   shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(os.str());
 
-  OnVerified onVerified = bind(&SyncLogic::onSyncDataVerified, this, _1);
-  OnVerifyFailed onVerifyFailed = bind(&SyncLogic::onSyncDataVerifyFailed, this, _1);
+  OnVerified onVerified = func_lib::bind(&SyncLogic::onSyncDataVerified, this, _1);
+  OnVerifyFailed onVerifyFailed = func_lib::bind(&SyncLogic::onSyncDataVerifyFailed, this, _1);
 
   m_face->expressInterest(*interest,
-                          bind(&SyncLogic::onSyncData, this, _1, _2, 0, onVerified, onVerifyFailed),
-                          bind(&SyncLogic::onSyncDataTimeout, this, _1, 1, 0, onVerified, onVerifyFailed));
+                          func_lib::bind(&SyncLogic::onSyncData, this, _1, _2, onVerified, onVerifyFailed),
+                          func_lib::bind(&SyncLogic::onSyncDataTimeout, this, _1, 1, onVerified, onVerifyFailed));
 }
 
 
@@ -804,19 +708,16 @@ SyncLogic::sendSyncData (const std::string &name, DigestConstPtr digest, SyncSta
   _LOG_TRACE (">> D " << name);
   int size = ssm.ByteSize();
   char *wireData = new char[size];
-  ssm.SerializeToArray(wireData, size);
-  Blob blob((const uint8_t*)wireData, size);
   Name dataName(name);
   Name signingIdentity = m_policyManager->inferSigningIdentity(dataName);
 
   shared_ptr<Data> syncData = make_shared<Data>(dataName);
-  syncData->setContent(blob.buf(), blob.size());
-  syncData->getMetaInfo().setTimestampMilliseconds(time(NULL) * 1000.0);
+  syncData->setContent(reinterpret_cast<const uint8_t*>(wireData), size);
   
-  Name certificateName = m_identityManager->getDefaultCertificateNameForIdentity(signingIdentity);
-  m_identityManager->signByCertificate(*syncData, certificateName);
+  Name certificateName = m_keyChain->getDefaultCertificateNameForIdentity(signingIdentity);
+  m_keyChain->sign(*syncData, certificateName);
   
-  m_transport->send(*syncData->wireEncode());
+  m_face->put(*syncData);
   
   delete []wireData;
 

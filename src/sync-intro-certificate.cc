@@ -42,7 +42,7 @@ SyncIntroCertificate::SyncIntroCertificate (const Name& nameSpace,
       certificateName.append("INTRODUCER");
       break;
     default:
-      throw SecurityException("Wrong Introduction Type!");
+      throw Error("Wrong Introduction Type!");
     }
 
   posix_time::time_duration now = posix_time::microsec_clock::universal_time () - posix_time::ptime(gregorian::date (1970, boost::gregorian::Jan, 1));
@@ -76,7 +76,7 @@ SyncIntroCertificate::SyncIntroCertificate (const Name& nameSpace,
       certificateName.append("INTRODUCER");
       break;
     default:
-      throw SecurityException("Wrong Introduction Type!");
+      throw Error("Wrong Introduction Type!");
     }
   posix_time::time_duration now = posix_time::microsec_clock::universal_time () - posix_time::ptime(gregorian::date (1970, boost::gregorian::Jan, 1));
   uint64_t version = (now.total_seconds () << 12) | (0xFFF & (now.fractional_seconds () / 244));
@@ -106,7 +106,7 @@ SyncIntroCertificate::SyncIntroCertificate (const Data& data)
     }
   
   if(i >= certificateName.size())
-    throw SecurityException("Wrong SyncIntroCertificate Name!");
+    throw Error("Wrong SyncIntroCertificate Name!");
     
   for(; i< certificateName.size(); i++)
     {
@@ -118,7 +118,7 @@ SyncIntroCertificate::SyncIntroCertificate (const Data& data)
     }
 
   if(i >= certificateName.size())
-    throw SecurityException("Wrong SyncIntroCertificate Name!");
+    throw Error("Wrong SyncIntroCertificate Name!");
 
   m_keyName = certificateName.getSubName(keyNameStart, keyNameEnd - keyNameStart);
 
@@ -128,7 +128,7 @@ SyncIntroCertificate::SyncIntroCertificate (const Data& data)
   else if(typeComponent == string("INTRODUCER"))
     m_introType = INTRODUCER;
   else
-    throw SecurityException("Wrong SyncIntroCertificate Name!");
+    throw Error("Wrong SyncIntroCertificate Name!");
 }
 
 SyncIntroCertificate::SyncIntroCertificate (const SyncIntroCertificate& chronosIntroCertificate)
@@ -153,7 +153,7 @@ SyncIntroCertificate::setName (const Name& certificateName)
     }
     
   if(i >= certificateName.size())
-    throw SecurityException("Wrong SyncIntroCertificate Name!");
+    throw Error("Wrong SyncIntroCertificate Name!");
   
   for(; i< certificateName.size(); i++)
     {
@@ -165,7 +165,7 @@ SyncIntroCertificate::setName (const Name& certificateName)
     }
 
   if(i >= certificateName.size())
-    throw SecurityException("Wrong SyncIntroCertificate Name!");
+    throw Error("Wrong SyncIntroCertificate Name!");
 
   m_keyName = certificateName.getSubName(keyNameStart, keyNameEnd - keyNameStart);
 
@@ -175,7 +175,7 @@ SyncIntroCertificate::setName (const Name& certificateName)
   else if(typeComponent == string("INTRODUCER"))
     m_introType = INTRODUCER;
   else
-    throw SecurityException("Wrong SyncIntroCertificate Name!");
+    throw Error("Wrong SyncIntroCertificate Name!");
     
   return *this;
 }

@@ -12,7 +12,8 @@
 #define SYNC_POLICY_MANAGER_H
 
 #include <ndn-cpp/face.hpp>
-#include <ndn-cpp/security/identity/identity-manager.hpp>
+#include <ndn-cpp/security/key-chain.hpp>
+#include <ndn-cpp/security/verifier.hpp>
 #include <ndn-cpp/security/policy/policy-manager.hpp>
 #include <ndn-cpp/security/certificate/identity-certificate.hpp>
 #include <ndn-cpp-et/regex/regex.hpp>
@@ -30,7 +31,6 @@ public:
                     const ndn::Name& signingCertificateName,
                     const ndn::Name& syncPrefix,
                     ndn::ptr_lib::shared_ptr<ndn::Face> face,
-                    ndn::ptr_lib::shared_ptr<ndn::Transport> transport,
                     int m_stepLimit = 3);
   
   virtual
@@ -63,20 +63,7 @@ public:
                   const ndn::IdentityCertificate& identityCertificate,
                   bool isIntroducer);
 
-  // inline void 
-  // setFace(ndn::ndn::ptr_lib::shared_ptr<Face> face) 
-  // { face_ = face; }
-
 private:
-  // void
-  // connectToDaemon();
-
-  // void
-  // onConnectionData(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest,
-  //                  const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
- 
-  // void
-  // onConnectionDataTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest);
 
   ndn::ptr_lib::shared_ptr<ndn::ValidationRequest>
   prepareIntroducerRequest(const ndn::Name& keyName,
@@ -155,8 +142,7 @@ private:
   std::map<std::string, SpecificPolicyRule> m_chatDataRules;
   std::map<std::string, ndn::Data> m_introCert;
 
-  ndn::ptr_lib::shared_ptr<ndn::IdentityManager> m_identityManager;
-  ndn::ptr_lib::shared_ptr<ndn::Transport> m_transport;
+  ndn::ptr_lib::shared_ptr<ndn::KeyChain> m_keyChain;
   ndn::ptr_lib::shared_ptr<ndn::Face> m_face;
 
 };

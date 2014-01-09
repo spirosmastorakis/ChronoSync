@@ -26,7 +26,8 @@
 #include <boost/unordered_map.hpp>
 #include "sync-seq-no.h"
 #include <ndn-cpp/face.hpp>
-#include <ndn-cpp/security/identity/identity-manager.hpp>
+#include <ndn-cpp/security/verifier.hpp>
+#include <ndn-cpp/security/key-chain.hpp>
 #include <utility>
 #include <map>
 #include <vector>
@@ -57,7 +58,6 @@ public:
   SyncSocket (const std::string &syncPrefix, 
               ndn::ptr_lib::shared_ptr<SyncPolicyManager> syncPolicyManager,
               ndn::ptr_lib::shared_ptr<ndn::Face> face,
-              ndn::ptr_lib::shared_ptr<ndn::Transport> transport,
               NewDataCallback dataCallback, 
               RemoveCallback rmCallback);
 
@@ -90,30 +90,9 @@ public:
   GetLocalPrefix (); 
   
 private:
-  // void
-  // connectToDaemon();
-
-  // void
-  // onConnectionData(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest,
-  //                  const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
- 
-  // void
-  // onConnectionDataTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest);
-
   void 
   passCallback(const std::vector<MissingDataInfo> &v) 
   { m_newDataCallback(v, this); }
-
-  void
-  onChatCert(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest,
-             const ndn::ptr_lib::shared_ptr<ndn::Data>& cert,
-             ndn::ptr_lib::shared_ptr<ndn::ValidationRequest> previousStep);
-
-  void
-  onChatCertTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest,
-                    const ndn::OnVerifyFailed& onVerifyFailed,
-                    const ndn::ptr_lib::shared_ptr<ndn::Data>& data,
-                    ndn::ptr_lib::shared_ptr<ndn::ValidationRequest> nextStep);
 
   void
   onChatData(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
@@ -135,8 +114,8 @@ private:
   NewDataCallback m_newDataCallback;
   SequenceLog m_sequenceLog;
   ndn::ptr_lib::shared_ptr<SyncPolicyManager> m_syncPolicyManager;
-  ndn::ptr_lib::shared_ptr<ndn::IdentityManager> m_identityManager;
-  ndn::ptr_lib::shared_ptr<ndn::Transport> m_transport;
+  ndn::ptr_lib::shared_ptr<ndn::Verifier> m_verifier;
+  ndn::ptr_lib::shared_ptr<ndn::KeyChain> m_keyChain;
   ndn::ptr_lib::shared_ptr<ndn::Face> m_face;
   SyncLogic      m_syncLogic;
 };

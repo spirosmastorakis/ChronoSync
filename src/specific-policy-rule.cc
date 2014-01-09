@@ -9,7 +9,7 @@
  */
 
 #include "specific-policy-rule.h"
-#include <ndn-cpp/sha256-with-rsa-signature.hpp>
+#include <ndn-cpp/security/signature/signature-sha256-with-rsa.hpp>
 
 using namespace ndn;
 using namespace ndn::ptr_lib;
@@ -36,9 +36,15 @@ SpecificPolicyRule::matchDataName(const Data& data)
 bool 
 SpecificPolicyRule::matchSignerName(const Data& data)
 { 
-  const Sha256WithRsaSignature* sigPtr = dynamic_cast<const Sha256WithRsaSignature*> (data.getSignature());
-  Name signerName = sigPtr->getKeyLocator().getKeyName ();
-  return m_signerRegex->match(signerName); 
+  try{
+    SignatureSha256WithRsa sig(data.getSignature());
+    Name signerName = sig.getKeyLocator().getName ();
+    return m_signerRegex->match(signerName); 
+  }catch(SignatureSha256WithRsa::Error &e){
+    return false;
+  }catch(KeyLocator::Error &e){
+    return false;
+  }
 }
 
 bool
