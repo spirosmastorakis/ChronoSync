@@ -8,33 +8,31 @@
  * Author: Yingdi Yu <yingdi@cs.ucla.edu>
  */
 
-#ifndef SYNC_POLICY_MANAGER_H
-#define SYNC_POLICY_MANAGER_H
+#ifndef SEC_POLICY_SYNC_H
+#define SEC_POLICY_SYNC_H
 
 #include <ndn-cpp/face.hpp>
 #include <ndn-cpp/security/key-chain.hpp>
 #include <ndn-cpp/security/verifier.hpp>
-#include <ndn-cpp/security/policy/policy-manager.hpp>
-#include <ndn-cpp/security/certificate/identity-certificate.hpp>
+#include <ndn-cpp/security/sec-policy.hpp>
+#include <ndn-cpp/security/identity-certificate.hpp>
 #include <ndn-cpp-et/regex/regex.hpp>
-#include <ndn-cpp-et/policy-manager/identity-policy-rule.hpp>
+#include <ndn-cpp-et/policy/sec-rule-identity.hpp>
 #include <map>
 
-#include "specific-policy-rule.h"
+#include "sec-rule-sync-specific.h"
 
-static ndn::ptr_lib::shared_ptr<ndn::ValidationRequest> SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
-
-class SyncPolicyManager : public ndn::PolicyManager
+class SecPolicySync : public ndn::SecPolicy
 {
 public:
-  SyncPolicyManager(const ndn::Name& signingIdentity,
+  SecPolicySync(const ndn::Name& signingIdentity,
                     const ndn::Name& signingCertificateName,
                     const ndn::Name& syncPrefix,
                     ndn::ptr_lib::shared_ptr<ndn::Face> face,
                     int m_stepLimit = 3);
   
   virtual
-  ~SyncPolicyManager();
+  ~SecPolicySync();
 
   bool 
   skipVerifyAndTrust (const ndn::Data& data);
@@ -136,10 +134,10 @@ private:
   int m_stepLimit;
   ndn::ptr_lib::shared_ptr<ndn::Regex> m_syncPrefixRegex;
   ndn::ptr_lib::shared_ptr<ndn::Regex> m_wotPrefixRegex;
-  ndn::ptr_lib::shared_ptr<ndn::IdentityPolicyRule> m_chatDataPolicy; 
+  ndn::ptr_lib::shared_ptr<ndn::SecRuleIdentity> m_chatDataPolicy; 
   std::map<std::string, ndn::PublicKey> m_trustedIntroducers;
   std::map<std::string, ndn::PublicKey> m_trustedProducers;
-  std::map<std::string, SpecificPolicyRule> m_chatDataRules;
+  std::map<std::string, SecRuleSyncSpecific> m_chatDataRules;
   std::map<std::string, ndn::Data> m_introCert;
 
   ndn::ptr_lib::shared_ptr<ndn::KeyChain> m_keyChain;

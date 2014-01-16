@@ -9,7 +9,6 @@
  */
 
 #include "sync-intro-certificate.h"
-#include <ndn-cpp/security/security-exception.hpp>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 

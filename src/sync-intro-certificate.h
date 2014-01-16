@@ -11,8 +11,8 @@
 #ifndef SYNC_INTRO_CERTIFICATE_H
 #define SYNC_INTRO_CERTIFICATE_H
 
-#include <ndn-cpp/security/certificate/certificate.hpp>
-#include <ndn-cpp/security/certificate/identity-certificate.hpp>
+#include <ndn-cpp/security/certificate.hpp>
+#include <ndn-cpp/security/identity-certificate.hpp>
 
 class SyncIntroCertificate : public ndn::Certificate
 {

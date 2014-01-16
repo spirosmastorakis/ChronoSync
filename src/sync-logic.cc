@@ -60,7 +60,7 @@ namespace Sync
 {
 
   SyncLogic::SyncLogic (const Name& syncPrefix,
-                        shared_ptr<SyncPolicyManager> syncPolicyManager, 
+                        shared_ptr<SecPolicySync> policy, 
                         shared_ptr<Face> face,
                         LogicUpdateCallback onUpdate,
                         LogicRemoveCallback onRemove)
@@ -70,8 +70,8 @@ namespace Sync
     , m_onUpdate (onUpdate)
     , m_onRemove (onRemove)
     , m_perBranch (false)
-    , m_policyManager(syncPolicyManager)
-    , m_verifier(new Verifier(syncPolicyManager))
+    , m_policy(policy)
+    , m_verifier(new Verifier(policy))
     , m_keyChain(new KeyChain())
     , m_face(face)
 #ifndef NS3_MODULE
@@ -99,7 +99,7 @@ namespace Sync
 }
 
 SyncLogic::SyncLogic (const Name& syncPrefix,
-                      shared_ptr<SyncPolicyManager> syncPolicyManager,
+                      shared_ptr<SecPolicySync> policy,
                       shared_ptr<Face> face,
                       LogicPerBranchCallback onUpdateBranch)
   : m_state (new FullState)
@@ -107,8 +107,8 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
   , m_syncPrefix (syncPrefix)
   , m_onUpdateBranch (onUpdateBranch)
   , m_perBranch(true)
-  , m_policyManager(syncPolicyManager)
-  , m_verifier(new Verifier(syncPolicyManager))
+  , m_policy(policy)
+  , m_verifier(new Verifier(policy))
   , m_keyChain(new KeyChain())
   , m_face(face)
 #ifndef NS3_MODULE
@@ -709,7 +709,7 @@ SyncLogic::sendSyncData (const std::string &name, DigestConstPtr digest, SyncSta
   int size = ssm.ByteSize();
   char *wireData = new char[size];
   Name dataName(name);
-  Name signingIdentity = m_policyManager->inferSigningIdentity(dataName);
+  Name signingIdentity = m_policy->inferSigningIdentity(dataName);
 
   shared_ptr<Data> syncData = make_shared<Data>(dataName);
   syncData->setContent(reinterpret_cast<const uint8_t*>(wireData), size);

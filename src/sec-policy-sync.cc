@@ -11,17 +11,17 @@
 #include "sync-intro-certificate.h"
 #include "sync-logging.h"
 #include <ndn-cpp/security/verifier.hpp>
-#include <ndn-cpp/security/signature/signature-sha256-with-rsa.hpp>
+#include <ndn-cpp/security/signature-sha256-with-rsa.hpp>
 
-#include "sync-policy-manager.h"
+#include "sec-policy-sync.h"
 
 using namespace ndn;
 using namespace ndn::ptr_lib;
 using namespace std;
 
-INIT_LOGGER("SyncPolicyManager");
+INIT_LOGGER("SecPolicySync");
 
-SyncPolicyManager::SyncPolicyManager(const Name& signingIdentity,
+SecPolicySync::SecPolicySync(const Name& signingIdentity,
 				     const Name& signingCertificateName,
 				     const Name& syncPrefix,
                                      shared_ptr<Face> face,
@@ -36,24 +36,24 @@ SyncPolicyManager::SyncPolicyManager(const Name& signingIdentity,
   wotPrefix.append("WOT");
   m_syncPrefixRegex = Regex::fromName(syncPrefix);
   m_wotPrefixRegex = Regex::fromName(wotPrefix);
-  m_chatDataPolicy = make_shared<IdentityPolicyRule>("^[^<%F0.>]*<%F0.>([^<chronos>]*)<chronos><>",
-                                                              "^([^<KEY>]*)<KEY>(<>*)[<dsk-.*><ksk-.*>]<ID-CERT>$",
-                                                              "==", "\\1", "\\1", true);  
+  m_chatDataPolicy = make_shared<SecRuleIdentity>("^[^<%F0.>]*<%F0.>([^<chronos>]*)<chronos><>",
+                                                  "^([^<KEY>]*)<KEY>(<>*)[<dsk-.*><ksk-.*>]<ID-CERT>$",
+                                                  "==", "\\1", "\\1", true);  
 }
   
-SyncPolicyManager::~SyncPolicyManager()
+SecPolicySync::~SecPolicySync()
 {}
 
 bool 
-SyncPolicyManager::skipVerifyAndTrust (const Data& data)
+SecPolicySync::skipVerifyAndTrust (const Data& data)
 { return false; }
 
 bool
-SyncPolicyManager::requireVerify (const Data& data)
+SecPolicySync::requireVerify (const Data& data)
 { return true; }
 
 shared_ptr<ValidationRequest>
-SyncPolicyManager::checkVerificationPolicy(const shared_ptr<Data>& data, 
+SecPolicySync::checkVerificationPolicy(const shared_ptr<Data>& data, 
 					   int stepCount, 
 					   const OnVerified& onVerified,
 					   const OnVerifyFailed& onVerifyFailed)
@@ -61,7 +61,7 @@ SyncPolicyManager::checkVerificationPolicy(const shared_ptr<Data>& data,
   if(stepCount > m_stepLimit)
     {
       onVerifyFailed(data);
-      return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
+      return shared_ptr<ValidationRequest>();
     }
 
   try{
@@ -81,7 +81,7 @@ SyncPolicyManager::checkVerificationPolicy(const shared_ptr<Data>& data,
               onVerified(data);
             else
               onVerifyFailed(data);
-            return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
+            return shared_ptr<ValidationRequest>();
           }
         else
           return prepareRequest(keyName, true, data, stepCount, onVerified, onVerifyFailed);
@@ -99,7 +99,7 @@ SyncPolicyManager::checkVerificationPolicy(const shared_ptr<Data>& data,
               onVerified(data);
             else
               onVerifyFailed(data);
-            return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
+            return shared_ptr<ValidationRequest>();
           }
 
         it = m_trustedProducers.find(keyName.toUri());
@@ -109,38 +109,38 @@ SyncPolicyManager::checkVerificationPolicy(const shared_ptr<Data>& data,
               onVerified(data);
             else
               onVerifyFailed(data);
-            return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
+            return shared_ptr<ValidationRequest>();
           }
 
         return prepareRequest(keyName, false, data, stepCount, onVerified, onVerifyFailed);
       }
   }catch(SignatureSha256WithRsa::Error &e){
-    _LOG_DEBUG("SyncPolicyManager Error: " << e.what());
+    _LOG_DEBUG("SecPolicySync Error: " << e.what());
     onVerifyFailed(data);
-    return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
+    return shared_ptr<ValidationRequest>();
   }catch(KeyLocator::Error &e){
-    _LOG_DEBUG("SyncPolicyManager Error: " << e.what());
+    _LOG_DEBUG("SecPolicySync Error: " << e.what());
     onVerifyFailed(data);
-    return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
+    return shared_ptr<ValidationRequest>();
   }
     
   onVerifyFailed(data);
-  return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
+  return shared_ptr<ValidationRequest>();
 }
 
 bool 
-SyncPolicyManager::checkSigningPolicy(const Name& dataName, 
+SecPolicySync::checkSigningPolicy(const Name& dataName, 
 				      const Name& certificateName)
 { 
   return true;
 }
     
 Name 
-SyncPolicyManager::inferSigningIdentity(const ndn::Name& dataName)
+SecPolicySync::inferSigningIdentity(const ndn::Name& dataName)
 { return m_signingIdentity; }
 
 void
-SyncPolicyManager::addTrustAnchor(const IdentityCertificate& identityCertificate, bool isIntroducer)
+SecPolicySync::addTrustAnchor(const IdentityCertificate& identityCertificate, bool isIntroducer)
 {
   // _LOG_DEBUG("Add intro/producer: " << identityCertificate.getPublicKeyName());
   if(isIntroducer)
@@ -152,7 +152,7 @@ SyncPolicyManager::addTrustAnchor(const IdentityCertificate& identityCertificate
 }
 
 void
-SyncPolicyManager::addChatDataRule(const Name& prefix, 
+SecPolicySync::addChatDataRule(const Name& prefix, 
                                    const IdentityCertificate& identityCertificate,
                                    bool isIntroducer)
 {
@@ -161,7 +161,7 @@ SyncPolicyManager::addChatDataRule(const Name& prefix,
 
 
 shared_ptr<const vector<Name> >
-SyncPolicyManager::getAllIntroducerName()
+SecPolicySync::getAllIntroducerName()
 {
   shared_ptr<vector<Name> > nameList = make_shared<vector<Name> >();
   
@@ -173,7 +173,7 @@ SyncPolicyManager::getAllIntroducerName()
 }
 
 shared_ptr<ValidationRequest>
-SyncPolicyManager::prepareRequest(const Name& keyName, 
+SecPolicySync::prepareRequest(const Name& keyName, 
 				  bool forIntroducer,
 				  shared_ptr<Data> data,
 				  const int & stepCount, 
@@ -187,7 +187,7 @@ SyncPolicyManager::prepareRequest(const Name& keyName,
   if(0 == nameList->size())
     {
       onVerifyFailed(data);
-      return SYNC_POLICY_MANAGER_NULL_VALIDATION_REQUEST_PTR;
+      return shared_ptr<ValidationRequest>();
     }
 
   Name interestName = *interestPrefixName;
@@ -199,7 +199,7 @@ SyncPolicyManager::prepareRequest(const Name& keyName,
   shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(interestName);
   // _LOG_DEBUG("send interest for intro cert: " << interest->getName());
 
-  OnVerified requestedCertVerifiedCallback = boost::bind(&SyncPolicyManager::onIntroCertVerified, 
+  OnVerified requestedCertVerifiedCallback = boost::bind(&SecPolicySync::onIntroCertVerified, 
                                                          this, 
                                                          _1,
                                                          forIntroducer, 
@@ -207,7 +207,7 @@ SyncPolicyManager::prepareRequest(const Name& keyName,
                                                          onVerified,
                                                          onVerifyFailed);
                                                              
-  OnVerifyFailed requestedCertUnverifiedCallback = boost::bind(&SyncPolicyManager::onIntroCertVerifyFailed, 
+  OnVerifyFailed requestedCertUnverifiedCallback = boost::bind(&SecPolicySync::onIntroCertVerifyFailed, 
                                                                this, 
                                                                _1, 
                                                                interestPrefixName,
@@ -228,7 +228,7 @@ SyncPolicyManager::prepareRequest(const Name& keyName,
 }
 
 void
-SyncPolicyManager::OnIntroCertInterest(const shared_ptr<const Name>& prefix, 
+SecPolicySync::OnIntroCertInterest(const shared_ptr<const Name>& prefix, 
                                        const shared_ptr<const ndn::Interest>& interest, 
                                        Transport& transport, 
                                        uint64_t registeredPrefixId)
@@ -240,12 +240,12 @@ SyncPolicyManager::OnIntroCertInterest(const shared_ptr<const Name>& prefix,
 }
 
 void
-SyncPolicyManager::OnIntroCertRegisterFailed(const shared_ptr<const Name>& prefix)
+SecPolicySync::OnIntroCertRegisterFailed(const shared_ptr<const Name>& prefix)
 {
 }
 
 void
-SyncPolicyManager::onIntroCertVerified(const shared_ptr<Data>& introCertificateData,
+SecPolicySync::onIntroCertVerified(const shared_ptr<Data>& introCertificateData,
 				       bool forIntroducer,
 				       shared_ptr<Data> originalData,
 				       const OnVerified& onVerified,
@@ -281,8 +281,8 @@ SyncPolicyManager::onIntroCertVerified(const shared_ptr<Data>& introCertificateD
       //   {         
       //     m_introCert.insert(pair <string, Data> (prefix.toEscapedString(), syncIntroCertificate));
       //     m_face->registerPrefix(prefix, 
-      //                           boost::bind(&SyncPolicyManager::onIntroCertInterest, this, _1, _2, _3, _4), 
-      //                           boost::bind(&SyncPolicyManager::onIntroCertRegisterFailed, this, _1));
+      //                           boost::bind(&SecPolicySync::onIntroCertInterest, this, _1, _2, _3, _4), 
+      //                           boost::bind(&SecPolicySync::onIntroCertRegisterFailed, this, _1));
       //   }
     }
   else
@@ -314,8 +314,8 @@ SyncPolicyManager::onIntroCertVerified(const shared_ptr<Data>& introCertificateD
       //   {
       //     m_introCert.insert(pair <string, Data> (prefix.toEscapedString(), syncIntroCertificate));
       //     m_face->registerPrefix(prefix, 
-      //                           boost::bind(&SyncPolicyManager::onIntroCertInterest, this, _1, _2, _3, _4), 
-      //                           boost::bind(&SyncPolicyManager::onIntroCertRegisterFailed, this, _1));
+      //                           boost::bind(&SecPolicySync::onIntroCertInterest, this, _1, _2, _3, _4), 
+      //                           boost::bind(&SecPolicySync::onIntroCertRegisterFailed, this, _1));
       //   }
     }
 
@@ -333,7 +333,7 @@ SyncPolicyManager::onIntroCertVerified(const shared_ptr<Data>& introCertificateD
 }
 
 void 
-SyncPolicyManager::onIntroCertVerifyFailed(const shared_ptr<Data>& introCertificateData,
+SecPolicySync::onIntroCertVerifyFailed(const shared_ptr<Data>& introCertificateData,
                                            shared_ptr<Name> interestPrefixName,
                                            bool forIntroducer,
                                            shared_ptr<const vector<Name> > introNameList,
@@ -353,7 +353,7 @@ SyncPolicyManager::onIntroCertVerifyFailed(const shared_ptr<Data>& introCertific
   
   shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(interestName);
 
-  OnVerified onRecursiveVerified = boost::bind(&SyncPolicyManager::onIntroCertVerified, 
+  OnVerified onRecursiveVerified = boost::bind(&SecPolicySync::onIntroCertVerified, 
                                       this, 
                                       _1,
                                       forIntroducer, 
@@ -361,7 +361,7 @@ SyncPolicyManager::onIntroCertVerifyFailed(const shared_ptr<Data>& introCertific
                                       onVerified,
                                       onVerifyFailed);
 
-  OnVerifyFailed onRecursiveVerifyFailed = boost::bind(&SyncPolicyManager::onIntroCertVerifyFailed, 
+  OnVerifyFailed onRecursiveVerifyFailed = boost::bind(&SecPolicySync::onIntroCertVerifyFailed, 
                                               this, 
                                               _1,
                                               interestPrefixName,
@@ -373,7 +373,7 @@ SyncPolicyManager::onIntroCertVerifyFailed(const shared_ptr<Data>& introCertific
                                               onVerifyFailed);
         
   m_face->expressInterest(*interest, 
-                          boost::bind(&SyncPolicyManager::onIntroCertData,
+                          boost::bind(&SecPolicySync::onIntroCertData,
                                       this,
                                       _1,
                                       _2,     
@@ -382,7 +382,7 @@ SyncPolicyManager::onIntroCertVerifyFailed(const shared_ptr<Data>& introCertific
                                       onRecursiveVerifyFailed,
                                       originalData,
                                       onVerifyFailed),
-                          boost::bind(&SyncPolicyManager::onIntroCertTimeout, 
+                          boost::bind(&SecPolicySync::onIntroCertTimeout, 
                                       this,
                                       _1,
                                       1,
@@ -394,7 +394,7 @@ SyncPolicyManager::onIntroCertVerifyFailed(const shared_ptr<Data>& introCertific
 }
 
 void
-SyncPolicyManager::onIntroCertData(const shared_ptr<const ndn::Interest> &interest,
+SecPolicySync::onIntroCertData(const shared_ptr<const ndn::Interest> &interest,
                                    const shared_ptr<Data>& introCertificateData,
                                    int stepCount,
                                    const OnVerified& onRecursiveVerified,
@@ -406,7 +406,7 @@ SyncPolicyManager::onIntroCertData(const shared_ptr<const ndn::Interest> &intere
   if (nextStep)
     m_face->expressInterest
       (*nextStep->interest_, 
-       boost::bind(&SyncPolicyManager::onIntroCertData, 
+       boost::bind(&SecPolicySync::onIntroCertData, 
                    this, 
                    _1, 
                    _2,
@@ -415,7 +415,7 @@ SyncPolicyManager::onIntroCertData(const shared_ptr<const ndn::Interest> &intere
                    nextStep->onVerifyFailed_,
                    introCertificateData,
                    onRecursiveVerifyFailed), 
-       boost::bind(&SyncPolicyManager::onIntroCertTimeout, 
+       boost::bind(&SecPolicySync::onIntroCertTimeout, 
                    this, 
                    _1, 
                    nextStep->retry_, 
@@ -427,7 +427,7 @@ SyncPolicyManager::onIntroCertData(const shared_ptr<const ndn::Interest> &intere
 }
 
 void
-SyncPolicyManager::onIntroCertTimeout(const shared_ptr<const ndn::Interest>& interest, 
+SecPolicySync::onIntroCertTimeout(const shared_ptr<const ndn::Interest>& interest, 
 				      int retry, 
                                       int stepCount,
                                       const OnVerified& onRecursiveVerified,
@@ -438,7 +438,7 @@ SyncPolicyManager::onIntroCertTimeout(const shared_ptr<const ndn::Interest>& int
   if(retry > 0)
     {
       m_face->expressInterest(*interest, 
-                              boost::bind(&SyncPolicyManager::onIntroCertData, 
+                              boost::bind(&SecPolicySync::onIntroCertData, 
                                           this,
                                           _1,
                                           _2,
@@ -447,7 +447,7 @@ SyncPolicyManager::onIntroCertTimeout(const shared_ptr<const ndn::Interest>& int
                                           onRecursiveVerifyFailed,
                                           originalData,
                                           onVerifyFailed),
-                              boost::bind(&SyncPolicyManager::onIntroCertTimeout, 
+                              boost::bind(&SecPolicySync::onIntroCertTimeout, 
                                           this,
                                           _1,
                                           retry - 1,

@@ -56,7 +56,7 @@ public:
    * @param dataCallback the callback to process data
    */
   SyncSocket (const std::string &syncPrefix, 
-              ndn::ptr_lib::shared_ptr<SyncPolicyManager> syncPolicyManager,
+              ndn::ptr_lib::shared_ptr<SecPolicySync> policy,
               ndn::ptr_lib::shared_ptr<ndn::Face> face,
               NewDataCallback dataCallback, 
               RemoveCallback rmCallback);
@@ -113,7 +113,7 @@ private:
   typedef boost::unordered_map<std::string, SeqNo> SequenceLog;
   NewDataCallback m_newDataCallback;
   SequenceLog m_sequenceLog;
-  ndn::ptr_lib::shared_ptr<SyncPolicyManager> m_syncPolicyManager;
+  ndn::ptr_lib::shared_ptr<SecPolicySync> m_policy;
   ndn::ptr_lib::shared_ptr<ndn::Verifier> m_verifier;
   ndn::ptr_lib::shared_ptr<ndn::KeyChain> m_keyChain;
   ndn::ptr_lib::shared_ptr<ndn::Face> m_face;

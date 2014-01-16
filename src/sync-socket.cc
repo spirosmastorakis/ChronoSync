@@ -21,9 +21,6 @@
 #include "sync-socket.h"
 #include "sync-logging.h"
 
-#include <ndn-cpp/security/identity/basic-identity-storage.hpp>
-#include <ndn-cpp/security/identity/osx-private-key-storage.hpp>
-
 using namespace std;
 using namespace ndn;
 using namespace ndn::ptr_lib;
@@ -33,17 +30,17 @@ INIT_LOGGER ("SyncSocket");
 namespace Sync {
 
 SyncSocket::SyncSocket (const string &syncPrefix, 
-                        shared_ptr<SyncPolicyManager> syncPolicyManager,
+                        shared_ptr<SecPolicySync> policy,
                         shared_ptr<Face> face,
                         NewDataCallback dataCallback, 
                         RemoveCallback rmCallback )
   : m_newDataCallback(dataCallback)
-  , m_syncPolicyManager(syncPolicyManager)
-  , m_verifier(new Verifier(syncPolicyManager))
+  , m_policy(policy)
+  , m_verifier(new Verifier(policy))
   , m_keyChain(new KeyChain())
   , m_face(face)
   , m_syncLogic (syncPrefix,
-                 syncPolicyManager,
+                 policy,
                  face,
                  bind(&SyncSocket::passCallback, this, _1),
                  rmCallback)
@@ -63,7 +60,7 @@ SyncSocket::publishData(const std::string &prefix, uint32_t session, const char 
   contentNameWithSeqno << prefix << "/" << session << "/" << sequence;
   
   Name dataName(contentNameWithSeqno.str ());
-  Name signingIdentity = m_syncPolicyManager->inferSigningIdentity(dataName);
+  Name signingIdentity = m_policy->inferSigningIdentity(dataName);
 
   shared_ptr<Data> data = make_shared<Data>(dataName);
   data->setContent(reinterpret_cast<const uint8_t*>(buf), len);

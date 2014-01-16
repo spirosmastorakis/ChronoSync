@@ -38,7 +38,7 @@
 #include "sync-full-state.h"
 #include "sync-std-name-info.h"
 #include "sync-scheduler.h"
-#include "sync-policy-manager.h"
+#include "sec-policy-sync.h"
 
 #include "sync-diff-state-container.h"
 
@@ -87,13 +87,13 @@ public:
    * the app data when new remote names are learned
    */
   SyncLogic (const ndn::Name& syncPrefix,
-             ndn::ptr_lib::shared_ptr<SyncPolicyManager> syncPolicyManager,
+             ndn::ptr_lib::shared_ptr<SecPolicySync> syncPolicyManager,
              ndn::ptr_lib::shared_ptr<ndn::Face> face,
              LogicUpdateCallback onUpdate,
              LogicRemoveCallback onRemove);
 
   SyncLogic (const ndn::Name& syncPrefix,
-             ndn::ptr_lib::shared_ptr<SyncPolicyManager> syncPolicyManager,
+             ndn::ptr_lib::shared_ptr<SecPolicySync> syncPolicyManager,
              ndn::ptr_lib::shared_ptr<ndn::Face> face,
              LogicPerBranchCallback onUpdateBranch);
 
@@ -237,7 +237,7 @@ private:
   LogicRemoveCallback m_onRemove;
   LogicPerBranchCallback m_onUpdateBranch;
   bool m_perBranch;
-  ndn::ptr_lib::shared_ptr<SyncPolicyManager> m_policyManager;
+  ndn::ptr_lib::shared_ptr<SecPolicySync> m_policy;
   ndn::ptr_lib::shared_ptr<ndn::Verifier> m_verifier;
   ndn::ptr_lib::shared_ptr<ndn::KeyChain> m_keyChain;
   ndn::ptr_lib::shared_ptr<ndn::Face> m_face;

@@ -8,23 +8,23 @@
  * Author: Yingdi Yu <yingdi@cs.ucla.edu>
  */
 
-#ifndef SPECIFIC_POLICY_RULE_H
-#define SPECIFIC_POLICY_RULE_H
+#ifndef SEC_RULE_SYNC_SPECIFIC_H
+#define SEC_RULE_SYNC_SPECIFIC_H
 
-#include <ndn-cpp-et/policy-manager/policy-rule.hpp>
+#include <ndn-cpp-et/policy/sec-rule.hpp>
 #include <ndn-cpp-et/regex/regex.hpp>
 
-class SpecificPolicyRule : public ndn::PolicyRule
+class SecRuleSyncSpecific : public ndn::SecRule
 {
   
 public:
-  SpecificPolicyRule(ndn::ptr_lib::shared_ptr<ndn::Regex> dataRegex,
-                     ndn::ptr_lib::shared_ptr<ndn::Regex> signerRegex);
+  SecRuleSyncSpecific(ndn::ptr_lib::shared_ptr<ndn::Regex> dataRegex,
+                      ndn::ptr_lib::shared_ptr<ndn::Regex> signerRegex);
 
-  SpecificPolicyRule(const SpecificPolicyRule& rule);
+  SecRuleSyncSpecific(const SecRuleSyncSpecific& rule);
 
   virtual
-  ~SpecificPolicyRule() {};
+  ~SecRuleSyncSpecific() {};
 
   bool 
   matchDataName(const ndn::Data& data);
@@ -43,4 +43,4 @@ private:
   ndn::ptr_lib::shared_ptr<ndn::Regex> m_signerRegex;
 };
 
-#endif //CHAT_POLICY_RULE_H
+#endif
