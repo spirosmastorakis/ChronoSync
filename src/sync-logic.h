@@ -29,9 +29,9 @@
 #include <memory>
 #include <map>
 
-#include <ndn-cpp/face.hpp>
-#include <ndn-cpp/security/verifier.hpp>
-#include <ndn-cpp/security/key-chain.hpp>
+#include <ndn-cpp-dev/face.hpp>
+#include <ndn-cpp-dev/security/verifier.hpp>
+#include <ndn-cpp-dev/security/key-chain.hpp>
 
 #include "sync-interest-table.h"
 #include "sync-diff-state.h"

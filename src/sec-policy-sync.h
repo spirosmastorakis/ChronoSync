@@ -11,11 +11,11 @@
 #ifndef SEC_POLICY_SYNC_H
 #define SEC_POLICY_SYNC_H
 
-#include <ndn-cpp/face.hpp>
-#include <ndn-cpp/security/key-chain.hpp>
-#include <ndn-cpp/security/verifier.hpp>
-#include <ndn-cpp/security/sec-policy.hpp>
-#include <ndn-cpp/security/identity-certificate.hpp>
+#include <ndn-cpp-dev/face.hpp>
+#include <ndn-cpp-dev/security/key-chain.hpp>
+#include <ndn-cpp-dev/security/verifier.hpp>
+#include <ndn-cpp-dev/security/sec-policy.hpp>
+#include <ndn-cpp-dev/security/identity-certificate.hpp>
 #include <ndn-cpp-et/regex/regex.hpp>
 #include <ndn-cpp-et/policy/sec-rule-identity.hpp>
 #include <map>

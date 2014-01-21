@@ -25,9 +25,9 @@
 #include <boost/function.hpp>
 #include <boost/unordered_map.hpp>
 #include "sync-seq-no.h"
-#include <ndn-cpp/face.hpp>
-#include <ndn-cpp/security/verifier.hpp>
-#include <ndn-cpp/security/key-chain.hpp>
+#include <ndn-cpp-dev/face.hpp>
+#include <ndn-cpp-dev/security/verifier.hpp>
+#include <ndn-cpp-dev/security/key-chain.hpp>
 #include <utility>
 #include <map>
 #include <vector>

@@ -9,7 +9,7 @@
  */
 
 #include "sec-rule-sync-specific.h"
-#include <ndn-cpp/security/signature-sha256-with-rsa.hpp>
+#include <ndn-cpp-dev/security/signature-sha256-with-rsa.hpp>
 
 using namespace ndn;
 using namespace ndn::ptr_lib;

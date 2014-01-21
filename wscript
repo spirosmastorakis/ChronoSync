@@ -36,7 +36,7 @@ def configure(conf):
 
     # conf.check_ndnx ()
 
-    conf.check_ndncpp (path=conf.options.ndn_cpp_dir)
+    conf.check_cfg(package='libndn-cpp-dev', args=['--cflags', '--libs'], uselib_store='NDNCPP', mandatory=True)
     conf.check_cfg(package='libndn-cpp-et', args=['--cflags', '--libs'], uselib_store='NDN-CPP-ET', mandatory=True)
     
     conf.check_cfg(package='openssl', args=['--cflags', '--libs'], uselib_store='OPENSSL', mandatory=True)

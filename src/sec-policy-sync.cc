@@ -10,8 +10,8 @@
 
 #include "sync-intro-certificate.h"
 #include "sync-logging.h"
-#include <ndn-cpp/security/verifier.hpp>
-#include <ndn-cpp/security/signature-sha256-with-rsa.hpp>
+#include <ndn-cpp-dev/security/verifier.hpp>
+#include <ndn-cpp-dev/security/signature-sha256-with-rsa.hpp>
 
 #include "sec-policy-sync.h"
 
