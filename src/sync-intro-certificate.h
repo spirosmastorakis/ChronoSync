@@ -52,20 +52,34 @@ public:
   ndn::Data&
   setName (const ndn::Name& name);
   
-  inline virtual ndn::Name 
-  getPublicKeyName () const
-  { return m_keyName; }
+  inline const ndn::Name &
+  getPublicKeyName() const;
   
   inline IntroType
-  getIntroType()
-  { return m_introType; }
+  getIntroType();
 
+  inline const ndn::Name &
+  getNameSpace() const;
+  
   static bool
   isSyncIntroCertificate(const ndn::Certificate& certificate);
 
 protected:
+  ndn::Name m_nameSpace;
   ndn::Name m_keyName;
   IntroType m_introType;
 };
+
+SyncIntroCertificate::IntroType
+SyncIntroCertificate::getIntroType()
+{ return m_introType; }
+
+const ndn::Name &
+SyncIntroCertificate::getPublicKeyName () const
+{ return m_keyName; }
+
+const ndn::Name &
+SyncIntroCertificate::getNameSpace() const
+{ return m_nameSpace; }
 
 #endif
