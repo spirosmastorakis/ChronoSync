@@ -53,22 +53,25 @@ SyncSocket::~SyncSocket()
 }
 
 bool 
-SyncSocket::publishData(const std::string &prefix, uint32_t session, const char *buf, size_t len, int freshness)
+SyncSocket::publishData(const Name &prefix, uint32_t session, const char *buf, size_t len, int freshness)
 {
   uint32_t sequence = getNextSeq(prefix, session);
-  ostringstream contentNameWithSeqno;
-  contentNameWithSeqno << prefix << "/" << session << "/" << sequence;
+  ostringstream sessionStream;
+  ostringstream seqStream;
+  sessionStream <<  session;
+  seqStream << sequence;
   
-  Name dataName(contentNameWithSeqno.str ());
+  Name dataName = prefix;
+  dataName.append(sessionStream.str()).append(seqStream.str());
+  
   Name signingIdentity = m_policy->inferSigningIdentity(dataName);
 
-  shared_ptr<Data> data = make_shared<Data>(dataName);
-  data->setContent(reinterpret_cast<const uint8_t*>(buf), len);
+  Data data(dataName);
+  data.setContent(reinterpret_cast<const uint8_t*>(buf), len);
 
-  Name certificateName = m_keyChain->getDefaultCertificateNameForIdentity(signingIdentity);
-  m_keyChain->sign(*data, certificateName);
+  m_keyChain->signByIdentity(data, signingIdentity);
   
-  m_face->put(*data);
+  m_face->put(data);
   
   SeqNo s(session, sequence + 1);
   m_sequenceLog[prefix] = s;
@@ -77,47 +80,51 @@ SyncSocket::publishData(const std::string &prefix, uint32_t session, const char 
 }
 
 void 
-SyncSocket::fetchData(const string &prefix, const SeqNo &seq, const OnVerified& onVerified, int retry)
+SyncSocket::fetchData(const Name &prefix, const SeqNo &seq, const OnVerified& onVerified, int retry)
 {
-  ostringstream interestName;
-  interestName << prefix << "/" << seq.getSession() << "/" << seq.getSeq();
-  //std::cout << "Socket " << this << " Send Interest <" << interestName.str() << "> for raw data " << endl;
+  ostringstream sessionStream;
+  ostringstream seqStream;
+  sessionStream << seq.getSession();
+  seqStream << seq.getSeq();
 
-  const OnVerifyFailed& onVerifyFailed = bind(&SyncSocket::onChatDataVerifyFailed, this, _1);
+  Name interestName = prefix;
+  interestName.append(sessionStream.str()).append(seqStream.str());
+
+  const OnVerifyFailed& onVerifyFailed = bind(&SyncSocket::onDataVerifyFailed, this, _1);
   
   
-  shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(interestName.str());
-  m_face->expressInterest(*interest, 
-                          bind(&SyncSocket::onChatData, this, _1, _2, onVerified, onVerifyFailed), 
-                          bind(&SyncSocket::onChatDataTimeout, this, _1, retry, onVerified, onVerifyFailed));
+  ndn::Interest interest(interestName);
+  m_face->expressInterest(interest, 
+                          bind(&SyncSocket::onData, this, _1, _2, onVerified, onVerifyFailed), 
+                          bind(&SyncSocket::onDataTimeout, this, _1, retry, onVerified, onVerifyFailed));
 
 }
 
 void
-SyncSocket::onChatData(const shared_ptr<const ndn::Interest>& interest, 
-                       const shared_ptr<Data>& data,
-                       const OnVerified& onVerified,
-                       const OnVerifyFailed& onVerifyFailed)
+SyncSocket::onData(const shared_ptr<const ndn::Interest>& interest, 
+                   const shared_ptr<Data>& data,
+                   const OnVerified& onVerified,
+                   const OnVerifyFailed& onVerifyFailed)
 {
   m_verifier->verifyData(data, onVerified, onVerifyFailed);
 }
 
 void
-SyncSocket::onChatDataTimeout(const shared_ptr<const ndn::Interest>& interest, 
-                              int retry,
-                              const OnVerified& onVerified,
-                              const OnVerifyFailed& onVerifyFailed)
+SyncSocket::onDataTimeout(const shared_ptr<const ndn::Interest>& interest, 
+                          int retry,
+                          const OnVerified& onVerified,
+                          const OnVerifyFailed& onVerifyFailed)
 {
   if(retry > 0)
     {
       m_face->expressInterest(*interest,
-                              bind(&SyncSocket::onChatData,
+                              bind(&SyncSocket::onData,
                                    this,
                                    _1,
                                    _2,
                                    onVerified,
                                    onVerifyFailed),
-                              bind(&SyncSocket::onChatDataTimeout, 
+                              bind(&SyncSocket::onDataTimeout, 
                                    this,
                                    _1,
                                    retry - 1,
@@ -126,18 +133,18 @@ SyncSocket::onChatDataTimeout(const shared_ptr<const ndn::Interest>& interest,
                               
     }
   else
-    _LOG_DEBUG("Chat interest eventually time out!");
+    _LOG_DEBUG("interest eventually time out!");
 }
 
 void
-SyncSocket::onChatDataVerifyFailed(const shared_ptr<Data>& data)
+SyncSocket::onDataVerifyFailed(const shared_ptr<Data>& data)
 {
-  _LOG_DEBUG("Chat data cannot be verified!");
+  _LOG_DEBUG("data cannot be verified!");
 }
 
 
 uint32_t
-SyncSocket::getNextSeq (const string &prefix, uint32_t session)
+SyncSocket::getNextSeq (const Name &prefix, uint32_t session)
 {
   SequenceLog::iterator i = m_sequenceLog.find (prefix);
 

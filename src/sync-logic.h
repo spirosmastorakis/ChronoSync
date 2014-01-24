@@ -18,6 +18,7 @@
  * Author: Zhenkai Zhu <zhenkai@cs.ucla.edu>
  *         Chaoyi Bian <bcy@pku.edu.cn>
  *         Alexander Afanasyev <alexander.afanasyev@ucla.edu>
+ *         Yingdi Yu <yingdi@cs.ucla.edu>
  */
 
 #ifndef SYNC_LOGIC_H
@@ -102,7 +103,7 @@ public:
   /**
    * a wrapper for the same func in SyncApp
    */
-  void addLocalNames (const std::string &prefix, uint32_t session, uint32_t seq);
+  void addLocalNames (const ndn::Name &prefix, uint32_t session, uint32_t seq);
 
   /**
    * @brief respond to the Sync Interest; a lot of logic needs to go in here
@@ -121,7 +122,7 @@ public:
    * @brief remove a participant's subtree from the sync tree
    * @param prefix the name prefix for the participant
    */
-  void remove (const std::string &prefix);
+  void remove (const ndn::Name &prefix);
 
   std::string
   getRootDigest();
@@ -187,15 +188,15 @@ private:
   onSyncDataVerified(const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
 
   void
-  processSyncInterest (const std::string &name,
+  processSyncInterest (const ndn::Name &name,
                        DigestConstPtr digest, bool timedProcessing=false);
 
   void
-  processSyncData (const std::string &name,
+  processSyncData (const ndn::Name &name,
                    DigestConstPtr digest, const char *wireData, size_t len);
   
   void
-  processSyncRecoveryInterest (const std::string &name,
+  processSyncRecoveryInterest (const ndn::Name &name,
                                DigestConstPtr digest);
   
   void 
@@ -205,7 +206,7 @@ private:
   satisfyPendingSyncInterests (DiffStateConstPtr diff);
 
   boost::tuple<DigestConstPtr, std::string>
-  convertNameToDigestAndType (const std::string &name);
+  convertNameToDigestAndType (const ndn::Name &name);
 
   void
   sendSyncInterest ();
@@ -214,11 +215,11 @@ private:
   sendSyncRecoveryInterests (DigestConstPtr digest);
 
   void
-  sendSyncData (const std::string &name,
+  sendSyncData (const ndn::Name &name,
                 DigestConstPtr digest, StateConstPtr state);
 
   void
-  sendSyncData (const std::string &name,
+  sendSyncData (const ndn::Name &name,
                 DigestConstPtr digest, SyncStateMsg &msg);
 
   size_t
@@ -229,7 +230,7 @@ private:
   DiffStateContainer m_log;
   mutable boost::recursive_mutex m_stateMutex;
 
-  std::string m_outstandingInterestName;
+  ndn::Name m_outstandingInterestName;
   SyncInterestTable m_syncInterestTable;
 
   ndn::Name m_syncPrefix;

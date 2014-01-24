@@ -18,6 +18,7 @@
  * Author: Zhenkai Zhu <zhenkai@cs.ucla.edu>
  *         Chaoyi Bian <bcy@pku.edu.cn>
  *	   Alexander Afanasyev <alexander.afanasyev@ucla.edu>
+ *         Yingdi Yu <yingdi@cs.ucla.edu>
  */
 
 #ifdef NS3_MODULE
@@ -179,21 +180,21 @@ SyncLogic::stop()
  * Recovery name:  .../recovery/<hash>
  */
 boost::tuple<DigestConstPtr, std::string>
-SyncLogic::convertNameToDigestAndType (const std::string &name)
+SyncLogic::convertNameToDigestAndType (const Name &name)
 {
-  BOOST_ASSERT (name.find (m_syncPrefix.toUri()) == 0);
+  BOOST_ASSERT (m_syncPrefix.isPrefixOf(name));
 
-  string hash = name.substr (m_syncPrefix.toUri().size (), name.size ()-m_syncPrefix.toUri().size ());
-  if (hash[0] == '/')
-    hash = hash.substr (1, hash.size ()-1);
-  string interestType = "normal";
-
-  size_t pos = hash.find ('/');
-  if (pos != string::npos)
-    {
-      interestType = hash.substr (0, pos);
-      hash         = hash.substr (pos + 1);
-    }
+  int nameLengthDiff = name.size() - m_syncPrefix.size();
+  BOOST_ASSERT (nameLengthDiff > 0);
+  BOOST_ASSERT (nameLengthDiff < 3);
+  
+  string hash = name.get(-1).toEscapedString();
+  string interestType;
+  
+  if(nameLengthDiff == 1)
+    interestType = "normal";
+  else
+    interestType = name.get(-2).toEscapedString();
 
   _LOG_TRACE (hash << ", " << interestType);
 
@@ -210,8 +211,10 @@ SyncLogic::onSyncInterest (const shared_ptr<const Name>& prefix,
                            Transport& transport, 
                            uint64_t registeredPrefixId)
 {
-  _LOG_DEBUG("respondSyncInterest: " << interest->getName().toUri());
-  string name = interest->getName().toUri();
+  Name name = interest->getName();
+
+  _LOG_DEBUG("respondSyncInterest: " << name);
+
   try
     {
       _LOG_TRACE ("<< I " << name);
@@ -287,7 +290,7 @@ SyncLogic::onSyncDataVerifyFailed(const shared_ptr<Data>& data)
 void
 SyncLogic::onSyncDataVerified(const shared_ptr<Data>& data)
 {
-  string name = data->getName().toUri();
+  Name name = data->getName();
   const char* wireData = (const char*)data->getContent().value();
   size_t len = data->getContent().value_size();
 
@@ -319,7 +322,7 @@ SyncLogic::onSyncDataVerified(const shared_ptr<Data>& data)
 }
 
 void
-SyncLogic::processSyncInterest (const std::string &name, DigestConstPtr digest, bool timedProcessing/*=false*/)
+SyncLogic::processSyncInterest (const Name &name, DigestConstPtr digest, bool timedProcessing/*=false*/)
 {
   _LOG_DEBUG("processSyncInterest");
   DigestConstPtr rootDigest;
@@ -344,7 +347,7 @@ SyncLogic::processSyncInterest (const std::string &name, DigestConstPtr digest, 
   if (*rootDigest == *digest)
     {
       _LOG_TRACE ("processSyncInterest (): Same state. Adding to PIT");
-      m_syncInterestTable.insert (digest, name, false);
+      m_syncInterestTable.insert (digest, name.toUri(), false);
       return;
     }
   
@@ -360,7 +363,7 @@ SyncLogic::processSyncInterest (const std::string &name, DigestConstPtr digest, 
 
   if (!timedProcessing)
     {
-      bool exists = m_syncInterestTable.insert (digest, name, true);
+      bool exists = m_syncInterestTable.insert (digest, name.toUri(), true);
       if (exists) // somebody else replied, so restart random-game timer
         {
           _LOG_DEBUG ("Unknown digest, but somebody may have already replied, so restart our timer");
@@ -384,7 +387,7 @@ SyncLogic::processSyncInterest (const std::string &name, DigestConstPtr digest, 
 }
 
 void
-SyncLogic::processSyncData (const std::string &name, DigestConstPtr digest, const char *wireData, size_t len)
+SyncLogic::processSyncData (const Name &name, DigestConstPtr digest, const char *wireData, size_t len)
 {
   DiffStatePtr diffLog = boost::make_shared<DiffState> ();
   bool ownInterestSatisfied = false;
@@ -392,7 +395,7 @@ SyncLogic::processSyncData (const std::string &name, DigestConstPtr digest, cons
   try
     {
 
-      m_syncInterestTable.remove (name); // Remove satisfied interest from PIT
+      m_syncInterestTable.remove (name.toUri()); // Remove satisfied interest from PIT
 
       ownInterestSatisfied = (name == m_outstandingInterestName);
 
@@ -504,7 +507,7 @@ SyncLogic::processSyncData (const std::string &name, DigestConstPtr digest, cons
 }
 
 void
-SyncLogic::processSyncRecoveryInterest (const std::string &name, DigestConstPtr digest)
+SyncLogic::processSyncRecoveryInterest (const Name &name, DigestConstPtr digest)
 {
   _LOG_DEBUG("processSyncRecoveryInterest");
   DiffStateContainer::iterator stateInDiffLog = m_log.find (digest);
@@ -577,13 +580,13 @@ SyncLogic::insertToDiffLog (DiffStatePtr diffLog)
 }
 
 void
-SyncLogic::addLocalNames (const string &prefix, uint32_t session, uint32_t seq)
+SyncLogic::addLocalNames (const Name &prefix, uint32_t session, uint32_t seq)
 {
   DiffStatePtr diff;
   {
     //cout << "Add local names" <<endl;
     boost::recursive_mutex::scoped_lock lock (m_stateMutex);
-    NameInfoConstPtr info = StdNameInfo::FindOrCreate(prefix);
+    NameInfoConstPtr info = StdNameInfo::FindOrCreate(prefix.toUri());
 
     _LOG_DEBUG ("addLocalNames (): old state " << *m_state->getDigest ());
 
@@ -602,12 +605,12 @@ SyncLogic::addLocalNames (const string &prefix, uint32_t session, uint32_t seq)
 }
 
 void
-SyncLogic::remove(const string &prefix) 
+SyncLogic::remove(const Name &prefix) 
 {
   DiffStatePtr diff;
   {
     boost::recursive_mutex::scoped_lock lock (m_stateMutex);
-    NameInfoConstPtr info = StdNameInfo::FindOrCreate(prefix);
+    NameInfoConstPtr info = StdNameInfo::FindOrCreate(prefix.toUri());
     m_state->remove(info);	
 
     // increment the sequence number for the forwarder node
@@ -636,39 +639,41 @@ void
 SyncLogic::sendSyncInterest ()
 {
   _LOG_DEBUG("sendSyncInterest");
-  ostringstream os;
 
   {
     boost::recursive_mutex::scoped_lock lock (m_stateMutex);
-
-    os << m_syncPrefix << "/" << *m_state->getDigest();
-    m_outstandingInterestName = os.str ();
-    _LOG_TRACE (">> I " << os.str ());
+    m_outstandingInterestName = m_syncPrefix;
+    ostringstream os;
+    os << *m_state->getDigest();
+    m_outstandingInterestName.append(os.str());
+    _LOG_TRACE (">> I " << m_outstandingInterestName);
   }
 
-  _LOG_DEBUG("sendSyncInterest: " << os.str());
+  _LOG_DEBUG("sendSyncInterest: " << m_outstandingInterestName);
 
   m_scheduler.cancel (REEXPRESSING_INTEREST);
   m_scheduler.schedule (TIME_SECONDS_WITH_JITTER (m_syncInterestReexpress),
                         func_lib::bind (&SyncLogic::sendSyncInterest, this),
                         REEXPRESSING_INTEREST);
 
-  shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(os.str());
+  ndn::Interest interest(m_outstandingInterestName);
 
   OnVerified onVerified = func_lib::bind(&SyncLogic::onSyncDataVerified, this, _1);
   OnVerifyFailed onVerifyFailed = func_lib::bind(&SyncLogic::onSyncDataVerifyFailed, this, _1);
 
-  m_face->expressInterest(*interest,
+  m_face->expressInterest(interest,
                           func_lib::bind(&SyncLogic::onSyncData, this, _1, _2, onVerified, onVerifyFailed),
-                          func_lib::bind(&SyncLogic::onSyncDataTimeout, this, _1, 1, onVerified, onVerifyFailed));
+                          func_lib::bind(&SyncLogic::onSyncDataTimeout, this, _1, 0, onVerified, onVerifyFailed));
 }
 
 void
 SyncLogic::sendSyncRecoveryInterests (DigestConstPtr digest)
 {
   ostringstream os;
-  os << m_syncPrefix << "/recovery/" << *digest;
-  _LOG_TRACE (">> I " << os.str ());
+  os << *digest;
+  
+  Name interestName = m_syncPrefix;
+  interestName.append("recovery").append(os.str());
 
   TimeDuration nextRetransmission = TIME_MILLISECONDS_WITH_JITTER (m_recoveryRetransmissionInterval);
   m_recoveryRetransmissionInterval <<= 1;
@@ -681,19 +686,19 @@ SyncLogic::sendSyncRecoveryInterests (DigestConstPtr digest)
                             REEXPRESSING_RECOVERY_INTEREST);
     }
 
-  shared_ptr<ndn::Interest> interest = make_shared<ndn::Interest>(os.str());
+  ndn::Interest interest(interestName);
 
   OnVerified onVerified = func_lib::bind(&SyncLogic::onSyncDataVerified, this, _1);
   OnVerifyFailed onVerifyFailed = func_lib::bind(&SyncLogic::onSyncDataVerifyFailed, this, _1);
 
-  m_face->expressInterest(*interest,
+  m_face->expressInterest(interest,
                           func_lib::bind(&SyncLogic::onSyncData, this, _1, _2, onVerified, onVerifyFailed),
-                          func_lib::bind(&SyncLogic::onSyncDataTimeout, this, _1, 1, onVerified, onVerifyFailed));
+                          func_lib::bind(&SyncLogic::onSyncDataTimeout, this, _1, 0, onVerified, onVerifyFailed));
 }
 
 
 void
-SyncLogic::sendSyncData (const std::string &name, DigestConstPtr digest, StateConstPtr state)
+SyncLogic::sendSyncData (const Name &name, DigestConstPtr digest, StateConstPtr state)
 {
   SyncStateMsg msg;
   msg << (*state);
@@ -703,21 +708,19 @@ SyncLogic::sendSyncData (const std::string &name, DigestConstPtr digest, StateCo
 // pass in state msg instead of state, so that there is no need to lock the state until
 // this function returns
 void
-SyncLogic::sendSyncData (const std::string &name, DigestConstPtr digest, SyncStateMsg &ssm)
+SyncLogic::sendSyncData (const Name &name, DigestConstPtr digest, SyncStateMsg &ssm)
 {
   _LOG_TRACE (">> D " << name);
   int size = ssm.ByteSize();
   char *wireData = new char[size];
-  Name dataName(name);
-  Name signingIdentity = m_policy->inferSigningIdentity(dataName);
+  Name signingIdentity = m_policy->inferSigningIdentity(name);
 
-  shared_ptr<Data> syncData = make_shared<Data>(dataName);
-  syncData->setContent(reinterpret_cast<const uint8_t*>(wireData), size);
+  Data syncData(name);
+  syncData.setContent(reinterpret_cast<const uint8_t*>(wireData), size);
   
-  Name certificateName = m_keyChain->getDefaultCertificateNameForIdentity(signingIdentity);
-  m_keyChain->sign(*syncData, certificateName);
+  m_keyChain->signByIdentity(syncData, signingIdentity);
   
-  m_face->put(*syncData);
+  m_face->put(syncData);
   
   delete []wireData;
 

@@ -23,7 +23,6 @@
 
 #include "sync-logic.h"
 #include <boost/function.hpp>
-#include <boost/unordered_map.hpp>
 #include "sync-seq-no.h"
 #include <ndn-cpp-dev/face.hpp>
 #include <ndn-cpp-dev/security/verifier.hpp>
@@ -64,21 +63,21 @@ public:
   ~SyncSocket ();
 
   bool 
-  publishData(const std::string &prefix, uint32_t session, const char *buf, size_t len, int freshness);
+  publishData(const ndn::Name &prefix, uint32_t session, const char *buf, size_t len, int freshness);
 
   void 
-  remove (const std::string &prefix) 
+  remove (const ndn::Name &prefix) 
   { m_syncLogic.remove(prefix); }
 
   void 
-  fetchData(const std::string &prefix, const SeqNo &seq, const ndn::OnVerified& onVerified, int retry = 0);
+  fetchData(const ndn::Name &prefix, const SeqNo &seq, const ndn::OnVerified& onVerified, int retry = 0);
 
   std::string 
   getRootDigest() 
   { return m_syncLogic.getRootDigest(); }
 
   uint32_t
-  getNextSeq (const std::string &prefix, uint32_t session);
+  getNextSeq (const ndn::Name &prefix, uint32_t session);
 
   SyncLogic &
   getLogic () 
@@ -95,22 +94,22 @@ private:
   { m_newDataCallback(v, this); }
 
   void
-  onChatData(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
+  onData(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
              const ndn::ptr_lib::shared_ptr<ndn::Data>& data,
              const ndn::OnVerified& onVerified,
              const ndn::OnVerifyFailed& onVerifyFailed);
 
   void
-  onChatDataTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
+  onDataTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
                     int retry,
                     const ndn::OnVerified& onVerified,
                     const ndn::OnVerifyFailed& onVerifyFailed);
 
   void
-  onChatDataVerifyFailed(const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
+  onDataVerifyFailed(const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
 
 private:
-  typedef boost::unordered_map<std::string, SeqNo> SequenceLog;
+  typedef std::map<ndn::Name, SeqNo> SequenceLog;
   NewDataCallback m_newDataCallback;
   SequenceLog m_sequenceLog;
   ndn::ptr_lib::shared_ptr<SecPolicySync> m_policy;
