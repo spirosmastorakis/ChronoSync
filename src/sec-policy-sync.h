@@ -16,20 +16,18 @@
 #include <ndn-cpp-dev/security/verifier.hpp>
 #include <ndn-cpp-dev/security/sec-policy.hpp>
 #include <ndn-cpp-dev/security/identity-certificate.hpp>
-#include <ndn-cpp-et/regex/regex.hpp>
-#include <ndn-cpp-et/policy/sec-rule-identity.hpp>
+#include <ndn-cpp-et/policy/sec-rule-relative.hpp>
+// #include <ndn-cpp-et/policy/sec-rule-specific.hpp>
 #include <map>
-
-#include "sec-rule-sync-specific.h"
 
 class SecPolicySync : public ndn::SecPolicy
 {
 public:
   SecPolicySync(const ndn::Name& signingIdentity,
-                    const ndn::Name& signingCertificateName,
-                    const ndn::Name& syncPrefix,
-                    ndn::ptr_lib::shared_ptr<ndn::Face> face,
-                    int m_stepLimit = 3);
+                const ndn::Name& signingCertificateName,
+                const ndn::Name& syncPrefix,
+                ndn::ptr_lib::shared_ptr<ndn::Face> face,
+                int m_stepLimit = 3);
   
   virtual
   ~SecPolicySync();
@@ -57,7 +55,7 @@ public:
   addTrustAnchor(const ndn::IdentityCertificate& identityCertificate, bool isIntroducer);
 
   void
-  addChatDataRule(const ndn::Name& prefix, 
+  addSyncDataRule(const ndn::Name& prefix, 
                   const ndn::IdentityCertificate& identityCertificate,
                   bool isIntroducer);
 
@@ -99,7 +97,7 @@ private:
 
   void 
   onIntroCertVerifyFailed(const ndn::ptr_lib::shared_ptr<ndn::Data>& introCertificateData,
-                          ndn::ptr_lib::shared_ptr<ndn::Name> interestPrefixName,
+                          ndn::Name interestPrefix,
                           bool forIntroducer,
                           ndn::ptr_lib::shared_ptr<const std::vector<ndn::Name> > introNameList,
                           int nextIntroducerIndex,
@@ -111,19 +109,15 @@ private:
   onIntroCertData(const ndn::ptr_lib::shared_ptr<const ndn::Interest> &interest,
                   const ndn::ptr_lib::shared_ptr<ndn::Data>& introCertificateData,                  
                   int stepCount,
-                  const ndn::OnVerified& onRecursiveVerified,
-                  const ndn::OnVerifyFailed& onRecursiveVerifyFailed,
-                  ndn::ptr_lib::shared_ptr<ndn::Data> originalData,
-                  const ndn::OnVerifyFailed& onVerifyFailed);
+                  const ndn::OnVerified& introCertVerified,
+                  const ndn::OnVerifyFailed& introCertVerifyFailed);
 
   void
   onIntroCertTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
                      int retry,                      
                      int stepCount,
-                     const ndn::OnVerified& onRecursiveVerified,
-                     const ndn::OnVerifyFailed& onRecursiveVerifyFailed,
-                     ndn::ptr_lib::shared_ptr<ndn::Data> originalData,
-                     const ndn::OnVerifyFailed& onVerifyFailed);
+                     const ndn::OnVerified& introCertVerified,
+                     const ndn::OnVerifyFailed& introCertVerifyFailed);
 
 
 
@@ -131,14 +125,13 @@ private:
   ndn::Name m_signingIdentity;
   ndn::Name m_signingCertificateName;
   ndn::Name m_syncPrefix;
+  ndn::Name m_introCertPrefix;
   int m_stepLimit;
-  ndn::ptr_lib::shared_ptr<ndn::Regex> m_syncPrefixRegex;
-  ndn::ptr_lib::shared_ptr<ndn::Regex> m_wotPrefixRegex;
-  ndn::ptr_lib::shared_ptr<ndn::SecRuleIdentity> m_chatDataPolicy; 
-  std::map<std::string, ndn::PublicKey> m_trustedIntroducers;
-  std::map<std::string, ndn::PublicKey> m_trustedProducers;
-  std::map<std::string, SecRuleSyncSpecific> m_chatDataRules;
-  std::map<std::string, ndn::Data> m_introCert;
+  ndn::ptr_lib::shared_ptr<ndn::SecRuleRelative> m_syncDataPolicy; 
+  std::map<ndn::Name, ndn::PublicKey> m_trustedIntroducers;
+  std::map<ndn::Name, ndn::PublicKey> m_trustedProducers;
+  // std::map<ndn::Name, SecRuleSyncSpecific> m_chatDataRules;
+  std::map<ndn::Name, ndn::Data> m_introCert;
 
   ndn::ptr_lib::shared_ptr<ndn::KeyChain> m_keyChain;
   ndn::ptr_lib::shared_ptr<ndn::Face> m_face;
