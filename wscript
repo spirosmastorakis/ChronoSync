@@ -15,11 +15,8 @@ def options(opt):
     syncopt.add_option('--log4cxx', action='store_true',default=False,dest='log4cxx',help='''Compile with log4cxx''')
     syncopt.add_option('--test', action='store_true',default=False,dest='_test',help='''build unit tests''')
 
-    opt.load('ndn_cpp', tooldir=['waf-tools'])
-
 def configure(conf):
     conf.load('compiler_c compiler_cxx gnu_dirs boost')
-    conf.load('ndn_cpp')
 
     if conf.options.debug:
         conf.define ('_DEBUG', 1)
@@ -34,15 +31,11 @@ def configure(conf):
     else:
         conf.add_supported_cxxflags (cxxflags = ['-O3', '-g'])
 
-    # conf.check_ndnx ()
-
     conf.check_cfg(package='libndn-cpp-dev', args=['--cflags', '--libs'], uselib_store='NDNCPP', mandatory=True)
-    conf.check_cfg(package='libndn-cpp-et', args=['--cflags', '--libs'], uselib_store='NDN-CPP-ET', mandatory=True)
     
     conf.check_cfg(package='openssl', args=['--cflags', '--libs'], uselib_store='OPENSSL', mandatory=True)
-    # conf.check_openssl ()
 
-    conf.check_boost(lib='system iostreams test thread')
+    conf.check_boost(lib='system iostreams thread unit_test_framework')
 
     if conf.options.log4cxx:
         conf.check_cfg(package='liblog4cxx', args=['--cflags', '--libs'], uselib_store='LOG4CXX', mandatory=True)
@@ -63,7 +56,7 @@ def build (bld):
         # vnum = "1.0.0",
         features=['cxx', 'cxxshlib'],
         source =  bld.path.ant_glob (['src/**/*.cc', 'src/**/*.proto']),
-        use = 'BOOST BOOST_IOSTREAMS BOOST_THREAD SSL NDNCPP NDN-CPP-ET OPENSSL',
+        use = 'BOOST NDNCPP OPENSSL',
         includes = ['src'],
         )
     
@@ -73,7 +66,7 @@ def build (bld):
           target="unit-tests",
           source = bld.path.ant_glob(['tests/**/*.cc']),
           features=['cxx', 'cxxprogram'],
-          use = 'BOOST_TEST ChronoSync',
+          use = 'ChronoSync',
           includes = ['src'],
           )
 

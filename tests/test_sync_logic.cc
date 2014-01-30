@@ -1,4 +1,4 @@
-/* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
+/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil -*- */
 /*
  * Copyright (c) 2012 University of California, Los Angeles
  *
@@ -27,8 +27,7 @@ using boost::test_tools::output_test_stream;
 
 #include <boost/make_shared.hpp>
 
-// #include <ndn.cxx/wrapper/wrapper.h>
-#include "sync-policy-manager.h"
+#include <ndn-cpp-dev/security/validator-null.hpp>
 #include "sync-logic.h"
 #include "sync-seq-no.h"
 
@@ -72,39 +71,109 @@ struct Handler
   map<string, uint32_t> m_map;
 };
 
+class TestCore
+{
+public:
+  TestCore(ndn::shared_ptr<boost::asio::io_service> ioService)
+    : m_ioService(ioService)
+  {
+    m_l[0] = 0;
+    m_l[1] = 0;
+    
+    m_validator = ndn::make_shared<ndn::ValidatorNull>();
+  }
+  
+  ~TestCore()
+  {
+    if(m_l[0] != 0)
+      delete m_l[0];
+
+    if(m_l[1] != 0)
+      delete m_l[1];
+  }
+
+  void
+  finish()
+  {
+  }
+  
+  void
+  createSyncLogic(int index, 
+                  ndn::shared_ptr<Handler> h)
+  { 
+    m_faces[index] = ndn::make_shared<ndn::Face>(m_ioService);
+    m_l[index] = new SyncLogic(ndn::Name("/bcast"), 
+                               m_validator, m_faces[index], 
+                               bind (&Handler::wrapper, &*h, _1), 
+                               bind (&Handler::onRemove, &*h, _1)); 
+  }
+
+  void
+  getOldDigestForOne()
+  {
+    m_oldDigest = m_l[0]->getRootDigest();
+  }
+  
+  void
+  getNewDigestForOne()
+  {
+    m_newDigest = m_l[0]->getRootDigest();
+  }
+
+  void
+  addLocalNamesForOne(ndn::Name name, uint64_t session, uint64_t seq)
+  {
+    m_l[0]->addLocalNames(name, session, seq);
+  }
+
+  void
+  removeForOne(ndn::Name name)
+  {
+    m_l[0]->remove(name);
+  }
+  
+  void
+  checkDigest()
+  {
+    BOOST_CHECK(m_oldDigest != m_newDigest);
+  }
+
+
+public:
+  ndn::shared_ptr<boost::asio::io_service> m_ioService;
+  SyncLogic* m_l[2];
+  ndn::shared_ptr<ndn::Face> m_faces[2];
+  ndn::shared_ptr<ndn::ValidatorNull> m_validator;
+  string m_oldDigest;
+  string m_newDigest;
+};
+
+void
+checkMapSize(ndn::shared_ptr<Handler> h, int size)
+{ BOOST_CHECK_EQUAL (h->m_map.size (), size); }
+
+
 BOOST_AUTO_TEST_CASE (SyncLogicTest)
 {
- //  Handler h1 ("1");
+  ndn::shared_ptr<boost::asio::io_service> ioService = ndn::make_shared<boost::asio::io_service>();
+  ndn::Scheduler scheduler(*ioService);
+  TestCore testCore(ioService);
 
- //  ndn::Ptr<SyncPolicyManager> policyManager1 = ndn::Ptr<SyncPolicyManager>(new SyncPolicyManager(ndn::Name("/ndn/ucla.edu/alice"), ndn::Name("/ndn/ucla.edu/alice/KEY/dsk-1382934202/ID-CERT/%FD%FF%FF%FF%FF%DEk%C0%0B"), ndn::Name("/bcast")));
+  ndn::shared_ptr<Handler> h1 = ndn::make_shared<Handler>("1");
+  ndn::shared_ptr<Handler> h2 = ndn::make_shared<Handler>("2");
 
- //  SyncLogic l1 (ndn::Name("/bcast"),
- //                policyManager1,
- //                bind (&Handler::wrapper, &h1, _1), bind (&Handler::onRemove, &h1, _1));
-
- //  std::string oldDigest  = l1.getRootDigest();
+  scheduler.scheduleEvent(ndn::time::seconds(0), ndn::bind(&TestCore::createSyncLogic, &testCore, 0, h1));
+  scheduler.scheduleEvent(ndn::time::seconds(0.1), ndn::bind(&TestCore::getOldDigestForOne, &testCore));
+  scheduler.scheduleEvent(ndn::time::seconds(0.2), ndn::bind(&TestCore::addLocalNamesForOne, &testCore, "/one", 1, 2));
+  scheduler.scheduleEvent(ndn::time::seconds(0.3), ndn::bind(&checkMapSize, h1, 0));
+  scheduler.scheduleEvent(ndn::time::seconds(0.4), ndn::bind(&TestCore::createSyncLogic, &testCore, 1, h2));
+  scheduler.scheduleEvent(ndn::time::seconds(0.5), ndn::bind(&checkMapSize, h1, 0));
+  scheduler.scheduleEvent(ndn::time::seconds(0.6), ndn::bind(&checkMapSize, h2, 1));
+  scheduler.scheduleEvent(ndn::time::seconds(0.7), ndn::bind(&TestCore::removeForOne, &testCore, "/one"));
+  scheduler.scheduleEvent(ndn::time::seconds(0.8), ndn::bind(&TestCore::getNewDigestForOne, &testCore));
+  scheduler.scheduleEvent(ndn::time::seconds(0.9), ndn::bind(&TestCore::checkDigest, &testCore));
+  scheduler.scheduleEvent(ndn::time::seconds(1.0), ndn::bind(&TestCore::finish, &testCore));
   
- //  l1.addLocalNames ("/one", 1, 2);
-
- //  BOOST_CHECK_EQUAL (h1.m_map.size (), 0);
- //  sleep (1);
- //  BOOST_CHECK_EQUAL (h1.m_map.size (), 0);
-
- //  Handler h2 ("2");
-
- // ndn::Ptr<SyncPolicyManager> policyManager2 = ndn::Ptr<SyncPolicyManager>(new SyncPolicyManager(ndn::Name("/ndn/ucla.edu/bob"), ndn::Name("/ndn/ucla.edu/bob/KEY/dsk-1382934206/ID-CERT/%FD%FF%FF%FF%FF%DEl%0BC"), ndn::Name("/bcast")));
-
- //  SyncLogic l2 (ndn::Name("/bcast"),
- //                policyManager2,
- //                bind (&Handler::wrapper, &h2, _1), bind (&Handler::onRemove, &h2, _1));
-  
- //  sleep (1);
- //  BOOST_CHECK_EQUAL (h1.m_map.size (), 0);
- //  BOOST_CHECK_EQUAL (h2.m_map.size (), 1);
-  
- //  l1.remove ("/one");
- //  sleep(1);
- //  std::string newDigest = l1.getRootDigest();
- //  BOOST_CHECK(oldDigest != newDigest);
+  ioService->run();
 
 }

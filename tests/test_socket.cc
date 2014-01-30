@@ -29,6 +29,7 @@ using boost::test_tools::output_test_stream;
 
 #include "sync-logging.h"
 #include "sync-socket.h"
+#include <ndn-cpp-dev/security/validator-null.hpp>
 
 extern "C" {
 #include <unistd.h>
@@ -45,24 +46,24 @@ INIT_LOGGER ("Test.AppSocket");
 
 class TestSocketApp {
 public:
-  map<string, string> data;
-  void set(ndn::Ptr<ndn::Data> dataPacket) {
+  map<ndn::Name, string> data;
+  void set(const ndn::shared_ptr<const ndn::Data>& dataPacket) {
     // _LOG_FUNCTION (this << ", " << str1);
-    string str1(dataPacket->getName().toUri());
-    string str2(dataPacket->content().buf(), dataPacket->content().size());
-    data.insert(make_pair(str1, str2));
+    ndn::Name dataName(dataPacket->getName());
+    string str2(reinterpret_cast<const char*>(dataPacket->getContent().value()), dataPacket->getContent().value_size());
+    data.insert(make_pair(dataName, str2));
     // cout << str1 << ", " << str2 << endl;
   }
 
-  void set(string str1, const char * buf, int len) {
+  void set(ndn::Name name, const char * buf, int len) {
     string str2(buf, len);
-    data.insert(make_pair(str1, str2));
+    data.insert(make_pair(name, str2));
   }
   
-  void setNum(ndn::Ptr<ndn::Data> dataPacket) {
-    int n = dataPacket->content().size() / 4;
+  void setNum(const ndn::shared_ptr<const ndn::Data>& dataPacket) {
+    int n = dataPacket->getContent().value_size() / 4;
     int *numbers = new int [n];
-    memcpy(numbers, dataPacket->content().buf(), dataPacket->content().size());
+    memcpy(numbers, dataPacket->getContent().value(), dataPacket->getContent().value_size());
     for (int i = 0; i < n; i++) {
       sum += numbers[i];
     }
@@ -70,7 +71,7 @@ public:
 
   }
 
-  void setNum(string str1, const char * buf, int len) {
+  void setNum(ndn::Name name, const char * buf, int len) {
     int n = len / 4;
     int *numbers = new int [n];
     memcpy(numbers, buf, len);
@@ -114,11 +115,11 @@ public:
   }
 
   string toString(){
-    map<string, string>::iterator it = data.begin(); 
+    map<ndn::Name, string>::iterator it = data.begin(); 
     string str = "\n";
     for (; it != data.end(); ++it){
       str += "<";
-      str += it->first;
+      str += it->first.toUri();
       str += "|";
       str += it->second;
       str += ">";
@@ -130,118 +131,246 @@ public:
 
 };
 
-BOOST_AUTO_TEST_CASE (AppSocketTest)
+class TestSet1{
+public:
+  TestSet1(ndn::shared_ptr<boost::asio::io_service> ioService)
+    : m_syncPrefix("/let/us/sync")
+    , m_validator(new ndn::ValidatorNull())
+    , m_face1(new ndn::Face(ioService))
+    , m_face2(new ndn::Face(ioService))
+    , m_face3(new ndn::Face(ioService))
+    , m_p1("/irl.cs.ucla.edu")
+    , m_p2("/yakshi.org")
+    , m_p3("/google.com")
+  {}
+
+  void
+  createSyncSocket1()
+  {
+    _LOG_DEBUG ("s1");
+    m_s1 = make_shared<SyncSocket>(m_syncPrefix, m_validator, m_face1, 
+                                   bind(&TestSocketApp::fetchAll, &m_a1, _1, _2), 
+                                   bind(&TestSocketApp::pass, &m_a1, _1));
+  }
+
+  void
+  createSyncSocket2()
+  {
+    _LOG_DEBUG ("s2");
+    m_s2 = make_shared<SyncSocket>(m_syncPrefix, m_validator, m_face2, 
+                                   bind(&TestSocketApp::fetchAll, &m_a2, _1, _2), 
+                                   bind(&TestSocketApp::pass, &m_a2, _1));
+  }
+  
+  void
+  createSyncSocket3()
+  {
+    _LOG_DEBUG ("s3");
+    m_s3 = make_shared<SyncSocket>(m_syncPrefix, m_validator, m_face3, 
+                                   bind(&TestSocketApp::fetchAll, &m_a3, _1, _2), 
+                                   bind(&TestSocketApp::pass, &m_a3, _1));
+  }
+
+  void
+  publishSocket1(uint32_t session, string data)
+  {
+    _LOG_DEBUG ("s1 publish");
+    m_s1->publishData (m_p1, session, data.c_str(), data.size(), 1000); 
+  }
+
+  void
+  publishSocket2(uint32_t session, string data)
+  {
+    _LOG_DEBUG ("s2 publish");
+    m_s2->publishData (m_p2, session, data.c_str(), data.size(), 1000); 
+  }
+
+  void
+  publishSocket3(uint32_t session, string data)
+  {
+    _LOG_DEBUG ("s3 publish");
+    m_s3->publishData (m_p3, session, data.c_str(), data.size(), 1000); 
+  }
+
+  void
+  setSocket1(string suffix, string data)
+  {
+    _LOG_DEBUG ("a1 set");
+    ndn::Name name = m_p1;
+    name.append(suffix);
+    m_a1.set (name, data.c_str(), data.size()); 
+  }
+
+  void
+  setSocket2(string suffix, string data)
+  {
+    _LOG_DEBUG ("a2 set");
+    ndn::Name name = m_p2;
+    name.append(suffix);
+    m_a2.set (name, data.c_str(), data.size()); 
+  }
+
+  void
+  setSocket3(string suffix, string data)
+  {
+    _LOG_DEBUG ("a3 set");
+    ndn::Name name = m_p3;
+    name.append(suffix);
+    m_a3.set (name, data.c_str(), data.size()); 
+  }
+
+  void
+  check()
+  { 
+    BOOST_CHECK_EQUAL(m_a1.toString(), m_a2.toString());
+    BOOST_CHECK_EQUAL(m_a2.toString(), m_a3.toString());
+  }
+
+
+
+  TestSocketApp m_a1, m_a2, m_a3;
+  ndn::shared_ptr<ndn::ValidatorNull> m_validator;
+  ndn::shared_ptr<ndn::Face> m_face1, m_face2, m_face3;
+  ndn::Name m_p1, m_p2, m_p3;
+  ndn::shared_ptr<SyncSocket> m_s1, m_s2, m_s3;
+  ndn::Name m_syncPrefix;
+};
+
+class TestSet2{
+public:
+  TestSet2(ndn::shared_ptr<boost::asio::io_service> ioService)
+    : m_syncPrefix("/this/is/the/prefix")
+    , m_validator(new ndn::ValidatorNull())
+    , m_face1(new ndn::Face(ioService))
+    , m_face2(new ndn::Face(ioService))
+    , m_p1("/xiaonei.com")
+    , m_p2("/mitbbs.com")
+  {}
+
+  void
+  createSyncSocket1()
+  {
+    _LOG_DEBUG ("s1");
+    m_s1 = make_shared<SyncSocket>(m_syncPrefix, m_validator, m_face1, 
+                                   bind(&TestSocketApp::fetchNumbers, &m_a1, _1, _2), 
+                                   bind(&TestSocketApp::pass, &m_a1, _1));
+  }
+
+  void
+  createSyncSocket2()
+  {
+    _LOG_DEBUG ("s2");
+    m_s2 = make_shared<SyncSocket>(m_syncPrefix, m_validator, m_face2, 
+                                   bind(&TestSocketApp::fetchNumbers, &m_a2, _1, _2), 
+                                   bind(&TestSocketApp::pass, &m_a2, _1));
+  }
+  
+  void
+  publishSocket1(uint32_t session, string data)
+  {
+    _LOG_DEBUG ("s1 publish");
+    m_s1->publishData (m_p1, session, data.c_str(), data.size(), 1000); 
+  }
+
+  void
+  publishSocket2(uint32_t session, string data)
+  {
+    _LOG_DEBUG ("s2 publish");
+    m_s2->publishData (m_p2, session, data.c_str(), data.size(), 1000); 
+  }
+
+  void
+  setSocket1(const char* ptr, size_t size)
+  {
+    _LOG_DEBUG ("a1 setNum");
+    m_a1.setNum (m_p1, ptr, size); 
+  }
+
+  void
+  setSocket2(const char* ptr, size_t size)
+  {
+    _LOG_DEBUG ("a2 setNum");
+    m_a2.setNum (m_p2, ptr, size); 
+  }
+
+  void
+  check(int num)
+  { 
+    BOOST_CHECK(m_a1.sum == m_a2.sum && m_a1.sum == num);
+  }
+
+
+
+  TestSocketApp m_a1, m_a2;
+  ndn::shared_ptr<ndn::ValidatorNull> m_validator;
+  ndn::shared_ptr<ndn::Face> m_face1, m_face2;
+  ndn::Name m_p1, m_p2;
+  ndn::shared_ptr<SyncSocket> m_s1, m_s2;
+  ndn::Name m_syncPrefix;
+};
+
+BOOST_AUTO_TEST_CASE (AppSocketTest1)
 {
   INIT_LOGGERS ();
-  
-  TestSocketApp a1, a2, a3;
-	
-  string syncPrefix("/let/us/sync");
-  string p1("/irl.cs.ucla.edu"), p2("/yakshi.org"), p3("/google.com");
 
-  ndn::Ptr<SyncPolicyManager> policyManager1 = ndn::Ptr<SyncPolicyManager>(new SyncPolicyManager(ndn::Name("/ndn/ucla.edu/alice"), ndn::Name("/ndn/ucla.edu/alice/KEY/dsk-1382934202/ID-CERT/%FD%FF%FF%FF%FF%DEk%C0%0B"), ndn::Name(syncPrefix)));
+  ndn::shared_ptr<boost::asio::io_service> ioService = ndn::make_shared<boost::asio::io_service>();
+  ndn::Scheduler scheduler(*ioService);
+  TestSet1 testSet1(ioService);
 
-  _LOG_DEBUG ("s1");
-  SyncSocket s1 (syncPrefix, policyManager1, bind(&TestSocketApp::fetchAll, &a1, _1, _2), bind(&TestSocketApp::pass, &a1, _1));
-  this_thread::sleep (posix_time::milliseconds (50));
-  _LOG_DEBUG ("s2");
-  SyncSocket s2 (syncPrefix, policyManager1, bind(&TestSocketApp::fetchAll, &a2, _1, _2), bind(&TestSocketApp::pass, &a2, _1));
-  this_thread::sleep (posix_time::milliseconds (50));
-  SyncSocket s3 (syncPrefix, policyManager1, bind(&TestSocketApp::fetchAll, &a3, _1, _2), bind(&TestSocketApp::pass, &a3, _1));
-  this_thread::sleep (posix_time::milliseconds (50));
-
-  // single source
+  scheduler.scheduleEvent(ndn::time::seconds(0.00), ndn::bind(&TestSet1::createSyncSocket1, &testSet1));
+  scheduler.scheduleEvent(ndn::time::seconds(0.05), ndn::bind(&TestSet1::createSyncSocket2, &testSet1));
+  scheduler.scheduleEvent(ndn::time::seconds(0.10), ndn::bind(&TestSet1::createSyncSocket3, &testSet1));
   string data0 = "Very funny Scotty, now beam down my clothes";
-  _LOG_DEBUG ("s1 publish");
-  s1.publishData (p1, 0, data0.c_str(), data0.size(), 10); 
-  this_thread::sleep (posix_time::milliseconds (1000));
+  scheduler.scheduleEvent(ndn::time::seconds(0.15), ndn::bind(&TestSet1::publishSocket1, &testSet1, 0, data0));
+  scheduler.scheduleEvent(ndn::time::seconds(1.15), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/0", data0));
+  scheduler.scheduleEvent(ndn::time::seconds(1.16), ndn::bind(&TestSet1::check, &testSet1)); 
+  string data1 = "Yes, give me that ketchup";
+  string data2 = "Don't look conspicuous, it draws fire";
+  scheduler.scheduleEvent(ndn::time::seconds(1.17), ndn::bind(&TestSet1::publishSocket1, &testSet1, 0, data1));
+  scheduler.scheduleEvent(ndn::time::seconds(1.18), ndn::bind(&TestSet1::publishSocket1, &testSet1, 0, data2));
+  scheduler.scheduleEvent(ndn::time::seconds(2.15), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/1", data1));
+  scheduler.scheduleEvent(ndn::time::seconds(2.16), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/2", data2));
+  scheduler.scheduleEvent(ndn::time::seconds(2.17), ndn::bind(&TestSet1::check, &testSet1));
+  string data3 = "You surf the Internet, I surf the real world";
+  string data4 = "I got a fortune cookie once that said 'You like Chinese food'";
+  string data5 = "Real men wear pink. Why? Because their wives make them";
+  scheduler.scheduleEvent(ndn::time::seconds(2.18), ndn::bind(&TestSet1::publishSocket3, &testSet1, 0, data3));
+  scheduler.scheduleEvent(ndn::time::seconds(2.20), ndn::bind(&TestSet1::publishSocket2, &testSet1, 0, data4));
+  scheduler.scheduleEvent(ndn::time::seconds(2.21), ndn::bind(&TestSet1::publishSocket2, &testSet1, 0, data5));
+  scheduler.scheduleEvent(ndn::time::seconds(3.21), ndn::bind(&TestSet1::setSocket3, &testSet1, "/0/0", data3));
+  scheduler.scheduleEvent(ndn::time::seconds(3.22), ndn::bind(&TestSet1::setSocket2, &testSet1, "/0/0", data4));
+  scheduler.scheduleEvent(ndn::time::seconds(3.23), ndn::bind(&TestSet1::setSocket2, &testSet1, "/0/1", data5));
+  // not sure weither this is simultanous data generation from multiple sources
+  _LOG_DEBUG ("Simultaneous publishing");
+  string data6 = "Shakespeare says: 'Prose before hos.'";
+  string data7 = "Pick good people, talent never wears out";
+  scheduler.scheduleEvent(ndn::time::seconds(3.30), ndn::bind(&TestSet1::publishSocket1, &testSet1, 0, data6));
+  scheduler.scheduleEvent(ndn::time::seconds(3.30), ndn::bind(&TestSet1::publishSocket2, &testSet1, 0, data7));
+  scheduler.scheduleEvent(ndn::time::seconds(4.80), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/3", data6));
+  scheduler.scheduleEvent(ndn::time::seconds(4.80), ndn::bind(&TestSet1::setSocket2, &testSet1, "/0/2", data7));
+  scheduler.scheduleEvent(ndn::time::seconds(4.90), ndn::bind(&TestSet1::check, &testSet1));
 
-  // // from code logic, we won't be fetching our own data
-  // a1.set(p1 + "/0/0", data0.c_str(), data0.size());
-  // BOOST_CHECK_EQUAL(a1.toString(), a2.toString());
-  // BOOST_CHECK_EQUAL(a2.toString(), a3.toString());
+  ioService->run();
+}
 
-  // // single source, multiple data at once
-  // string data1 = "Yes, give me that ketchup";
-  // string data2 = "Don't look conspicuous, it draws fire";
+BOOST_AUTO_TEST_CASE (AppSocketTest2)
+{
+  ndn::shared_ptr<boost::asio::io_service> ioService = ndn::make_shared<boost::asio::io_service>();
+  ndn::Scheduler scheduler(*ioService);
+  TestSet2 testSet2(ioService);
 
-  // _LOG_DEBUG ("s1 publish");
-  // s1.publishData (p1, 0, data1.c_str(), data1.size(), 10);
-  // _LOG_DEBUG ("s1 publish");
-  // s1.publishData (p1, 0, data2.c_str(), data2.size(), 10);
-  // this_thread::sleep (posix_time::milliseconds (1000));
-  
-  // // from code logic, we won't be fetching our own data
-  // a1.set(p1 + "/0/1", data1.c_str(), data1.size());
-  // a1.set(p1 + "/0/2", data2.c_str(), data2.size());
-  // BOOST_CHECK_EQUAL(a1.toString(), a2.toString());
-  // BOOST_CHECK_EQUAL(a2.toString(), a3.toString());
+  scheduler.scheduleEvent(ndn::time::seconds(0.00), ndn::bind(&TestSet2::createSyncSocket1, &testSet2));
+  scheduler.scheduleEvent(ndn::time::seconds(0.05), ndn::bind(&TestSet2::createSyncSocket2, &testSet2));
+  int num[5] = {0, 1, 2, 3, 4};
+  string data0((const char *) num, sizeof(num));
+  scheduler.scheduleEvent(ndn::time::seconds(0.10), ndn::bind(&TestSet2::publishSocket1, &testSet2, 0, data0));
+  scheduler.scheduleEvent(ndn::time::seconds(0.15), ndn::bind(&TestSet2::setSocket1, &testSet2, (const char *) num, sizeof (num)));
+  scheduler.scheduleEvent(ndn::time::seconds(1.00), ndn::bind(&TestSet2::check, &testSet2, 10));
+  int newNum[5] = {9, 7, 2, 1, 1};
+  string data1((const char *) newNum, sizeof(newNum));
+  scheduler.scheduleEvent(ndn::time::seconds(1.10), ndn::bind(&TestSet2::publishSocket2, &testSet2, 0, data1));
+  scheduler.scheduleEvent(ndn::time::seconds(1.15), ndn::bind(&TestSet2::setSocket2, &testSet2, (const char *) newNum, sizeof (newNum)));
+  scheduler.scheduleEvent(ndn::time::seconds(2.00), ndn::bind(&TestSet2::check, &testSet2, 30));
 
-  // // another single source
-  // string data3 = "You surf the Internet, I surf the real world";
-  // string data4 = "I got a fortune cookie once that said 'You like Chinese food'";
-  // string data5 = "Real men wear pink. Why? Because their wives make them";
-  // _LOG_DEBUG ("s3 publish");
-  // s3.publishData(p3, 0, data3.c_str(), data3.size(), 10); 
-  // this_thread::sleep (posix_time::milliseconds (200));
-  
-  // // another single source, multiple data at once
-  // s2.publishData(p2, 0, data4.c_str(), data4.size(), 10); 
-  // s2.publishData(p2, 0, data5.c_str(), data5.size(), 10);
-  // this_thread::sleep (posix_time::milliseconds (1000));
-
-  // // from code logic, we won't be fetching our own data
-  // a3.set(p3 + "/0/0", data3.c_str(), data3.size());
-  // a2.set(p2 + "/0/0", data4.c_str(), data4.size());
-  // a2.set(p2 + "/0/1", data5.c_str(), data5.size());
-  // BOOST_CHECK_EQUAL(a1.toString(), a2.toString());
-  // BOOST_CHECK_EQUAL(a2.toString(), a3.toString());
-
-  // // not sure weither this is simultanous data generation from multiple sources
-  // _LOG_DEBUG ("Simultaneous publishing");
-  // string data6 = "Shakespeare says: 'Prose before hos.'";
-  // string data7 = "Pick good people, talent never wears out";
-  // s1.publishData(p1, 0, data6.c_str(), data6.size(), 10); 
-  // // this_thread::sleep (posix_time::milliseconds (1000));
-  // s2.publishData(p2, 0, data7.c_str(), data7.size(), 10); 
-  // this_thread::sleep (posix_time::milliseconds (1500));
-
-  // // from code logic, we won't be fetching our own data
-  // a1.set(p1 + "/0/3", data6.c_str(), data6.size());
-  // a2.set(p2 + "/0/2", data7.c_str(), data7.size());
-  // // a1.set(p1 + "/0/1", data6);
-  // // a2.set(p2 + "/0/0", data7);
-  // BOOST_CHECK_EQUAL(a1.toString(), a2.toString());
-  // BOOST_CHECK_EQUAL(a2.toString(), a3.toString());
-
-  // _LOG_DEBUG("Begin new test");
-  // std::cout << "Begin new Test " << std::endl;
-  // string syncRawPrefix = "/this/is/the/prefix";
-  // ndn::Ptr<SyncPolicyManager> policyManager2 = ndn::Ptr<SyncPolicyManager>(new SyncPolicyManager(ndn::Name("/ndn/ucla.edu/alice"), ndn::Name("/ndn/ucla.edu/alice/KEY/dsk-1382934202/ID-CERT/%FD%FF%FF%FF%FF%DEk%C0%0B"), ndn::Name(syncRawPrefix)));
-
-  // a1.sum = 0;
-  // a2.sum = 0;
-  // SyncSocket s4 (syncRawPrefix, policyManager2, bind(&TestSocketApp::fetchNumbers, &a1, _1, _2), bind(&TestSocketApp::pass, &a1, _1));
-  // SyncSocket s5 (syncRawPrefix, policyManager2, bind(&TestSocketApp::fetchNumbers, &a2, _1, _2), bind(&TestSocketApp::pass, &a2, _1));
-
-  // int num[5] = {0, 1, 2, 3, 4};
-
-  // string p4 = "/xiaonei.com";
-  // string p5 = "/mitbbs.com";
-
-  // s4.publishData(p4, 0,(const char *) num, sizeof(num), 10);
-  // a1.setNum(p4, (const char *) num, sizeof (num));
-
-  // this_thread::sleep (posix_time::milliseconds (1000));
-  // BOOST_CHECK(a1.sum == a2.sum && a1.sum == 10);
-
-  // int newNum[5] = {9, 7, 2, 1, 1};
-
-  // s5.publishData(p5, 0,(const char *) newNum, sizeof(newNum), 10);
-  // a2.setNum(p5, (const char *)newNum, sizeof (newNum));
-  // this_thread::sleep (posix_time::milliseconds (1000));
-  // BOOST_CHECK_EQUAL(a1.sum, a2.sum);
-  // BOOST_CHECK_EQUAL(a1.sum, 30);
-
-  // _LOG_DEBUG ("Finish");
+  ioService->run();
 }

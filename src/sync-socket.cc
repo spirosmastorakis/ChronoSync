@@ -23,53 +23,44 @@
 
 using namespace std;
 using namespace ndn;
-using namespace ndn::ptr_lib;
 
 INIT_LOGGER ("SyncSocket");
 
 namespace Sync {
 
-SyncSocket::SyncSocket (const string &syncPrefix, 
-                        shared_ptr<SecPolicySync> policy,
+SyncSocket::SyncSocket (const Name &syncPrefix, 
+                        shared_ptr<Validator> validator,
                         shared_ptr<Face> face,
                         NewDataCallback dataCallback, 
                         RemoveCallback rmCallback )
   : m_newDataCallback(dataCallback)
-  , m_policy(policy)
-  , m_verifier(new Verifier(policy))
+  , m_validator(validator)
   , m_keyChain(new KeyChain())
   , m_face(face)
   , m_syncLogic (syncPrefix,
-                 policy,
+                 validator,
                  face,
                  bind(&SyncSocket::passCallback, this, _1),
                  rmCallback)
-{
-  m_verifier->setFace(face);
-}
+{}
 
 SyncSocket::~SyncSocket()
 {
 }
 
 bool 
-SyncSocket::publishData(const Name &prefix, uint32_t session, const char *buf, size_t len, int freshness)
+SyncSocket::publishData(const Name &prefix, uint64_t session, const char *buf, size_t len, int freshness)
 {
-  uint32_t sequence = getNextSeq(prefix, session);
-  ostringstream sessionStream;
-  ostringstream seqStream;
-  sessionStream <<  session;
-  seqStream << sequence;
+  uint64_t sequence = getNextSeq(prefix, session);
   
   Name dataName = prefix;
-  dataName.append(sessionStream.str()).append(seqStream.str());
-  
-  Name signingIdentity = m_policy->inferSigningIdentity(dataName);
+  dataName.append(boost::lexical_cast<string>(session)).append(boost::lexical_cast<string>(sequence));
 
   Data data(dataName);
   data.setContent(reinterpret_cast<const uint8_t*>(buf), len);
+  data.setFreshnessPeriod(freshness);
 
-  m_keyChain->signByIdentity(data, signingIdentity);
+  m_keyChain->sign(data);
   
   m_face->put(data);
   
@@ -80,40 +71,35 @@ SyncSocket::publishData(const Name &prefix, uint32_t session, const char *buf, s
 }
 
 void 
-SyncSocket::fetchData(const Name &prefix, const SeqNo &seq, const OnVerified& onVerified, int retry)
+SyncSocket::fetchData(const Name &prefix, const SeqNo &seq, const OnDataValidated& onValidated, int retry)
 {
-  ostringstream sessionStream;
-  ostringstream seqStream;
-  sessionStream << seq.getSession();
-  seqStream << seq.getSeq();
-
   Name interestName = prefix;
-  interestName.append(sessionStream.str()).append(seqStream.str());
+  interestName.append(boost::lexical_cast<string>(seq.getSession())).append(boost::lexical_cast<string>(seq.getSeq()));
 
-  const OnVerifyFailed& onVerifyFailed = bind(&SyncSocket::onDataVerifyFailed, this, _1);
-  
+  const OnDataValidationFailed& onValidationFailed = bind(&SyncSocket::onDataValidationFailed, this, _1);
   
   ndn::Interest interest(interestName);
+  interest.setMustBeFresh(true);
   m_face->expressInterest(interest, 
-                          bind(&SyncSocket::onData, this, _1, _2, onVerified, onVerifyFailed), 
-                          bind(&SyncSocket::onDataTimeout, this, _1, retry, onVerified, onVerifyFailed));
+                          bind(&SyncSocket::onData, this, _1, _2, onValidated, onValidationFailed), 
+                          bind(&SyncSocket::onDataTimeout, this, _1, retry, onValidated, onValidationFailed));
 
 }
 
 void
 SyncSocket::onData(const shared_ptr<const ndn::Interest>& interest, 
                    const shared_ptr<Data>& data,
-                   const OnVerified& onVerified,
-                   const OnVerifyFailed& onVerifyFailed)
+                   const OnDataValidated& onValidated,
+                   const OnDataValidationFailed& onValidationFailed)
 {
-  m_verifier->verifyData(data, onVerified, onVerifyFailed);
+  m_validator->validate(data, onValidated, onValidationFailed);
 }
 
 void
 SyncSocket::onDataTimeout(const shared_ptr<const ndn::Interest>& interest, 
                           int retry,
-                          const OnVerified& onVerified,
-                          const OnVerifyFailed& onVerifyFailed)
+                          const OnDataValidated& onValidated,
+                          const OnDataValidationFailed& onValidationFailed)
 {
   if(retry > 0)
     {
@@ -122,14 +108,14 @@ SyncSocket::onDataTimeout(const shared_ptr<const ndn::Interest>& interest,
                                    this,
                                    _1,
                                    _2,
-                                   onVerified,
-                                   onVerifyFailed),
+                                   onValidated,
+                                   onValidationFailed),
                               bind(&SyncSocket::onDataTimeout, 
                                    this,
                                    _1,
                                    retry - 1,
-                                   onVerified,
-                                   onVerifyFailed));
+                                   onValidated,
+                                   onValidationFailed));
                               
     }
   else
@@ -137,14 +123,14 @@ SyncSocket::onDataTimeout(const shared_ptr<const ndn::Interest>& interest,
 }
 
 void
-SyncSocket::onDataVerifyFailed(const shared_ptr<Data>& data)
+SyncSocket::onDataValidationFailed(const shared_ptr<const Data>& data)
 {
   _LOG_DEBUG("data cannot be verified!");
 }
 
 
-uint32_t
-SyncSocket::getNextSeq (const Name &prefix, uint32_t session)
+uint64_t
+SyncSocket::getNextSeq (const Name &prefix, uint64_t session)
 {
   SequenceLog::iterator i = m_sequenceLog.find (prefix);
 

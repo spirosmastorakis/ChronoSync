@@ -18,6 +18,7 @@
  * Author: Zhenkai Zhu <zhenkai@cs.ucla.edu>
  *         Chaoyi Bian <bcy@pku.edu.cn>
  *	   Alexander Afanasyev <alexander.afanasyev@ucla.edu>
+ *         Yingdi Yu <yingdi@cs.ucla.edu>
  */
 
 #ifndef SYNC_SEQ_NO_H
@@ -72,7 +73,7 @@ public:
    * @brief Constructor with just sequence number. Session assumed to be zero
    * @param seq Sequence number
    */
-  SeqNo (uint32_t seq)
+  SeqNo (uint64_t seq)
     : m_valid (true)
     , m_session (0)
     , m_seq (seq)
@@ -83,7 +84,7 @@ public:
    * @param session Session ID
    * @param seq Sequence number
    */
-  SeqNo (uint32_t session, uint32_t seq)
+  SeqNo (uint64_t session, uint64_t seq)
     : m_valid (true)
     , m_session (session)
     , m_seq (seq)
@@ -148,20 +149,20 @@ public:
   /**
    * @brief Get session id
    */
-  uint32_t getSession () const
+  uint64_t getSession () const
   { return m_session; }
 
   /**
    * @brief Get sequence number
    */
-  uint32_t getSeq () const
+  uint64_t getSeq () const
   { return m_seq; }
 
   /**
    * @brief Set sequence number
    */
    void
-   setSeq(uint32_t seq)
+   setSeq(uint64_t seq)
    { m_seq = seq; }
   
 private:
@@ -173,7 +174,7 @@ private:
    * Note that session IDs for the same name should always increase. So, the good choice
    * for the session ID is client's timestamp
    */
-  uint32_t m_session;
+  uint64_t m_session;
 
   /**
    * @brief Sequence number
@@ -182,7 +183,7 @@ private:
    *
    * For now, wrapping sequence number after max to zero is not supported
    */
-  uint32_t m_seq;
+  uint64_t m_seq;
 };
 
 inline std::ostream &

@@ -39,8 +39,6 @@
 
 using namespace std;
 using namespace ndn;
-using namespace ndn::ptr_lib;
-using namespace ndn::func_lib;
 
 INIT_LOGGER ("SyncLogic");
 
@@ -61,7 +59,7 @@ namespace Sync
 {
 
   SyncLogic::SyncLogic (const Name& syncPrefix,
-                        shared_ptr<SecPolicySync> policy, 
+                        shared_ptr<Validator> validator, 
                         shared_ptr<Face> face,
                         LogicUpdateCallback onUpdate,
                         LogicRemoveCallback onRemove)
@@ -71,14 +69,14 @@ namespace Sync
     , m_onUpdate (onUpdate)
     , m_onRemove (onRemove)
     , m_perBranch (false)
-    , m_policy(policy)
-    , m_verifier(new Verifier(policy))
+    , m_validator(validator)
     , m_keyChain(new KeyChain())
     , m_face(face)
+    , m_scheduler(*face->ioService())
 #ifndef NS3_MODULE
     , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
-    , m_rangeUniformRandom (m_randomGenerator, uniform_int<> (200,1000))
-    , m_reexpressionJitter (m_randomGenerator, uniform_int<> (100,500))
+    , m_rangeUniformRandom (m_randomGenerator, boost::uniform_int<> (200,1000))
+    , m_reexpressionJitter (m_randomGenerator, boost::uniform_int<> (100,500))
 #else
     , m_rangeUniformRandom (200,1000)
     , m_reexpressionJitter (10,500)
@@ -88,19 +86,18 @@ namespace Sync
 #ifndef NS3_MODULE
   // In NS3 module these functions are moved to StartApplication method
 
-  m_syncRegisteredPrefixId = m_face->setInterestFilter(m_syncPrefix, 
-                                                       func_lib::bind(&SyncLogic::onSyncInterest, this, _1, _2, _3, _4), 
-                                                       func_lib::bind(&SyncLogic::onSyncRegisterFailed, this, _1));
+  m_syncRegisteredPrefixId = m_face->setInterestFilter (m_syncPrefix, 
+                                                        bind(&SyncLogic::onSyncInterest, this, _1, _2), 
+                                                        bind(&SyncLogic::onSyncRegisterFailed, this, _1));
+  
 
-
-  m_scheduler.schedule (TIME_SECONDS (0), // no need to add jitter
-                        func_lib::bind (&SyncLogic::sendSyncInterest, this),
-                        REEXPRESSING_INTEREST);
+  m_reexpressingInterestId = m_scheduler.scheduleEvent (time::seconds (0), // no need to add jitter
+                                                        bind (&SyncLogic::sendSyncInterest, this));
 #endif
 }
 
 SyncLogic::SyncLogic (const Name& syncPrefix,
-                      shared_ptr<SecPolicySync> policy,
+                      shared_ptr<Validator> validator,
                       shared_ptr<Face> face,
                       LogicPerBranchCallback onUpdateBranch)
   : m_state (new FullState)
@@ -108,14 +105,14 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
   , m_syncPrefix (syncPrefix)
   , m_onUpdateBranch (onUpdateBranch)
   , m_perBranch(true)
-  , m_policy(policy)
-  , m_verifier(new Verifier(policy))
+  , m_validator(validator)
   , m_keyChain(new KeyChain())
   , m_face(face)
+  , m_scheduler(*face->ioService())
 #ifndef NS3_MODULE
   , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
-  , m_rangeUniformRandom (m_randomGenerator, uniform_int<> (200,1000))
-  , m_reexpressionJitter (m_randomGenerator, uniform_int<> (100,500))
+  , m_rangeUniformRandom (m_randomGenerator, boost::uniform_int<> (200,1000))
+  , m_reexpressionJitter (m_randomGenerator, boost::uniform_int<> (100,500))
 #else
   , m_rangeUniformRandom (200,1000)
   , m_reexpressionJitter (10,500)
@@ -125,19 +122,18 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
 #ifndef NS3_MODULE
   // In NS3 module these functions are moved to StartApplication method
   
-  m_syncRegisteredPrefixId = m_face->setInterestFilter(m_syncPrefix, 
-                                                       func_lib::bind(&SyncLogic::onSyncInterest, this, _1, _2, _3, _4), 
-                                                       func_lib::bind(&SyncLogic::onSyncRegisterFailed, this, _1));
+  m_syncRegisteredPrefixId = m_face->setInterestFilter (m_syncPrefix, 
+                                                        bind(&SyncLogic::onSyncInterest, this, _1, _2), 
+                                                        bind(&SyncLogic::onSyncRegisterFailed, this, _1));
 
-  m_scheduler.schedule (TIME_SECONDS (0), // no need to add jitter
-                        func_lib::bind (&SyncLogic::sendSyncInterest, this),
-                        REEXPRESSING_INTEREST);
+  m_reexpressingInterestId = m_scheduler.scheduleEvent (time::seconds (0), // no need to add jitter
+                                                        bind (&SyncLogic::sendSyncInterest, this));
 #endif
 }
 
 SyncLogic::~SyncLogic ()
-{
-  m_face->unsetInterestFilter(m_syncRegisteredPrefixId);
+{ 
+  // m_face->unsetInterestFilter(m_syncRegisteredPrefixId); 
 }
 
 #ifdef NS3_MODULE
@@ -169,8 +165,8 @@ void
 SyncLogic::stop()
 {
   m_face->unsetInterestFilter(m_syncRegisteredPrefixId);
-  m_scheduler.cancel (REEXPRESSING_INTEREST);
-  m_scheduler.cancel (DELAYED_INTEREST_PROCESSING);
+  m_scheduler.cancelEvent (m_reexpressingInterestId);
+  m_scheduler.cancelEvent (m_delayedInterestProcessingId);
 }
 
 /**
@@ -207,9 +203,7 @@ SyncLogic::convertNameToDigestAndType (const Name &name)
 
 void
 SyncLogic::onSyncInterest (const shared_ptr<const Name>& prefix, 
-                           const shared_ptr<const ndn::Interest>& interest, 
-                           Transport& transport, 
-                           uint64_t registeredPrefixId)
+                           const shared_ptr<const ndn::Interest>& interest)
 {
   Name name = interest->getName();
 
@@ -249,46 +243,24 @@ SyncLogic::onSyncRegisterFailed(const shared_ptr<const Name>& prefix)
 void
 SyncLogic::onSyncData(const shared_ptr<const ndn::Interest>& interest, 
                       const shared_ptr<Data>& data,
-                      const OnVerified& onVerified,
-                      const OnVerifyFailed& onVerifyFailed)
-{
-  m_verifier->verifyData(data, onVerified, onVerifyFailed);
+                      const OnDataValidated& onValidated,
+                      const OnDataValidationFailed& onValidationFailed)
+{ m_validator->validate(data, onValidated, onValidationFailed); }
+
+void
+SyncLogic::onSyncTimeout(const shared_ptr<const ndn::Interest>& interest)
+{ 
+  // It is OK. Others will handle the time out situation. 
 }
 
 void
-SyncLogic::onSyncDataTimeout(const shared_ptr<const ndn::Interest>& interest, 
-                             int retry,
-                             const OnVerified& onVerified,
-                             const OnVerifyFailed& onVerifyFailed)
-{
-  if(retry > 0)
-    {
-      m_face->expressInterest(*interest, 
-                              func_lib::bind(&SyncLogic::onSyncData,
-                                   this,
-                                   _1,
-                                   _2,     
-                                   onVerified,
-                                   onVerifyFailed),
-                              func_lib::bind(&SyncLogic::onSyncDataTimeout, 
-                                   this,
-                                   _1,
-                                   retry - 1,
-                                   onVerified,
-                                   onVerifyFailed));
-    }
-  else
-    _LOG_DEBUG("Sync interest eventually times out!");
-}
-
-void
-SyncLogic::onSyncDataVerifyFailed(const shared_ptr<Data>& data)
+SyncLogic::onSyncDataValidationFailed(const shared_ptr<const Data>& data)
 {
   _LOG_DEBUG("Sync data cannot be verified!");
 }
 
 void
-SyncLogic::onSyncDataVerified(const shared_ptr<Data>& data)
+SyncLogic::onSyncDataValidated(const shared_ptr<const Data>& data)
 {
   Name name = data->getName();
   const char* wireData = (const char*)data->getContent().value();
@@ -309,7 +281,7 @@ SyncLogic::onSyncDataVerified(const shared_ptr<Data>& data)
       else
         {
           // timer is always restarted when we schedule recovery
-          m_scheduler.cancel (REEXPRESSING_RECOVERY_INTEREST);
+          m_scheduler.cancelEvent (m_reexpressingRecoveryInterestId);
           processSyncData (name, digest, wireData, len);
         }
     }
@@ -367,15 +339,14 @@ SyncLogic::processSyncInterest (const Name &name, DigestConstPtr digest, bool ti
       if (exists) // somebody else replied, so restart random-game timer
         {
           _LOG_DEBUG ("Unknown digest, but somebody may have already replied, so restart our timer");
-          m_scheduler.cancel (DELAYED_INTEREST_PROCESSING);
+          m_scheduler.cancelEvent (m_delayedInterestProcessingId);
         }
 
       uint32_t waitDelay = GET_RANDOM (m_rangeUniformRandom);      
       _LOG_DEBUG ("Digest is not in the log. Schedule processing after small delay: " << waitDelay << "ms");
 
-      m_scheduler.schedule (TIME_MILLISECONDS (waitDelay),
-                            func_lib::bind (&SyncLogic::processSyncInterest, this, name, digest, true),
-                            DELAYED_INTEREST_PROCESSING);
+      m_delayedInterestProcessingId = m_scheduler.scheduleEvent (time::milliseconds (waitDelay),
+                                                                 bind (&SyncLogic::processSyncInterest, this, name, digest, true));
     }
   else
     {
@@ -411,7 +382,7 @@ SyncLogic::processSyncData (const Name &name, DigestConstPtr digest, const char 
       vector<MissingDataInfo> v;
       BOOST_FOREACH (LeafConstPtr leaf, diff.getLeaves().get<ordered>())
         {
-          DiffLeafConstPtr diffLeaf = dynamic_pointer_cast<const DiffLeaf> (leaf);
+          DiffLeafConstPtr diffLeaf = boost::dynamic_pointer_cast<const DiffLeaf> (leaf);
           BOOST_ASSERT (diffLeaf != 0);
 
           NameInfoConstPtr info = diffLeaf->getInfo();
@@ -424,7 +395,7 @@ SyncLogic::processSyncData (const Name &name, DigestConstPtr digest, const char 
               SeqNo oldSeq;
               {
                 boost::recursive_mutex::scoped_lock lock (m_stateMutex);
-                tie (inserted, updated, oldSeq) = m_state->update (info, seq);
+                boost::tie (inserted, updated, oldSeq) = m_state->update (info, seq);
               }
 
               if (inserted || updated)
@@ -499,10 +470,9 @@ SyncLogic::processSyncData (const Name &name, DigestConstPtr digest, const char 
       // satisfyPendingSyncInterests (diffLog); // if there are interests in PIT, there is a point to satisfy them using new state
   
       // if state has changed, then it is safe to express a new interest
-      m_scheduler.cancel (REEXPRESSING_INTEREST);
-      m_scheduler.schedule (TIME_SECONDS_WITH_JITTER (0),
-                            func_lib::bind (&SyncLogic::sendSyncInterest, this),
-                            REEXPRESSING_INTEREST);
+      m_scheduler.cancelEvent (m_reexpressingInterestId);
+      m_reexpressingInterestId = m_scheduler.scheduleEvent (time::milliseconds(GET_RANDOM (m_reexpressionJitter)),
+                                                            bind (&SyncLogic::sendSyncInterest, this));
     }
 }
 
@@ -580,7 +550,7 @@ SyncLogic::insertToDiffLog (DiffStatePtr diffLog)
 }
 
 void
-SyncLogic::addLocalNames (const Name &prefix, uint32_t session, uint32_t seq)
+SyncLogic::addLocalNames (const Name &prefix, uint64_t session, uint64_t seq)
 {
   DiffStatePtr diff;
   {
@@ -651,19 +621,19 @@ SyncLogic::sendSyncInterest ()
 
   _LOG_DEBUG("sendSyncInterest: " << m_outstandingInterestName);
 
-  m_scheduler.cancel (REEXPRESSING_INTEREST);
-  m_scheduler.schedule (TIME_SECONDS_WITH_JITTER (m_syncInterestReexpress),
-                        func_lib::bind (&SyncLogic::sendSyncInterest, this),
-                        REEXPRESSING_INTEREST);
+  m_scheduler.cancelEvent (m_reexpressingInterestId);
+  m_reexpressingInterestId = m_scheduler.scheduleEvent (time::seconds(m_syncInterestReexpress)+time::milliseconds(GET_RANDOM (m_reexpressionJitter)),
+                                                        bind (&SyncLogic::sendSyncInterest, this));
 
   ndn::Interest interest(m_outstandingInterestName);
+  interest.setMustBeFresh(true);
 
-  OnVerified onVerified = func_lib::bind(&SyncLogic::onSyncDataVerified, this, _1);
-  OnVerifyFailed onVerifyFailed = func_lib::bind(&SyncLogic::onSyncDataVerifyFailed, this, _1);
+  OnDataValidated onValidated = bind(&SyncLogic::onSyncDataValidated, this, _1);
+  OnDataValidationFailed onValidationFailed = bind(&SyncLogic::onSyncDataValidationFailed, this, _1);
 
   m_face->expressInterest(interest,
-                          func_lib::bind(&SyncLogic::onSyncData, this, _1, _2, onVerified, onVerifyFailed),
-                          func_lib::bind(&SyncLogic::onSyncDataTimeout, this, _1, 0, onVerified, onVerifyFailed));
+                          bind(&SyncLogic::onSyncData, this, _1, _2, onValidated, onValidationFailed),
+                          bind(&SyncLogic::onSyncTimeout, this, _1));
 }
 
 void
@@ -675,25 +645,24 @@ SyncLogic::sendSyncRecoveryInterests (DigestConstPtr digest)
   Name interestName = m_syncPrefix;
   interestName.append("recovery").append(os.str());
 
-  TimeDuration nextRetransmission = TIME_MILLISECONDS_WITH_JITTER (m_recoveryRetransmissionInterval);
+  time::Duration nextRetransmission = time::milliseconds (m_recoveryRetransmissionInterval + GET_RANDOM (m_reexpressionJitter));
+
   m_recoveryRetransmissionInterval <<= 1;
     
-  m_scheduler.cancel (REEXPRESSING_RECOVERY_INTEREST);
+  m_scheduler.cancelEvent (m_reexpressingRecoveryInterestId);
   if (m_recoveryRetransmissionInterval < 100*1000) // <100 seconds
-    {
-      m_scheduler.schedule (nextRetransmission,
-                            func_lib::bind (&SyncLogic::sendSyncRecoveryInterests, this, digest),
-                            REEXPRESSING_RECOVERY_INTEREST);
-    }
+    m_reexpressingRecoveryInterestId = m_scheduler.scheduleEvent (nextRetransmission,
+                                                                  bind (&SyncLogic::sendSyncRecoveryInterests, this, digest));
 
   ndn::Interest interest(interestName);
+  interest.setMustBeFresh(true);
 
-  OnVerified onVerified = func_lib::bind(&SyncLogic::onSyncDataVerified, this, _1);
-  OnVerifyFailed onVerifyFailed = func_lib::bind(&SyncLogic::onSyncDataVerifyFailed, this, _1);
+  OnDataValidated onValidated = bind(&SyncLogic::onSyncDataValidated, this, _1);
+  OnDataValidationFailed onValidationFailed = bind(&SyncLogic::onSyncDataValidationFailed, this, _1);
 
   m_face->expressInterest(interest,
-                          func_lib::bind(&SyncLogic::onSyncData, this, _1, _2, onVerified, onVerifyFailed),
-                          func_lib::bind(&SyncLogic::onSyncDataTimeout, this, _1, 0, onVerified, onVerifyFailed));
+                          bind(&SyncLogic::onSyncData, this, _1, _2, onValidated, onValidationFailed),
+                          bind(&SyncLogic::onSyncTimeout, this, _1));
 }
 
 
@@ -713,12 +682,12 @@ SyncLogic::sendSyncData (const Name &name, DigestConstPtr digest, SyncStateMsg &
   _LOG_TRACE (">> D " << name);
   int size = ssm.ByteSize();
   char *wireData = new char[size];
-  Name signingIdentity = m_policy->inferSigningIdentity(name);
+  ssm.SerializeToArray(wireData, size);
 
   Data syncData(name);
   syncData.setContent(reinterpret_cast<const uint8_t*>(wireData), size);
   
-  m_keyChain->signByIdentity(syncData, signingIdentity);
+  m_keyChain->sign(syncData);
   
   m_face->put(syncData);
   
@@ -735,10 +704,9 @@ SyncLogic::sendSyncData (const Name &name, DigestConstPtr digest, SyncStateMsg &
     {
       _LOG_TRACE ("Satisfied our own Interest. Re-expressing (hopefully with a new digest)");
       
-      m_scheduler.cancel (REEXPRESSING_INTEREST);
-      m_scheduler.schedule (TIME_SECONDS_WITH_JITTER (0),
-                            bind (&SyncLogic::sendSyncInterest, this),
-                            REEXPRESSING_INTEREST);
+      m_scheduler.cancelEvent (m_reexpressingInterestId);
+      m_reexpressingInterestId = m_scheduler.scheduleEvent (time::milliseconds(GET_RANDOM (m_reexpressionJitter)),
+                                                            bind (&SyncLogic::sendSyncInterest, this));
     }
 }
 

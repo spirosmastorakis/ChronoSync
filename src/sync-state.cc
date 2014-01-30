@@ -156,8 +156,8 @@ operator >> (SyncStateMsg &issm, State &state)
     NameInfoConstPtr info = StdNameInfo::FindOrCreate (ss.name());
     if (ss.type() == SyncState::UPDATE)
     {
-      uint32_t session = lexical_cast<uint32_t>(ss.seqno().session());
-      uint32_t seq = lexical_cast<uint32_t>(ss.seqno().seq());
+      uint64_t session = lexical_cast<uint64_t>(ss.seqno().session());
+      uint64_t seq = lexical_cast<uint64_t>(ss.seqno().seq());
       SeqNo seqNo(session, seq);
       state.update(info, seqNo);
     }

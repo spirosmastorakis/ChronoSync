@@ -22,11 +22,12 @@
 #define SYNC_SOCKET_H
 
 #include "sync-logic.h"
-#include <boost/function.hpp>
 #include "sync-seq-no.h"
+
 #include <ndn-cpp-dev/face.hpp>
-#include <ndn-cpp-dev/security/verifier.hpp>
+#include <ndn-cpp-dev/security/validator.hpp>
 #include <ndn-cpp-dev/security/key-chain.hpp>
+
 #include <utility>
 #include <map>
 #include <vector>
@@ -41,8 +42,9 @@ namespace Sync {
 class SyncSocket
 {
 public:
-  typedef boost::function< void (const std::vector<MissingDataInfo> &, SyncSocket * ) > NewDataCallback;
-  typedef boost::function< void ( const std::string &/*prefix*/ ) > RemoveCallback;
+  typedef ndn::function< void (const std::vector<MissingDataInfo> &, SyncSocket * ) > NewDataCallback;
+  typedef ndn::function< void (const std::string &/*prefix*/ ) > RemoveCallback;
+
   /**
    * @brief the constructor for SyncAppSocket; the parameter syncPrefix
    * should be passed to the constructor of m_syncAppWrapper; the other
@@ -54,30 +56,30 @@ public:
    * @param syncPrefix the name prefix for Sync Interest
    * @param dataCallback the callback to process data
    */
-  SyncSocket (const std::string &syncPrefix, 
-              ndn::ptr_lib::shared_ptr<SecPolicySync> policy,
-              ndn::ptr_lib::shared_ptr<ndn::Face> face,
+  SyncSocket (const ndn::Name &syncPrefix, 
+              ndn::shared_ptr<ndn::Validator> validator,
+              ndn::shared_ptr<ndn::Face> face,
               NewDataCallback dataCallback, 
               RemoveCallback rmCallback);
 
   ~SyncSocket ();
 
   bool 
-  publishData(const ndn::Name &prefix, uint32_t session, const char *buf, size_t len, int freshness);
+  publishData(const ndn::Name &prefix, uint64_t session, const char *buf, size_t len, int freshness);
 
   void 
   remove (const ndn::Name &prefix) 
   { m_syncLogic.remove(prefix); }
 
   void 
-  fetchData(const ndn::Name &prefix, const SeqNo &seq, const ndn::OnVerified& onVerified, int retry = 0);
+  fetchData(const ndn::Name &prefix, const SeqNo &seq, const ndn::OnDataValidated& onValidated, int retry = 0);
 
   std::string 
   getRootDigest() 
   { return m_syncLogic.getRootDigest(); }
 
-  uint32_t
-  getNextSeq (const ndn::Name &prefix, uint32_t session);
+  uint64_t
+  getNextSeq (const ndn::Name &prefix, uint64_t session);
 
   SyncLogic &
   getLogic () 
@@ -94,28 +96,27 @@ private:
   { m_newDataCallback(v, this); }
 
   void
-  onData(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
-             const ndn::ptr_lib::shared_ptr<ndn::Data>& data,
-             const ndn::OnVerified& onVerified,
-             const ndn::OnVerifyFailed& onVerifyFailed);
+  onData(const ndn::shared_ptr<const ndn::Interest>& interest, 
+         const ndn::shared_ptr<ndn::Data>& data,
+         const ndn::OnDataValidated& onValidated,
+         const ndn::OnDataValidationFailed& onValidationFailed);
 
   void
-  onDataTimeout(const ndn::ptr_lib::shared_ptr<const ndn::Interest>& interest, 
-                    int retry,
-                    const ndn::OnVerified& onVerified,
-                    const ndn::OnVerifyFailed& onVerifyFailed);
+  onDataTimeout(const ndn::shared_ptr<const ndn::Interest>& interest, 
+                int retry,
+                const ndn::OnDataValidated& onValidated,
+                const ndn::OnDataValidationFailed& onValidationFailed);
 
   void
-  onDataVerifyFailed(const ndn::ptr_lib::shared_ptr<ndn::Data>& data);
+  onDataValidationFailed(const ndn::shared_ptr<const ndn::Data>& data);
 
 private:
   typedef std::map<ndn::Name, SeqNo> SequenceLog;
   NewDataCallback m_newDataCallback;
   SequenceLog m_sequenceLog;
-  ndn::ptr_lib::shared_ptr<SecPolicySync> m_policy;
-  ndn::ptr_lib::shared_ptr<ndn::Verifier> m_verifier;
-  ndn::ptr_lib::shared_ptr<ndn::KeyChain> m_keyChain;
-  ndn::ptr_lib::shared_ptr<ndn::Face> m_face;
+  ndn::shared_ptr<ndn::Validator> m_validator;
+  ndn::shared_ptr<ndn::KeyChain> m_keyChain;
+  ndn::shared_ptr<ndn::Face> m_face;
   SyncLogic      m_syncLogic;
 };
 

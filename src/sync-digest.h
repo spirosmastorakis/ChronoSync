@@ -103,11 +103,11 @@ public:
   operator << (const std::string &str);
 
   /**
-   * @brief Add uint32_t value to digest calculation
-   * @param value uint32_t value to put into digest
+   * @brief Add uint64_t value to digest calculation
+   * @param value uint64_t value to put into digest
    */
   inline Digest &
-  operator << (uint32_t value);
+  operator << (uint64_t value);
 
   /**
    * @brief Checks if the stored hash is zero-root hash
@@ -153,9 +153,9 @@ Digest::operator << (const std::string &str)
 }
 
 inline Digest &
-Digest::operator << (uint32_t value)
+Digest::operator << (uint64_t value)
 {
-  update (reinterpret_cast<const uint8_t*> (&value), sizeof (uint32_t));
+  update (reinterpret_cast<const uint8_t*> (&value), sizeof (uint64_t));
   return *this;
 }
 
