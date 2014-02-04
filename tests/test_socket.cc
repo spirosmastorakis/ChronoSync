@@ -220,8 +220,9 @@ public:
   }
 
   void
-  check()
+  check(int round)
   { 
+    cout << "++++++++++++++++++ " << round << " " << m_a1.toString() << endl;
     BOOST_CHECK_EQUAL(m_a1.toString(), m_a2.toString());
     BOOST_CHECK_EQUAL(m_a2.toString(), m_a3.toString());
   }
@@ -323,14 +324,14 @@ BOOST_AUTO_TEST_CASE (AppSocketTest1)
   string data0 = "Very funny Scotty, now beam down my clothes";
   scheduler.scheduleEvent(ndn::time::seconds(0.15), ndn::bind(&TestSet1::publishSocket1, &testSet1, 0, data0));
   scheduler.scheduleEvent(ndn::time::seconds(1.15), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/0", data0));
-  scheduler.scheduleEvent(ndn::time::seconds(1.16), ndn::bind(&TestSet1::check, &testSet1)); 
+  scheduler.scheduleEvent(ndn::time::seconds(1.16), ndn::bind(&TestSet1::check, &testSet1, 1)); 
   string data1 = "Yes, give me that ketchup";
   string data2 = "Don't look conspicuous, it draws fire";
   scheduler.scheduleEvent(ndn::time::seconds(1.17), ndn::bind(&TestSet1::publishSocket1, &testSet1, 0, data1));
   scheduler.scheduleEvent(ndn::time::seconds(1.18), ndn::bind(&TestSet1::publishSocket1, &testSet1, 0, data2));
   scheduler.scheduleEvent(ndn::time::seconds(2.15), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/1", data1));
   scheduler.scheduleEvent(ndn::time::seconds(2.16), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/2", data2));
-  scheduler.scheduleEvent(ndn::time::seconds(2.17), ndn::bind(&TestSet1::check, &testSet1));
+  scheduler.scheduleEvent(ndn::time::seconds(2.17), ndn::bind(&TestSet1::check, &testSet1, 2));
   string data3 = "You surf the Internet, I surf the real world";
   string data4 = "I got a fortune cookie once that said 'You like Chinese food'";
   string data5 = "Real men wear pink. Why? Because their wives make them";
@@ -348,7 +349,7 @@ BOOST_AUTO_TEST_CASE (AppSocketTest1)
   scheduler.scheduleEvent(ndn::time::seconds(3.30), ndn::bind(&TestSet1::publishSocket2, &testSet1, 0, data7));
   scheduler.scheduleEvent(ndn::time::seconds(4.80), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/3", data6));
   scheduler.scheduleEvent(ndn::time::seconds(4.80), ndn::bind(&TestSet1::setSocket2, &testSet1, "/0/2", data7));
-  scheduler.scheduleEvent(ndn::time::seconds(4.90), ndn::bind(&TestSet1::check, &testSet1));
+  scheduler.scheduleEvent(ndn::time::seconds(4.90), ndn::bind(&TestSet1::check, &testSet1, 3));
 
   ioService->run();
 }

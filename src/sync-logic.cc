@@ -21,11 +21,6 @@
  *         Yingdi Yu <yingdi@cs.ucla.edu>
  */
 
-#ifdef NS3_MODULE
-#include <ns3/ccnx-pit.h>
-#include <ns3/ccnx.h>
-#endif
-
 #include "sync-logic.h"
 #include "sync-diff-leaf.h"
 #include "sync-full-leaf.h"
@@ -42,11 +37,14 @@ using namespace ndn;
 
 INIT_LOGGER ("SyncLogic");
 
-#ifdef NS3_MODULE
-#define GET_RANDOM(var) var.GetValue ()
+
+#ifdef _DEBUG
+#define _LOG_DEBUG_ID(v) _LOG_DEBUG(m_instanceId + v)
 #else
-#define GET_RANDOM(var) var ()
+#define _LOG_DEBUG_ID(v) _LOG_DEBUG(v)
 #endif
+
+#define GET_RANDOM(var) var ()
 
 #define TIME_SECONDS_WITH_JITTER(sec) \
   (TIME_SECONDS (sec) + TIME_MILLISECONDS (GET_RANDOM (m_reexpressionJitter)))
@@ -58,34 +56,28 @@ INIT_LOGGER ("SyncLogic");
 namespace Sync
 {
 
-  SyncLogic::SyncLogic (const Name& syncPrefix,
-                        shared_ptr<Validator> validator, 
-                        shared_ptr<Face> face,
-                        LogicUpdateCallback onUpdate,
-                        LogicRemoveCallback onRemove)
-    : m_state (new FullState)
-    , m_syncInterestTable (TIME_SECONDS (m_syncInterestReexpress))
-    , m_syncPrefix (syncPrefix)
-    , m_onUpdate (onUpdate)
-    , m_onRemove (onRemove)
-    , m_perBranch (false)
-    , m_validator(validator)
-    , m_keyChain(new KeyChain())
-    , m_face(face)
-    , m_scheduler(*face->ioService())
-#ifndef NS3_MODULE
-    , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
-    , m_rangeUniformRandom (m_randomGenerator, boost::uniform_int<> (200,1000))
-    , m_reexpressionJitter (m_randomGenerator, boost::uniform_int<> (100,500))
-#else
-    , m_rangeUniformRandom (200,1000)
-    , m_reexpressionJitter (10,500)
-#endif
-    , m_recoveryRetransmissionInterval (m_defaultRecoveryRetransmitInterval)
-{ 
-#ifndef NS3_MODULE
-  // In NS3 module these functions are moved to StartApplication method
+int SyncLogic::m_instanceCounter = 0;
 
+SyncLogic::SyncLogic (const Name& syncPrefix,
+                      shared_ptr<Validator> validator, 
+                      shared_ptr<Face> face,
+                      LogicUpdateCallback onUpdate,
+                      LogicRemoveCallback onRemove)
+  : m_state (new FullState)
+  , m_syncInterestTable (TIME_SECONDS (m_syncInterestReexpress))
+  , m_syncPrefix (syncPrefix)
+  , m_onUpdate (onUpdate)
+  , m_onRemove (onRemove)
+  , m_perBranch (false)
+  , m_validator(validator)
+  , m_keyChain(new KeyChain())
+  , m_face(face)
+  , m_scheduler(*face->ioService())
+    , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
+  , m_rangeUniformRandom (m_randomGenerator, boost::uniform_int<> (200,1000))
+  , m_reexpressionJitter (m_randomGenerator, boost::uniform_int<> (100,500))
+  , m_recoveryRetransmissionInterval (m_defaultRecoveryRetransmitInterval)
+{ 
   m_syncRegisteredPrefixId = m_face->setInterestFilter (m_syncPrefix, 
                                                         bind(&SyncLogic::onSyncInterest, this, _1, _2), 
                                                         bind(&SyncLogic::onSyncRegisterFailed, this, _1));
@@ -93,7 +85,8 @@ namespace Sync
 
   m_reexpressingInterestId = m_scheduler.scheduleEvent (time::seconds (0), // no need to add jitter
                                                         bind (&SyncLogic::sendSyncInterest, this));
-#endif
+
+  m_instanceId = string("Instance " + boost::lexical_cast<string>(m_instanceCounter++) + " ");
 }
 
 SyncLogic::SyncLogic (const Name& syncPrefix,
@@ -109,57 +102,23 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
   , m_keyChain(new KeyChain())
   , m_face(face)
   , m_scheduler(*face->ioService())
-#ifndef NS3_MODULE
   , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
   , m_rangeUniformRandom (m_randomGenerator, boost::uniform_int<> (200,1000))
   , m_reexpressionJitter (m_randomGenerator, boost::uniform_int<> (100,500))
-#else
-  , m_rangeUniformRandom (200,1000)
-  , m_reexpressionJitter (10,500)
-#endif
   , m_recoveryRetransmissionInterval (m_defaultRecoveryRetransmitInterval)
 { 
-#ifndef NS3_MODULE
-  // In NS3 module these functions are moved to StartApplication method
-  
   m_syncRegisteredPrefixId = m_face->setInterestFilter (m_syncPrefix, 
                                                         bind(&SyncLogic::onSyncInterest, this, _1, _2), 
                                                         bind(&SyncLogic::onSyncRegisterFailed, this, _1));
 
   m_reexpressingInterestId = m_scheduler.scheduleEvent (time::seconds (0), // no need to add jitter
                                                         bind (&SyncLogic::sendSyncInterest, this));
-#endif
 }
 
 SyncLogic::~SyncLogic ()
 { 
-  // m_face->unsetInterestFilter(m_syncRegisteredPrefixId); 
+  m_face->unsetInterestFilter(m_syncRegisteredPrefixId); 
 }
-
-#ifdef NS3_MODULE
-void
-SyncLogic::StartApplication ()
-{
-  m_ccnxHandle->SetNode (GetNode ());
-  m_ccnxHandle->StartApplication ();
-
-  m_ccnxHandle->setInterestFilter (m_syncPrefix,
-                                   func_lib::bind (&SyncLogic::respondSyncInterest, this, _1));
-
-  m_scheduler.schedule (TIME_SECONDS (0), // need to send first interests at exactly the same time
-                        func_lib::bind (&SyncLogic::sendSyncInterest, this),
-                        REEXPRESSING_INTEREST);
-}
-
-void
-SyncLogic::StopApplication ()
-{
-  m_ccnxHandle->clearInterestFilter (m_syncPrefix);
-  m_ccnxHandle->StopApplication ();
-  m_scheduler.cancel (REEXPRESSING_INTEREST);
-  m_scheduler.cancel (DELAYED_INTEREST_PROCESSING);
-}
-#endif
 
 void
 SyncLogic::stop()
@@ -192,7 +151,7 @@ SyncLogic::convertNameToDigestAndType (const Name &name)
   else
     interestType = name.get(-2).toEscapedString();
 
-  _LOG_TRACE (hash << ", " << interestType);
+  _LOG_DEBUG_ID (hash << ", " << interestType);
 
   DigestPtr digest = boost::make_shared<Digest> ();
   istringstream is (hash);
@@ -207,11 +166,11 @@ SyncLogic::onSyncInterest (const shared_ptr<const Name>& prefix,
 {
   Name name = interest->getName();
 
-  _LOG_DEBUG("respondSyncInterest: " << name);
+  _LOG_DEBUG_ID("respondSyncInterest: " << name);
 
   try
     {
-      _LOG_TRACE ("<< I " << name);
+      _LOG_DEBUG_ID ("<< I " << name);
 
       DigestConstPtr digest;
       string type;
@@ -228,7 +187,7 @@ SyncLogic::onSyncInterest (const shared_ptr<const Name>& prefix,
     }
   catch (Error::DigestCalculationError &e)
     {
-      _LOG_TRACE ("Something fishy happened...");
+      _LOG_DEBUG_ID ("Something fishy happened...");
       // log error. ignoring it for now, later we should log it
       return ;
     }
@@ -237,7 +196,7 @@ SyncLogic::onSyncInterest (const shared_ptr<const Name>& prefix,
 void
 SyncLogic::onSyncRegisterFailed(const shared_ptr<const Name>& prefix)
 {
-  _LOG_DEBUG("Sync prefix registration failed!");
+  _LOG_DEBUG_ID("Sync prefix registration failed!");
 }
 
 void
@@ -256,7 +215,7 @@ SyncLogic::onSyncTimeout(const shared_ptr<const ndn::Interest>& interest)
 void
 SyncLogic::onSyncDataValidationFailed(const shared_ptr<const Data>& data)
 {
-  _LOG_DEBUG("Sync data cannot be verified!");
+  _LOG_DEBUG_ID("Sync data cannot be verified!");
 }
 
 void
@@ -268,7 +227,7 @@ SyncLogic::onSyncDataValidated(const shared_ptr<const Data>& data)
 
   try
     {
-      _LOG_TRACE ("<< D " << name);
+      _LOG_DEBUG_ID ("<< D " << name);
   
       DigestConstPtr digest;
       string type;
@@ -287,7 +246,7 @@ SyncLogic::onSyncDataValidated(const shared_ptr<const Data>& data)
     }
   catch (Error::DigestCalculationError &e)
     {
-      _LOG_TRACE ("Something fishy happened...");
+      _LOG_DEBUG_ID ("Something fishy happened...");
       // log error. ignoring it for now, later we should log it
       return;
     }
@@ -296,7 +255,7 @@ SyncLogic::onSyncDataValidated(const shared_ptr<const Data>& data)
 void
 SyncLogic::processSyncInterest (const Name &name, DigestConstPtr digest, bool timedProcessing/*=false*/)
 {
-  _LOG_DEBUG("processSyncInterest");
+  _LOG_DEBUG_ID("processSyncInterest");
   DigestConstPtr rootDigest;
   {
     boost::recursive_mutex::scoped_lock lock (m_stateMutex);
@@ -318,7 +277,7 @@ SyncLogic::processSyncInterest (const Name &name, DigestConstPtr digest, bool ti
 
   if (*rootDigest == *digest)
     {
-      _LOG_TRACE ("processSyncInterest (): Same state. Adding to PIT");
+      _LOG_DEBUG_ID ("processSyncInterest (): Same state. Adding to PIT");
       m_syncInterestTable.insert (digest, name.toUri(), false);
       return;
     }
@@ -338,19 +297,19 @@ SyncLogic::processSyncInterest (const Name &name, DigestConstPtr digest, bool ti
       bool exists = m_syncInterestTable.insert (digest, name.toUri(), true);
       if (exists) // somebody else replied, so restart random-game timer
         {
-          _LOG_DEBUG ("Unknown digest, but somebody may have already replied, so restart our timer");
+          _LOG_DEBUG_ID ("Unknown digest, but somebody may have already replied, so restart our timer");
           m_scheduler.cancelEvent (m_delayedInterestProcessingId);
         }
 
       uint32_t waitDelay = GET_RANDOM (m_rangeUniformRandom);      
-      _LOG_DEBUG ("Digest is not in the log. Schedule processing after small delay: " << waitDelay << "ms");
+      _LOG_DEBUG_ID ("Digest is not in the log. Schedule processing after small delay: " << waitDelay << "ms");
 
       m_delayedInterestProcessingId = m_scheduler.scheduleEvent (time::milliseconds (waitDelay),
                                                                  bind (&SyncLogic::processSyncInterest, this, name, digest, true));
     }
   else
     {
-      _LOG_TRACE ("                                                      (timed processing)");
+      _LOG_DEBUG_ID ("                                                      (timed processing)");
       
       m_recoveryRetransmissionInterval = m_defaultRecoveryRetransmitInterval;
       sendSyncRecoveryInterests (digest);
@@ -413,6 +372,11 @@ SyncLogic::processSyncData (const Name &name, DigestConstPtr digest, const char 
                   if (info->toString() != forwarderPrefix)
                   {
                     MissingDataInfo mdi = {info->toString(), oldSeq, seq};
+                    {
+                      ostringstream interestName;
+                      interestName << mdi.prefix << "/" << mdi.high.getSession() << "/" << mdi.high.getSeq();
+                      _LOG_DEBUG_ID("+++++++++++++++ " + interestName.str());
+                    }
                     if (m_perBranch)
                     {
                        ostringstream interestName;
@@ -455,7 +419,7 @@ SyncLogic::processSyncData (const Name &name, DigestConstPtr digest, const char 
     }
   catch (Error::SyncStateMsgDecodingFailure &e)
     {
-      _LOG_TRACE ("Something really fishy happened during state decoding " <<
+      _LOG_DEBUG_ID ("Something really fishy happened during state decoding " <<
                   diagnostic_information (e));
       diffLog.reset ();
       // don't do anything
@@ -464,27 +428,32 @@ SyncLogic::processSyncData (const Name &name, DigestConstPtr digest, const char 
   if ((diffLog != 0 && diffLog->getLeaves ().size () > 0) ||
       ownInterestSatisfied)
     {
+      _LOG_DEBUG_ID(" +++++++++++++++ state changed!!!");
       // Do it only if everything went fine and state changed
 
       // this is kind of wrong
       // satisfyPendingSyncInterests (diffLog); // if there are interests in PIT, there is a point to satisfy them using new state
   
       // if state has changed, then it is safe to express a new interest
+      time::Duration after = time::milliseconds(GET_RANDOM (m_reexpressionJitter));
+      cout << "------------ reexpress interest after: " << after << " ms " << endl;
+      EventId eventId = m_scheduler.scheduleEvent (after,
+                                                   bind (&SyncLogic::sendSyncInterest, this));
+
       m_scheduler.cancelEvent (m_reexpressingInterestId);
-      m_reexpressingInterestId = m_scheduler.scheduleEvent (time::milliseconds(GET_RANDOM (m_reexpressionJitter)),
-                                                            bind (&SyncLogic::sendSyncInterest, this));
+      m_reexpressingInterestId = eventId;
     }
 }
 
 void
 SyncLogic::processSyncRecoveryInterest (const Name &name, DigestConstPtr digest)
 {
-  _LOG_DEBUG("processSyncRecoveryInterest");
+  _LOG_DEBUG_ID("processSyncRecoveryInterest");
   DiffStateContainer::iterator stateInDiffLog = m_log.find (digest);
 
   if (stateInDiffLog == m_log.end ())
     {
-      _LOG_TRACE ("Could not find " << *digest << " in digest log");
+      _LOG_DEBUG_ID ("Could not find " << *digest << " in digest log");
       return;
     }
 
@@ -518,17 +487,17 @@ SyncLogic::satisfyPendingSyncInterests (DiffStateConstPtr diffLog)
 
           if (!interest.m_unknown)
             {
-              _LOG_TRACE (">> D " << interest.m_name);
+              _LOG_DEBUG_ID (">> D " << interest.m_name);
               sendSyncData (interest.m_name, interest.m_digest, diffLog);
             }
           else
             {
-              _LOG_TRACE (">> D (unknown)" << interest.m_name);
+              _LOG_DEBUG_ID (">> D (unknown)" << interest.m_name);
               sendSyncData (interest.m_name, interest.m_digest, fullStateLog);
             }
           counter ++;
         }
-      _LOG_DEBUG ("Satisfied " << counter << " pending interests");
+      _LOG_DEBUG_ID ("Satisfied " << counter << " pending interests");
     }
   catch (Error::InterestTableIsEmpty &e)
     {
@@ -558,19 +527,19 @@ SyncLogic::addLocalNames (const Name &prefix, uint64_t session, uint64_t seq)
     boost::recursive_mutex::scoped_lock lock (m_stateMutex);
     NameInfoConstPtr info = StdNameInfo::FindOrCreate(prefix.toUri());
 
-    _LOG_DEBUG ("addLocalNames (): old state " << *m_state->getDigest ());
+    _LOG_DEBUG_ID ("addLocalNames (): old state " << *m_state->getDigest ());
 
     SeqNo seqN (session, seq);
     m_state->update(info, seqN);
 
-    _LOG_DEBUG ("addLocalNames (): new state " << *m_state->getDigest ());
+    _LOG_DEBUG_ID ("addLocalNames (): new state " << *m_state->getDigest ());
     
     diff = boost::make_shared<DiffState>();
     diff->update(info, seqN);
     insertToDiffLog (diff);
   }
 
-  // _LOG_DEBUG ("PIT size: " << m_syncInterestTable.size ());
+  // _LOG_DEBUG_ID ("PIT size: " << m_syncInterestTable.size ());
   satisfyPendingSyncInterests (diff);  
 }
 
@@ -608,7 +577,7 @@ SyncLogic::remove(const Name &prefix)
 void
 SyncLogic::sendSyncInterest ()
 {
-  _LOG_DEBUG("sendSyncInterest");
+  _LOG_DEBUG_ID("sendSyncInterest");
 
   {
     boost::recursive_mutex::scoped_lock lock (m_stateMutex);
@@ -616,14 +585,15 @@ SyncLogic::sendSyncInterest ()
     ostringstream os;
     os << *m_state->getDigest();
     m_outstandingInterestName.append(os.str());
-    _LOG_TRACE (">> I " << m_outstandingInterestName);
+    _LOG_DEBUG_ID (">> I " << m_outstandingInterestName);
   }
 
-  _LOG_DEBUG("sendSyncInterest: " << m_outstandingInterestName);
+  _LOG_DEBUG_ID("sendSyncInterest: " << m_outstandingInterestName);
 
+  EventId eventId = m_scheduler.scheduleEvent (time::seconds(m_syncInterestReexpress) + time::milliseconds(GET_RANDOM (m_reexpressionJitter)),
+                                               bind (&SyncLogic::sendSyncInterest, this));
   m_scheduler.cancelEvent (m_reexpressingInterestId);
-  m_reexpressingInterestId = m_scheduler.scheduleEvent (time::seconds(m_syncInterestReexpress)+time::milliseconds(GET_RANDOM (m_reexpressionJitter)),
-                                                        bind (&SyncLogic::sendSyncInterest, this));
+  m_reexpressingInterestId = eventId;
 
   ndn::Interest interest(m_outstandingInterestName);
   interest.setMustBeFresh(true);
@@ -679,13 +649,14 @@ SyncLogic::sendSyncData (const Name &name, DigestConstPtr digest, StateConstPtr 
 void
 SyncLogic::sendSyncData (const Name &name, DigestConstPtr digest, SyncStateMsg &ssm)
 {
-  _LOG_TRACE (">> D " << name);
+  _LOG_DEBUG_ID (">> D " << name);
   int size = ssm.ByteSize();
   char *wireData = new char[size];
   ssm.SerializeToArray(wireData, size);
 
   Data syncData(name);
   syncData.setContent(reinterpret_cast<const uint8_t*>(wireData), size);
+  syncData.setFreshnessPeriod(m_syncResponseFreshness);
   
   m_keyChain->sign(syncData);
   
@@ -702,11 +673,14 @@ SyncLogic::sendSyncData (const Name &name, DigestConstPtr digest, SyncStateMsg &
   
   if (satisfiedOwnInterest)
     {
-      _LOG_TRACE ("Satisfied our own Interest. Re-expressing (hopefully with a new digest)");
+      _LOG_DEBUG_ID ("Satisfied our own Interest. Re-expressing (hopefully with a new digest)");
       
+      time::Duration after = time::milliseconds(GET_RANDOM (m_reexpressionJitter));
+      cout << "------------ reexpress interest after: " << after << " ms " << endl;
+      EventId eventId = m_scheduler.scheduleEvent (after,
+                                                   bind (&SyncLogic::sendSyncInterest, this));
       m_scheduler.cancelEvent (m_reexpressingInterestId);
-      m_reexpressingInterestId = m_scheduler.scheduleEvent (time::milliseconds(GET_RANDOM (m_reexpressionJitter)),
-                                                            bind (&SyncLogic::sendSyncInterest, this));
+      m_reexpressingInterestId = eventId;
     }
 }
 
