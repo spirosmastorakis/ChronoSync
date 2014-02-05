@@ -25,7 +25,6 @@
 
 #include <boost/shared_ptr.hpp>
 #include <boost/weak_ptr.hpp>
-#include <boost/thread/mutex.hpp>
 #include <map>
 #include <string>
 #include "sync-digest.h"
@@ -86,7 +85,6 @@ protected:
   typedef std::map<std::string, const_weak_ptr> NameMap;
   static size_t  m_ids;
   static NameMap m_names;
-  static boost::mutex m_namesMutex;
 };
 
 typedef boost::shared_ptr<NameInfo> NameInfoPtr;

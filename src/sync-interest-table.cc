@@ -23,19 +23,18 @@
 #include "sync-interest-table.h"
 #include "sync-logging.h"
 using namespace std;
-using namespace boost;
 
 INIT_LOGGER ("SyncInterestTable");
 
 namespace Sync
 {
 
-SyncInterestTable::SyncInterestTable (TimeDuration lifetime)
+SyncInterestTable::SyncInterestTable (boost::asio::io_service& io, ndn::time::Duration lifetime)
   : m_entryLifetime (lifetime)
+  , m_scheduler(io)
 {
-  m_scheduler.schedule (TIME_SECONDS (m_checkPeriod),
-                        bind (&SyncInterestTable::expireInterests, this),
-                        0);
+  m_scheduler.schedulePeriodicEvent (ndn::time::seconds (4), ndn::time::seconds (4),
+                                     ndn::bind(&SyncInterestTable::expireInterests, this));
 }
 
 SyncInterestTable::~SyncInterestTable ()
@@ -45,8 +44,6 @@ SyncInterestTable::~SyncInterestTable ()
 Interest
 SyncInterestTable::pop ()
 {
-  boost::recursive_mutex::scoped_lock lock (m_mutex);
-
   if (m_table.size () == 0)
     BOOST_THROW_EXCEPTION (Error::InterestTableIsEmpty ());
 
@@ -61,7 +58,6 @@ SyncInterestTable::insert (DigestConstPtr digest, const string &name, bool unkno
 {
   bool existent = false;
   
-  boost::recursive_mutex::scoped_lock lock (m_mutex);
   InterestContainer::index<named>::type::iterator it = m_table.get<named> ().find (name);
   if (it != m_table.end())
     {
@@ -76,15 +72,12 @@ SyncInterestTable::insert (DigestConstPtr digest, const string &name, bool unkno
 uint32_t
 SyncInterestTable::size () const
 {
-  boost::recursive_mutex::scoped_lock lock (m_mutex);
   return m_table.size ();
 }
 
 bool
 SyncInterestTable::remove (const string &name)
 {
-  boost::recursive_mutex::scoped_lock lock (m_mutex);
-
   InterestContainer::index<named>::type::iterator item = m_table.get<named> ().find (name);
   if (item != m_table.get<named> ().end ())
     {
@@ -98,7 +91,6 @@ SyncInterestTable::remove (const string &name)
 bool
 SyncInterestTable::remove (DigestConstPtr digest)
 {
-  boost::recursive_mutex::scoped_lock lock (m_mutex);
   InterestContainer::index<hashed>::type::iterator item = m_table.get<hashed> ().find (digest);
   if (item != m_table.get<hashed> ().end ())
     {
@@ -110,16 +102,14 @@ SyncInterestTable::remove (DigestConstPtr digest)
 
 void SyncInterestTable::expireInterests ()
 { 
-  boost::recursive_mutex::scoped_lock lock (m_mutex);
-
   uint32_t count = 0;
-  TimeAbsolute expireTime = TIME_NOW - m_entryLifetime;
+  ndn::time::Point expireTime = ndn::time::now() - m_entryLifetime;
   
   while (m_table.size () > 0)
     {
       InterestContainer::index<timed>::type::iterator item = m_table.get<timed> ().begin ();
       
-      if (item->m_time < expireTime)
+      if (item->m_time <= expireTime)
         {
           m_table.get<timed> ().erase (item);
           count ++;
@@ -127,12 +117,6 @@ void SyncInterestTable::expireInterests ()
       else
         break;
   }
-
-  _LOG_DEBUG ("expireInterests (): expired " << count);
-  
-  m_scheduler.schedule (TIME_SECONDS (m_checkPeriod),
-                        bind (&SyncInterestTable::expireInterests, this),
-                        0);
 }
 
 

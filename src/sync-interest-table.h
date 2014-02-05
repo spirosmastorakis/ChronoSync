@@ -23,17 +23,15 @@
 #ifndef SYNC_INTEREST_TABLE_H
 #define SYNC_INTEREST_TABLE_H
 
+#include <ndn-cpp-dev/util/scheduler.hpp>
+
 #include <string>
 #include <vector>
-#include <boost/thread/recursive_mutex.hpp>
-#include <boost/thread/thread.hpp>
-#include <ctime>
-#include "sync-scheduler.h"
+
 #include "sync-digest.h"
 #include "sync-interest-container.h"
 
 namespace Sync {
-
 
 /**
  * \ingroup sync
@@ -44,7 +42,7 @@ namespace Sync {
 class SyncInterestTable
 {
 public:
-  SyncInterestTable (TimeDuration lifetime);
+  SyncInterestTable (boost::asio::io_service& io, ndn::time::Duration lifetime);
   ~SyncInterestTable ();
 
   /**
@@ -83,19 +81,15 @@ private:
   expireInterests ();
 
 private:
-  static const int m_checkPeriod = 4; // seconds
-
-  TimeDuration m_entryLifetime;
+  ndn::time::Duration m_entryLifetime;
   InterestContainer m_table;
 
-  Scheduler m_scheduler;
-  mutable boost::recursive_mutex m_mutex;
+  ndn::Scheduler m_scheduler;
 };
 
 namespace Error {
 struct InterestTableIsEmpty : virtual boost::exception, virtual std::exception { };
 }
-
 
 } // Sync
 

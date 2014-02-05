@@ -27,7 +27,6 @@
 #include "sync-logging.h"
 #include "sync-state.h"
 
-#include <boost/make_shared.hpp>
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
 #include <vector>
@@ -39,7 +38,7 @@ INIT_LOGGER ("SyncLogic");
 
 
 #ifdef _DEBUG
-#define _LOG_DEBUG_ID(v) _LOG_DEBUG(m_instanceId + v)
+#define _LOG_DEBUG_ID(v) _LOG_DEBUG(m_instanceId << " " << v)
 #else
 #define _LOG_DEBUG_ID(v) _LOG_DEBUG(v)
 #endif
@@ -47,14 +46,14 @@ INIT_LOGGER ("SyncLogic");
 #define GET_RANDOM(var) var ()
 
 #define TIME_SECONDS_WITH_JITTER(sec) \
-  (TIME_SECONDS (sec) + TIME_MILLISECONDS (GET_RANDOM (m_reexpressionJitter)))
+  (time::seconds(sec) + time::milliseconds(GET_RANDOM (m_reexpressionJitter)))
 
 #define TIME_MILLISECONDS_WITH_JITTER(ms) \
-  (TIME_MILLISECONDS (ms) + TIME_MILLISECONDS (GET_RANDOM (m_reexpressionJitter)))
+  (time::seconds(ms) + time::milliseconds(GET_RANDOM (m_reexpressionJitter)))
 
+namespace Sync {
 
-namespace Sync
-{
+using ndn::shared_ptr;
 
 int SyncLogic::m_instanceCounter = 0;
 
@@ -64,7 +63,7 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
                       LogicUpdateCallback onUpdate,
                       LogicRemoveCallback onRemove)
   : m_state (new FullState)
-  , m_syncInterestTable (TIME_SECONDS (m_syncInterestReexpress))
+  , m_syncInterestTable (*face->ioService(), time::seconds(m_syncInterestReexpress))
   , m_syncPrefix (syncPrefix)
   , m_onUpdate (onUpdate)
   , m_onRemove (onRemove)
@@ -73,7 +72,7 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
   , m_keyChain(new KeyChain())
   , m_face(face)
   , m_scheduler(*face->ioService())
-    , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
+  , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
   , m_rangeUniformRandom (m_randomGenerator, boost::uniform_int<> (200,1000))
   , m_reexpressionJitter (m_randomGenerator, boost::uniform_int<> (100,500))
   , m_recoveryRetransmissionInterval (m_defaultRecoveryRetransmitInterval)
@@ -94,7 +93,7 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
                       shared_ptr<Face> face,
                       LogicPerBranchCallback onUpdateBranch)
   : m_state (new FullState)
-  , m_syncInterestTable (TIME_SECONDS (m_syncInterestReexpress))
+  , m_syncInterestTable (*face->ioService(), time::seconds (m_syncInterestReexpress))
   , m_syncPrefix (syncPrefix)
   , m_onUpdateBranch (onUpdateBranch)
   , m_perBranch(true)
@@ -258,7 +257,6 @@ SyncLogic::processSyncInterest (const Name &name, DigestConstPtr digest, bool ti
   _LOG_DEBUG_ID("processSyncInterest");
   DigestConstPtr rootDigest;
   {
-    boost::recursive_mutex::scoped_lock lock (m_stateMutex);
     rootDigest = m_state->getDigest();
   }
 
@@ -268,7 +266,6 @@ SyncLogic::processSyncInterest (const Name &name, DigestConstPtr digest, bool ti
       
       SyncStateMsg ssm;
       {
-        boost::recursive_mutex::scoped_lock lock (m_stateMutex);
         ssm << (*m_state);
       }
       sendSyncData (name, digest, ssm);
@@ -302,7 +299,7 @@ SyncLogic::processSyncInterest (const Name &name, DigestConstPtr digest, bool ti
         }
 
       uint32_t waitDelay = GET_RANDOM (m_rangeUniformRandom);      
-      _LOG_DEBUG_ID ("Digest is not in the log. Schedule processing after small delay: " << waitDelay << "ms");
+      _LOG_DEBUG_ID ("Digest is not in the log. Schedule processing after small delay: " << time::milliseconds (waitDelay));
 
       m_delayedInterestProcessingId = m_scheduler.scheduleEvent (time::milliseconds (waitDelay),
                                                                  bind (&SyncLogic::processSyncInterest, this, name, digest, true));
@@ -353,7 +350,6 @@ SyncLogic::processSyncData (const Name &name, DigestConstPtr digest, const char 
               bool updated = false;
               SeqNo oldSeq;
               {
-                boost::recursive_mutex::scoped_lock lock (m_stateMutex);
                 boost::tie (inserted, updated, oldSeq) = m_state->update (info, seq);
               }
 
@@ -392,7 +388,6 @@ SyncLogic::processSyncData (const Name &name, DigestConstPtr digest, const char 
             }
           else if (diffLeaf->getOperation() == REMOVE)
             {
-              boost::recursive_mutex::scoped_lock lock (m_stateMutex);
               if (m_state->remove (info))
                 {
                   diffLog->remove (info);
@@ -436,7 +431,7 @@ SyncLogic::processSyncData (const Name &name, DigestConstPtr digest, const char 
   
       // if state has changed, then it is safe to express a new interest
       time::Duration after = time::milliseconds(GET_RANDOM (m_reexpressionJitter));
-      cout << "------------ reexpress interest after: " << after << " ms " << endl;
+      // cout << "------------ reexpress interest after: " << after << endl;
       EventId eventId = m_scheduler.scheduleEvent (after,
                                                    bind (&SyncLogic::sendSyncInterest, this));
 
@@ -459,7 +454,6 @@ SyncLogic::processSyncRecoveryInterest (const Name &name, DigestConstPtr digest)
 
   SyncStateMsg ssm;
   {
-    boost::recursive_mutex::scoped_lock lock (m_stateMutex);
     ssm << (*m_state);
   }
   sendSyncData (name, digest, ssm);
@@ -470,7 +464,6 @@ SyncLogic::satisfyPendingSyncInterests (DiffStateConstPtr diffLog)
 {
   DiffStatePtr fullStateLog = boost::make_shared<DiffState> ();
   {
-    boost::recursive_mutex::scoped_lock lock (m_stateMutex);
     BOOST_FOREACH (LeafConstPtr leaf, m_state->getLeaves ()/*.get<timed> ()*/)
       {
         fullStateLog->update (leaf->getInfo (), leaf->getSeq ());
@@ -524,7 +517,6 @@ SyncLogic::addLocalNames (const Name &prefix, uint64_t session, uint64_t seq)
   DiffStatePtr diff;
   {
     //cout << "Add local names" <<endl;
-    boost::recursive_mutex::scoped_lock lock (m_stateMutex);
     NameInfoConstPtr info = StdNameInfo::FindOrCreate(prefix.toUri());
 
     _LOG_DEBUG_ID ("addLocalNames (): old state " << *m_state->getDigest ());
@@ -548,7 +540,6 @@ SyncLogic::remove(const Name &prefix)
 {
   DiffStatePtr diff;
   {
-    boost::recursive_mutex::scoped_lock lock (m_stateMutex);
     NameInfoConstPtr info = StdNameInfo::FindOrCreate(prefix.toUri());
     m_state->remove(info);	
 
@@ -580,7 +571,6 @@ SyncLogic::sendSyncInterest ()
   _LOG_DEBUG_ID("sendSyncInterest");
 
   {
-    boost::recursive_mutex::scoped_lock lock (m_stateMutex);
     m_outstandingInterestName = m_syncPrefix;
     ostringstream os;
     os << *m_state->getDigest();
@@ -667,7 +657,6 @@ SyncLogic::sendSyncData (const Name &name, DigestConstPtr digest, SyncStateMsg &
   // checking if our own interest got satisfied
   bool satisfiedOwnInterest = false;
   {
-    boost::recursive_mutex::scoped_lock lock (m_stateMutex);
     satisfiedOwnInterest = (m_outstandingInterestName == name);
   }
   
@@ -676,7 +665,7 @@ SyncLogic::sendSyncData (const Name &name, DigestConstPtr digest, SyncStateMsg &
       _LOG_DEBUG_ID ("Satisfied our own Interest. Re-expressing (hopefully with a new digest)");
       
       time::Duration after = time::milliseconds(GET_RANDOM (m_reexpressionJitter));
-      cout << "------------ reexpress interest after: " << after << " ms " << endl;
+      // cout << "------------ reexpress interest after: " << after << endl;
       EventId eventId = m_scheduler.scheduleEvent (after,
                                                    bind (&SyncLogic::sendSyncInterest, this));
       m_scheduler.cancelEvent (m_reexpressingInterestId);
@@ -688,7 +677,6 @@ string
 SyncLogic::getRootDigest() 
 {
   ostringstream os;
-  boost::recursive_mutex::scoped_lock lock (m_stateMutex);
   os << *m_state->getDigest();
   return os.str();
 }
@@ -696,15 +684,12 @@ SyncLogic::getRootDigest()
 size_t
 SyncLogic::getNumberOfBranches () const
 {
-  boost::recursive_mutex::scoped_lock lock (m_stateMutex);
   return m_state->getLeaves ().size ();
 }
 
 void
 SyncLogic::printState () const
 {
-  boost::recursive_mutex::scoped_lock lock (m_stateMutex);
-
   BOOST_FOREACH (const boost::shared_ptr<Sync::Leaf> leaf, m_state->getLeaves ())
     {
       std::cout << *leaf << std::endl;
@@ -714,8 +699,6 @@ SyncLogic::printState () const
 std::map<std::string, bool>
 SyncLogic::getBranchPrefixes() const
 {
-  boost::recursive_mutex::scoped_lock lock (m_stateMutex);
-
   std::map<std::string, bool> m;
 
   BOOST_FOREACH (const boost::shared_ptr<Sync::Leaf> leaf, m_state->getLeaves ())

@@ -18,15 +18,15 @@
  * Author: Yingdi Yu <yingdi@cs.ucla.edu>
  */
 
-#ifndef SYNC_SOCKET_H
-#define SYNC_SOCKET_H
-
-#include "sync-logic.h"
-#include "sync-seq-no.h"
+#ifndef _SYNC_SOCKET_H
+#define _SYNC_SOCKET_H
 
 #include <ndn-cpp-dev/face.hpp>
 #include <ndn-cpp-dev/security/validator.hpp>
 #include <ndn-cpp-dev/security/key-chain.hpp>
+
+#include "sync-logic.h"
+#include "sync-seq-no.h"
 
 #include <utility>
 #include <map>

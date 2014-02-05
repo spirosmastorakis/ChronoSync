@@ -24,8 +24,6 @@
 #ifndef SYNC_LOGIC_H
 #define SYNC_LOGIC_H
 
-#include <boost/shared_ptr.hpp>
-#include <boost/thread/recursive_mutex.hpp>
 #include <boost/random.hpp>
 #include <memory>
 #include <map>
@@ -198,7 +196,6 @@ private:
 private:
   FullStatePtr m_state;
   DiffStateContainer m_log;
-  mutable boost::recursive_mutex m_stateMutex;
 
   ndn::Name m_outstandingInterestName;
   SyncInterestTable m_syncInterestTable;
@@ -220,8 +217,8 @@ private:
   boost::variate_generator<boost::mt19937&, boost::uniform_int<> > m_reexpressionJitter;
 
   static const int m_unknownDigestStoreTime = 10; // seconds
-  static const int m_syncResponseFreshness = 100;
-  static const int m_syncInterestReexpress = 4;
+  static const int m_syncResponseFreshness = 1000; // MUST BE dividable by 1000!!!
+  static const int m_syncInterestReexpress = 4; // seconds
 
   static const int m_defaultRecoveryRetransmitInterval = 200; // milliseconds
   uint32_t m_recoveryRetransmissionInterval; // milliseconds

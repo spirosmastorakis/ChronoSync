@@ -28,6 +28,5 @@ namespace Sync {
 
 NameInfo::NameMap NameInfo::m_names;
 size_t  NameInfo::m_ids = 0;
-boost::mutex NameInfo::m_namesMutex;
 
 } // Sync

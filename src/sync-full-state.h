@@ -23,16 +23,7 @@
 #ifndef SYNC_FULL_STATE_H
 #define SYNC_FULL_STATE_H
 
-#ifdef NS3_MODULE 
-#include "ns3/nstime.h"
-typedef ns3::Time TimeType;
-typedef ns3::Time TimeDurationType;
-#else
-#include <boost/date_time/posix_time/posix_time_types.hpp>
-typedef boost::posix_time::ptime TimeType;
-typedef boost::posix_time::time_duration TimeDurationType;
-#endif // NS3_MODULE
-
+#include <ndn-cpp-dev/util/time.hpp>
 #include "sync-state.h"
 
 namespace Sync {
@@ -60,7 +51,7 @@ public:
    *
    * This value can be used to randomize reconciliation waiting time in SyncApp
    */
-  TimeDurationType
+  ndn::time::Duration
   getTimeFromLastUpdate () const;
 
   /**
@@ -79,7 +70,7 @@ public:
   remove (NameInfoConstPtr info);
   
 private:
-  TimeType m_lastUpdated; ///< @brief Time when state was updated last time
+  ndn::time::Point m_lastUpdated; ///< @brief Time when state was updated last time
   DigestPtr m_digest;
 };
 

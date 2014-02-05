@@ -28,6 +28,8 @@ INIT_LOGGER ("SyncSocket");
 
 namespace Sync {
 
+using ndn::shared_ptr;
+
 SyncSocket::SyncSocket (const Name &syncPrefix, 
                         shared_ptr<Validator> validator,
                         shared_ptr<Face> face,
@@ -58,7 +60,7 @@ SyncSocket::publishData(const Name &prefix, uint64_t session, const char *buf, s
 
   Data data(dataName);
   data.setContent(reinterpret_cast<const uint8_t*>(buf), len);
-  data.setFreshnessPeriod(freshness);
+  data.setFreshnessPeriod(1000*freshness);
 
   m_keyChain->sign(data);
   

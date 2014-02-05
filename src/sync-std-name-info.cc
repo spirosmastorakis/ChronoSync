@@ -21,7 +21,6 @@
  */
 
 #include "sync-std-name-info.h"
-#include "boost/thread/locks.hpp"
 
 // using namespace std;
 using namespace boost;
@@ -32,8 +31,6 @@ namespace Sync {
 NameInfoConstPtr
 StdNameInfo::FindOrCreate (const std::string &key)
 {
-  mutex::scoped_lock namesLock (m_namesMutex);
-  
   // std::cout << "FindOrCreate: " << m_names.size () << "\n";
   
   NameInfoConstPtr ret;
@@ -70,8 +67,6 @@ StdNameInfo::StdNameInfo (const std::string &name)
 
 StdNameInfo::~StdNameInfo ()
 {
-  mutex::scoped_lock namesLock (m_namesMutex);
-
   // cout << "Destructor for " << m_name << "\n";
   m_names.erase (toString ());
 }
