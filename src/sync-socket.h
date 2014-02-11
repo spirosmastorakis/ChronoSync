@@ -91,18 +91,20 @@ public:
   GetLocalPrefix (); 
   
 private:
+  void
+  publishDataInternal(ndn::shared_ptr<ndn::Data> data, const ndn::Name &prefix, uint64_t session);
+
   void 
   passCallback(const std::vector<MissingDataInfo> &v) 
   { m_newDataCallback(v, this); }
 
   void
-  onData(const ndn::shared_ptr<const ndn::Interest>& interest, 
-         const ndn::shared_ptr<ndn::Data>& data,
+  onData(const ndn::Interest& interest, ndn::Data& data,
          const ndn::OnDataValidated& onValidated,
          const ndn::OnDataValidationFailed& onValidationFailed);
 
   void
-  onDataTimeout(const ndn::shared_ptr<const ndn::Interest>& interest, 
+  onDataTimeout(const ndn::Interest& interest, 
                 int retry,
                 const ndn::OnDataValidated& onValidated,
                 const ndn::OnDataValidationFailed& onValidationFailed);
@@ -117,6 +119,7 @@ private:
   ndn::shared_ptr<ndn::Validator> m_validator;
   ndn::shared_ptr<ndn::KeyChain> m_keyChain;
   ndn::shared_ptr<ndn::Face> m_face;
+  ndn::shared_ptr<boost::asio::io_service> m_ioService;
   SyncLogic      m_syncLogic;
 };
 

@@ -79,7 +79,7 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
 { 
   m_syncRegisteredPrefixId = m_face->setInterestFilter (m_syncPrefix, 
                                                         bind(&SyncLogic::onSyncInterest, this, _1, _2), 
-                                                        bind(&SyncLogic::onSyncRegisterFailed, this, _1));
+                                                        bind(&SyncLogic::onSyncRegisterFailed, this, _1, _2));
   
 
   m_reexpressingInterestId = m_scheduler.scheduleEvent (time::seconds (0), // no need to add jitter
@@ -108,7 +108,7 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
 { 
   m_syncRegisteredPrefixId = m_face->setInterestFilter (m_syncPrefix, 
                                                         bind(&SyncLogic::onSyncInterest, this, _1, _2), 
-                                                        bind(&SyncLogic::onSyncRegisterFailed, this, _1));
+                                                        bind(&SyncLogic::onSyncRegisterFailed, this, _1, _2));
 
   m_reexpressingInterestId = m_scheduler.scheduleEvent (time::seconds (0), // no need to add jitter
                                                         bind (&SyncLogic::sendSyncInterest, this));
@@ -117,12 +117,6 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
 SyncLogic::~SyncLogic ()
 { 
   m_face->unsetInterestFilter(m_syncRegisteredPrefixId); 
-}
-
-void
-SyncLogic::stop()
-{
-  m_face->unsetInterestFilter(m_syncRegisteredPrefixId);
   m_scheduler.cancelEvent (m_reexpressingInterestId);
   m_scheduler.cancelEvent (m_delayedInterestProcessingId);
 }
@@ -160,10 +154,9 @@ SyncLogic::convertNameToDigestAndType (const Name &name)
 }
 
 void
-SyncLogic::onSyncInterest (const shared_ptr<const Name>& prefix, 
-                           const shared_ptr<const ndn::Interest>& interest)
+SyncLogic::onSyncInterest (const Name& prefix, const ndn::Interest& interest)
 {
-  Name name = interest->getName();
+  Name name = interest.getName();
 
   _LOG_DEBUG_ID("respondSyncInterest: " << name);
 
@@ -193,20 +186,21 @@ SyncLogic::onSyncInterest (const shared_ptr<const Name>& prefix,
 }
 
 void
-SyncLogic::onSyncRegisterFailed(const shared_ptr<const Name>& prefix)
+SyncLogic::onSyncRegisterFailed(const Name& prefix, const string& msg)
 {
-  _LOG_DEBUG_ID("Sync prefix registration failed!");
+  _LOG_DEBUG_ID("Sync prefix registration failed! " << msg);
 }
 
 void
-SyncLogic::onSyncData(const shared_ptr<const ndn::Interest>& interest, 
-                      const shared_ptr<Data>& data,
-                      const OnDataValidated& onValidated,
-                      const OnDataValidationFailed& onValidationFailed)
-{ m_validator->validate(data, onValidated, onValidationFailed); }
+SyncLogic::onSyncData(const ndn::Interest& interest, Data& data)
+{
+  OnDataValidated onValidated = bind(&SyncLogic::onSyncDataValidated, this, _1);
+  OnDataValidationFailed onValidationFailed = bind(&SyncLogic::onSyncDataValidationFailed, this, _1);
+  m_validator->validate(data, onValidated, onValidationFailed); 
+}
 
 void
-SyncLogic::onSyncTimeout(const shared_ptr<const ndn::Interest>& interest)
+SyncLogic::onSyncTimeout(const ndn::Interest& interest)
 { 
   // It is OK. Others will handle the time out situation. 
 }
@@ -588,11 +582,8 @@ SyncLogic::sendSyncInterest ()
   ndn::Interest interest(m_outstandingInterestName);
   interest.setMustBeFresh(true);
 
-  OnDataValidated onValidated = bind(&SyncLogic::onSyncDataValidated, this, _1);
-  OnDataValidationFailed onValidationFailed = bind(&SyncLogic::onSyncDataValidationFailed, this, _1);
-
   m_face->expressInterest(interest,
-                          bind(&SyncLogic::onSyncData, this, _1, _2, onValidated, onValidationFailed),
+                          bind(&SyncLogic::onSyncData, this, _1, _2),
                           bind(&SyncLogic::onSyncTimeout, this, _1));
 }
 
@@ -617,11 +608,8 @@ SyncLogic::sendSyncRecoveryInterests (DigestConstPtr digest)
   ndn::Interest interest(interestName);
   interest.setMustBeFresh(true);
 
-  OnDataValidated onValidated = bind(&SyncLogic::onSyncDataValidated, this, _1);
-  OnDataValidationFailed onValidationFailed = bind(&SyncLogic::onSyncDataValidationFailed, this, _1);
-
   m_face->expressInterest(interest,
-                          bind(&SyncLogic::onSyncData, this, _1, _2, onValidated, onValidationFailed),
+                          bind(&SyncLogic::onSyncData, this, _1, _2),
                           bind(&SyncLogic::onSyncTimeout, this, _1));
 }
 

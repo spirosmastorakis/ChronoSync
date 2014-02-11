@@ -95,19 +95,6 @@ public:
   void addLocalNames (const ndn::Name &prefix, uint64_t session, uint64_t seq);
 
   /**
-   * @brief respond to the Sync Interest; a lot of logic needs to go in here
-   * @param interest the Sync Interest in string format
-   */
-  void respondSyncInterest (ndn::shared_ptr<ndn::Interest> interest);
-
-  /**
-   * @brief process the fetched sync data
-   * @param name the data name
-   * @param dataBuffer the sync data
-   */
-  void respondSyncData (ndn::shared_ptr<ndn::Data> data);
-
-  /**
    * @brief remove a participant's subtree from the sync tree
    * @param prefix the name prefix for the participant
    */
@@ -120,8 +107,6 @@ public:
   ndn::Scheduler &
   getScheduler () { return m_scheduler; }
 #endif
-  
-  void stop();
 
   void
   printState () const;
@@ -134,20 +119,16 @@ private:
   delayedChecksLoop ();
 
   void
-  onSyncInterest (const ndn::shared_ptr<const ndn::Name>& prefix, 
-                  const ndn::shared_ptr<const ndn::Interest>& interest);
+  onSyncInterest (const ndn::Name& prefix, const ndn::Interest& interest);
 
   void
-  onSyncRegisterFailed(const ndn::shared_ptr<const ndn::Name>& prefix);
+  onSyncRegisterFailed(const ndn::Name& prefix, const std::string& msg);
 
   void
-  onSyncData(const ndn::shared_ptr<const ndn::Interest>& interest, 
-             const ndn::shared_ptr<ndn::Data>& data,
-             const ndn::OnDataValidated& onValidated,
-             const ndn::OnDataValidationFailed& onValidationFailed);
+  onSyncData(const ndn::Interest& interest, ndn::Data& data);
 
   void
-  onSyncTimeout(const ndn::shared_ptr<const ndn::Interest>& interest);
+  onSyncTimeout(const ndn::Interest& interest);
 
   void
   onSyncDataValidationFailed(const ndn::shared_ptr<const ndn::Data>& data);

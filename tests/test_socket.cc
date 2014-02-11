@@ -138,14 +138,14 @@ public:
 class TestSet1{
 public:
   TestSet1(ndn::shared_ptr<boost::asio::io_service> ioService)
-    : m_syncPrefix("/let/us/sync")
-    , m_validator(new ndn::ValidatorNull())
+    : m_validator(new ndn::ValidatorNull())
     , m_face1(new ndn::Face(ioService))
     , m_face2(new ndn::Face(ioService))
     , m_face3(new ndn::Face(ioService))
     , m_p1("/irl.cs.ucla.edu")
     , m_p2("/yakshi.org")
     , m_p3("/google.com")
+    , m_syncPrefix("/let/us/sync")
   {}
 
   void
@@ -250,12 +250,12 @@ public:
 class TestSet2{
 public:
   TestSet2(ndn::shared_ptr<boost::asio::io_service> ioService)
-    : m_syncPrefix("/this/is/the/prefix")
-    , m_validator(new ndn::ValidatorNull())
+    : m_validator(new ndn::ValidatorNull())
     , m_face1(new ndn::Face(ioService))
     , m_face2(new ndn::Face(ioService))
     , m_p1("/xiaonei.com")
     , m_p2("/mitbbs.com")
+    , m_syncPrefix("/this/is/the/prefix")
   {}
 
   void

@@ -39,6 +39,7 @@ SyncSocket::SyncSocket (const Name &syncPrefix,
   , m_validator(validator)
   , m_keyChain(new KeyChain())
   , m_face(face)
+  , m_ioService(face->ioService())
   , m_syncLogic (syncPrefix,
                  validator,
                  face,
@@ -53,23 +54,30 @@ SyncSocket::~SyncSocket()
 bool 
 SyncSocket::publishData(const Name &prefix, uint64_t session, const char *buf, size_t len, int freshness)
 {
+  shared_ptr<Data> data = make_shared<Data>();
+  data->setContent(reinterpret_cast<const uint8_t*>(buf), len);
+  data->setFreshnessPeriod(1000*freshness);
+
+  m_ioService->post(bind(&SyncSocket::publishDataInternal, this, data, prefix, session));
+
+  return true;  
+}
+
+void
+SyncSocket::publishDataInternal(shared_ptr<Data> data, const Name &prefix, uint64_t session)
+{
   uint64_t sequence = getNextSeq(prefix, session);
-  
   Name dataName = prefix;
   dataName.append(boost::lexical_cast<string>(session)).append(boost::lexical_cast<string>(sequence));
+  data->setName(dataName);
 
-  Data data(dataName);
-  data.setContent(reinterpret_cast<const uint8_t*>(buf), len);
-  data.setFreshnessPeriod(1000*freshness);
+  m_keyChain->sign(*data);  
+  m_face->put(*data);
 
-  m_keyChain->sign(data);
-  
-  m_face->put(data);
-  
   SeqNo s(session, sequence + 1);
+
   m_sequenceLog[prefix] = s;
   m_syncLogic.addLocalNames (prefix, session, sequence);
-  return true;
 }
 
 void 
@@ -89,8 +97,7 @@ SyncSocket::fetchData(const Name &prefix, const SeqNo &seq, const OnDataValidate
 }
 
 void
-SyncSocket::onData(const shared_ptr<const ndn::Interest>& interest, 
-                   const shared_ptr<Data>& data,
+SyncSocket::onData(const ndn::Interest& interest, Data& data,
                    const OnDataValidated& onValidated,
                    const OnDataValidationFailed& onValidationFailed)
 {
@@ -98,14 +105,14 @@ SyncSocket::onData(const shared_ptr<const ndn::Interest>& interest,
 }
 
 void
-SyncSocket::onDataTimeout(const shared_ptr<const ndn::Interest>& interest, 
+SyncSocket::onDataTimeout(const ndn::Interest& interest, 
                           int retry,
                           const OnDataValidated& onValidated,
                           const OnDataValidationFailed& onValidationFailed)
 {
   if(retry > 0)
     {
-      m_face->expressInterest(*interest,
+      m_face->expressInterest(interest,
                               bind(&SyncSocket::onData,
                                    this,
                                    _1,
