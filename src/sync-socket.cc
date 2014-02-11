@@ -30,17 +30,20 @@ namespace Sync {
 
 using ndn::shared_ptr;
 
-SyncSocket::SyncSocket (const Name &syncPrefix, 
+SyncSocket::SyncSocket (const Name& syncPrefix,
+                        const Name& identity,
                         shared_ptr<Validator> validator,
                         shared_ptr<Face> face,
                         NewDataCallback dataCallback, 
                         RemoveCallback rmCallback )
   : m_newDataCallback(dataCallback)
+  , m_identity(identity)
   , m_validator(validator)
   , m_keyChain(new KeyChain())
   , m_face(face)
   , m_ioService(face->ioService())
   , m_syncLogic (syncPrefix,
+                 identity,
                  validator,
                  face,
                  bind(&SyncSocket::passCallback, this, _1),
@@ -71,7 +74,7 @@ SyncSocket::publishDataInternal(shared_ptr<Data> data, const Name &prefix, uint6
   dataName.append(boost::lexical_cast<string>(session)).append(boost::lexical_cast<string>(sequence));
   data->setName(dataName);
 
-  m_keyChain->sign(*data);  
+  m_keyChain->signByIdentity(*data, m_identity);
   m_face->put(*data);
 
   SeqNo s(session, sequence + 1);

@@ -101,8 +101,11 @@ public:
   createSyncLogic(int index, 
                   ndn::shared_ptr<Handler> h)
   { 
+    ndn::Name identity("/tmp-" + boost::lexical_cast<std::string>(ndn::time::now()));
+    m_keyChain.createIdentity(identity);
     m_faces[index] = ndn::make_shared<ndn::Face>(m_ioService);
     m_l[index] = new SyncLogic(ndn::Name("/bcast"), 
+                               identity,
                                m_validator, m_faces[index], 
                                bind (&Handler::wrapper, &*h, _1), 
                                bind (&Handler::onRemove, &*h, _1)); 
@@ -140,6 +143,7 @@ public:
 
 
 public:
+  ndn::KeyChain m_keyChain;
   ndn::shared_ptr<boost::asio::io_service> m_ioService;
   SyncLogic* m_l[2];
   ndn::shared_ptr<ndn::Face> m_faces[2];

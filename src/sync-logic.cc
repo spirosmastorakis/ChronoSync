@@ -58,6 +58,7 @@ using ndn::shared_ptr;
 int SyncLogic::m_instanceCounter = 0;
 
 SyncLogic::SyncLogic (const Name& syncPrefix,
+                      const Name& identity,
                       shared_ptr<Validator> validator, 
                       shared_ptr<Face> face,
                       LogicUpdateCallback onUpdate,
@@ -65,6 +66,7 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
   : m_state (new FullState)
   , m_syncInterestTable (*face->ioService(), time::seconds(m_syncInterestReexpress))
   , m_syncPrefix (syncPrefix)
+  , m_identity (identity)
   , m_onUpdate (onUpdate)
   , m_onRemove (onRemove)
   , m_perBranch (false)
@@ -89,12 +91,14 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
 }
 
 SyncLogic::SyncLogic (const Name& syncPrefix,
+                      const Name& identity,
                       shared_ptr<Validator> validator,
                       shared_ptr<Face> face,
                       LogicPerBranchCallback onUpdateBranch)
   : m_state (new FullState)
   , m_syncInterestTable (*face->ioService(), time::seconds (m_syncInterestReexpress))
   , m_syncPrefix (syncPrefix)
+  , m_identity (identity)
   , m_onUpdateBranch (onUpdateBranch)
   , m_perBranch(true)
   , m_validator(validator)
@@ -163,6 +167,10 @@ SyncLogic::onSyncInterest (const Name& prefix, const ndn::Interest& interest)
   try
     {
       _LOG_DEBUG_ID ("<< I " << name);
+
+      if(name.get(m_syncPrefix.size()).toEscapedString() == "intro-cert")
+        // it is a certificate, validator will take care of it.
+        return;
 
       DigestConstPtr digest;
       string type;
@@ -636,7 +644,7 @@ SyncLogic::sendSyncData (const Name &name, DigestConstPtr digest, SyncStateMsg &
   syncData.setContent(reinterpret_cast<const uint8_t*>(wireData), size);
   syncData.setFreshnessPeriod(m_syncResponseFreshness);
   
-  m_keyChain->sign(syncData);
+  m_keyChain->signByIdentity(syncData, m_identity);
   
   m_face->put(syncData);
   

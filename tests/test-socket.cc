@@ -29,6 +29,7 @@ using boost::test_tools::output_test_stream;
 
 #include "sync-logging.h"
 #include "sync-socket.h"
+#include "sync-validator.h"
 #include <ndn-cpp-dev/security/validator-null.hpp>
 
 extern "C" {
@@ -138,21 +139,48 @@ public:
 class TestSet1{
 public:
   TestSet1(ndn::shared_ptr<boost::asio::io_service> ioService)
-    : m_validator(new ndn::ValidatorNull())
-    , m_face1(new ndn::Face(ioService))
+    : m_face1(new ndn::Face(ioService))
     , m_face2(new ndn::Face(ioService))
     , m_face3(new ndn::Face(ioService))
     , m_p1("/irl.cs.ucla.edu")
     , m_p2("/yakshi.org")
     , m_p3("/google.com")
     , m_syncPrefix("/let/us/sync")
-  {}
+  {
+    ndn::KeyChain keyChain;
+    m_name1 = m_p1;
+    m_name1.append(boost::lexical_cast<std::string>(ndn::time::now()));
+    ndn::Name certName1 = keyChain.createIdentity(m_name1);
+    m_id1 = keyChain.getCertificate(certName1);
+
+    m_name2 = m_p2;
+    m_name2.append(boost::lexical_cast<std::string>(ndn::time::now()));
+    ndn::Name certName2 = keyChain.createIdentity(m_name2);
+    m_id2 = keyChain.getCertificate(certName2);
+
+    m_name3 = m_p3;
+    m_name3.append(boost::lexical_cast<std::string>(ndn::time::now()));
+    ndn::Name certName3 = keyChain.createIdentity(m_name3);
+    m_id3 = keyChain.getCertificate(certName3);
+
+    ndn::shared_ptr<ndn::SecRuleRelative> rule = ndn::make_shared<ndn::SecRuleRelative>("^(<>*)<><>$",
+                                                                                        "^(<>*)<><KEY><ksk-.*><ID-CERT>$",
+                                                                                        "==", "\\1", "\\1", true);
+
+    m_v1 = ndn::make_shared<SyncValidator>(m_syncPrefix, *m_id1, m_face1, rule);
+    m_v1->addParticipant(*m_id2);
+    m_v2 = ndn::make_shared<SyncValidator>(m_syncPrefix, *m_id2, m_face2, rule);
+    m_v2->addParticipant(*m_id1);
+    m_v2->addParticipant(*m_id3);
+    m_v3 = ndn::make_shared<SyncValidator>(m_syncPrefix, *m_id3, m_face3, rule);
+    m_v3->addParticipant(*m_id2);
+  }
 
   void
   createSyncSocket1()
   {
     _LOG_DEBUG ("s1");
-    m_s1 = make_shared<SyncSocket>(m_syncPrefix, m_validator, m_face1, 
+    m_s1 = ndn::make_shared<SyncSocket>(m_syncPrefix, m_name1, m_v1, m_face1, 
                                    bind(&TestSocketApp::fetchAll, &m_a1, _1, _2), 
                                    bind(&TestSocketApp::pass, &m_a1, _1));
   }
@@ -161,7 +189,7 @@ public:
   createSyncSocket2()
   {
     _LOG_DEBUG ("s2");
-    m_s2 = make_shared<SyncSocket>(m_syncPrefix, m_validator, m_face2, 
+    m_s2 = ndn::make_shared<SyncSocket>(m_syncPrefix, m_name2, m_v2, m_face2, 
                                    bind(&TestSocketApp::fetchAll, &m_a2, _1, _2), 
                                    bind(&TestSocketApp::pass, &m_a2, _1));
   }
@@ -170,7 +198,7 @@ public:
   createSyncSocket3()
   {
     _LOG_DEBUG ("s3");
-    m_s3 = make_shared<SyncSocket>(m_syncPrefix, m_validator, m_face3, 
+    m_s3 = ndn::make_shared<SyncSocket>(m_syncPrefix, m_name3, m_v3, m_face3, 
                                    bind(&TestSocketApp::fetchAll, &m_a3, _1, _2), 
                                    bind(&TestSocketApp::pass, &m_a3, _1));
   }
@@ -236,12 +264,23 @@ public:
     m_s1.reset();
     m_s2.reset();
     m_s3.reset();
+    m_v1.reset();
+    m_v2.reset();
+    m_v3.reset();
+
+    ndn::KeyChain keyChain;
+    keyChain.deleteIdentity(m_name1);
+    keyChain.deleteIdentity(m_name2);
+    keyChain.deleteIdentity(m_name3);
+
   }
 
 
   TestSocketApp m_a1, m_a2, m_a3;
-  ndn::shared_ptr<ndn::ValidatorNull> m_validator;
+  ndn::shared_ptr<ndn::IdentityCertificate> m_id1, m_id2, m_id3;
+  ndn::shared_ptr<Sync::SyncValidator> m_v1, m_v2, m_v3;
   ndn::shared_ptr<ndn::Face> m_face1, m_face2, m_face3;
+  ndn::Name m_name1, m_name2, m_name3;
   ndn::Name m_p1, m_p2, m_p3;
   ndn::shared_ptr<SyncSocket> m_s1, m_s2, m_s3;
   ndn::Name m_syncPrefix;
@@ -250,19 +289,39 @@ public:
 class TestSet2{
 public:
   TestSet2(ndn::shared_ptr<boost::asio::io_service> ioService)
-    : m_validator(new ndn::ValidatorNull())
-    , m_face1(new ndn::Face(ioService))
+    : m_face1(new ndn::Face(ioService))
     , m_face2(new ndn::Face(ioService))
     , m_p1("/xiaonei.com")
     , m_p2("/mitbbs.com")
     , m_syncPrefix("/this/is/the/prefix")
-  {}
+  {
+    ndn::KeyChain keyChain;
+    m_name1 = m_p1;
+    m_name1.append(boost::lexical_cast<string>(ndn::time::now()));
+    ndn::Name certName1 = keyChain.createIdentity(m_name1);
+    m_id1 = keyChain.getCertificate(certName1);
+
+    m_name2 = m_p2;
+    m_name2.append(boost::lexical_cast<string>(ndn::time::now()));
+    ndn::Name certName2 = keyChain.createIdentity(m_name2);
+    m_id2 = keyChain.getCertificate(certName2);
+
+    ndn::shared_ptr<ndn::SecRuleRelative> rule = ndn::make_shared<ndn::SecRuleRelative>("^(<>*)<><>$",
+                                                                                        "^(<>*)<><KEY><ksk-.*><ID-CERT>$",
+                                                                                        "==", "\\1", "\\1", true);
+
+    m_v1 = ndn::make_shared<SyncValidator>(m_syncPrefix, *m_id1, m_face1, rule);
+    m_v1->addParticipant(*m_id2);
+    m_v2 = ndn::make_shared<SyncValidator>(m_syncPrefix, *m_id2, m_face2, rule);
+    m_v2->addParticipant(*m_id1);
+
+  }
 
   void
   createSyncSocket1()
   {
     _LOG_DEBUG ("s1");
-    m_s1 = make_shared<SyncSocket>(m_syncPrefix, m_validator, m_face1, 
+    m_s1 = ndn::make_shared<SyncSocket>(m_syncPrefix, m_name1, m_v1, m_face1, 
                                    bind(&TestSocketApp::fetchNumbers, &m_a1, _1, _2), 
                                    bind(&TestSocketApp::pass, &m_a1, _1));
   }
@@ -271,7 +330,7 @@ public:
   createSyncSocket2()
   {
     _LOG_DEBUG ("s2");
-    m_s2 = make_shared<SyncSocket>(m_syncPrefix, m_validator, m_face2, 
+    m_s2 = ndn::make_shared<SyncSocket>(m_syncPrefix, m_name2, m_v2, m_face2, 
                                    bind(&TestSocketApp::fetchNumbers, &m_a2, _1, _2), 
                                    bind(&TestSocketApp::pass, &m_a2, _1));
   }
@@ -319,12 +378,20 @@ public:
   {
     m_s1.reset();
     m_s2.reset();
+    m_v1.reset();
+    m_v2.reset();
+
+    ndn::KeyChain keyChain;
+    keyChain.deleteIdentity(m_name1);
+    keyChain.deleteIdentity(m_name2);
   }
 
   TestSocketApp m_a1, m_a2;
-  ndn::shared_ptr<ndn::ValidatorNull> m_validator;
+  ndn::shared_ptr<ndn::IdentityCertificate> m_id1, m_id2;
+  ndn::shared_ptr<Sync::SyncValidator> m_v1, m_v2;
   ndn::shared_ptr<ndn::Face> m_face1, m_face2;
   ndn::Name m_p1, m_p2;
+  ndn::Name m_name1, m_name2;
   ndn::shared_ptr<SyncSocket> m_s1, m_s2;
   ndn::Name m_syncPrefix;
 };

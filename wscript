@@ -12,8 +12,8 @@ def options(opt):
     syncopt = opt.add_option_group ("ChronoSync Options")
 
     syncopt.add_option('--debug',action='store_true',default=False,dest='debug',help='''debugging mode''')
-    syncopt.add_option('--log4cxx', action='store_true',default=False,dest='log4cxx',help='''Compile with log4cxx''')
-    syncopt.add_option('--test', action='store_true',default=False,dest='_test',help='''build unit tests''')
+    syncopt.add_option('--with-log4cxx', action='store_true',default=False,dest='log4cxx',help='''Compile with log4cxx''')
+    syncopt.add_option('--with-tests', action='store_true',default=False,dest='_test',help='''build unit tests''')
 
 def configure(conf):
     conf.load('compiler_c compiler_cxx gnu_dirs boost')
@@ -68,6 +68,7 @@ def build (bld):
           features=['cxx', 'cxxprogram'],
           use = 'ChronoSync',
           includes = ['src'],
+          install_path = None,
           )
 
     if bld.get_define ("HAVE_LOG4CXX"):

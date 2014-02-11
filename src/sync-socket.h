@@ -56,7 +56,8 @@ public:
    * @param syncPrefix the name prefix for Sync Interest
    * @param dataCallback the callback to process data
    */
-  SyncSocket (const ndn::Name &syncPrefix, 
+  SyncSocket (const ndn::Name& syncPrefix, 
+              const ndn::Name& identity,
               ndn::shared_ptr<ndn::Validator> validator,
               ndn::shared_ptr<ndn::Face> face,
               NewDataCallback dataCallback, 
@@ -116,6 +117,7 @@ private:
   typedef std::map<ndn::Name, SeqNo> SequenceLog;
   NewDataCallback m_newDataCallback;
   SequenceLog m_sequenceLog;
+  ndn::Name m_identity;
   ndn::shared_ptr<ndn::Validator> m_validator;
   ndn::shared_ptr<ndn::KeyChain> m_keyChain;
   ndn::shared_ptr<ndn::Face> m_face;

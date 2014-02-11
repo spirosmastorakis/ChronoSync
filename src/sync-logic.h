@@ -77,12 +77,14 @@ public:
    * the app data when new remote names are learned
    */
   SyncLogic (const ndn::Name& syncPrefix,
+             const ndn::Name& identity,
              ndn::shared_ptr<ndn::Validator> validator,
              ndn::shared_ptr<ndn::Face> face,
              LogicUpdateCallback onUpdate,
              LogicRemoveCallback onRemove);
 
   SyncLogic (const ndn::Name& syncPrefix,
+             const ndn::Name& identity,
              ndn::shared_ptr<ndn::Validator> validator,
              ndn::shared_ptr<ndn::Face> face,
              LogicPerBranchCallback onUpdateBranch);
@@ -182,6 +184,7 @@ private:
   SyncInterestTable m_syncInterestTable;
 
   ndn::Name m_syncPrefix;
+  ndn::Name m_identity;
   LogicUpdateCallback m_onUpdate;
   LogicRemoveCallback m_onRemove;
   LogicPerBranchCallback m_onUpdateBranch;
