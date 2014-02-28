@@ -8,26 +8,35 @@
 
 BOOST_AUTO_TEST_SUITE(TestSyncValidator)
 
-void onValidated(const ndn::shared_ptr<const ndn::Data>& data)
+void 
+onValidated(const ndn::shared_ptr<const ndn::Data>& data)
 {
   BOOST_CHECK(true);
 }
 
-void onValidationFailed(const ndn::shared_ptr<const ndn::Data>& data,
-			const std::string& failureInfo)
+void 
+onValidationFailed(const ndn::shared_ptr<const ndn::Data>& data,
+                   const std::string& failureInfo)
 {
   BOOST_CHECK(false);
 }
 
-void onValidated2(const ndn::shared_ptr<const ndn::Data>& data)
+void 
+onValidated2(const ndn::shared_ptr<const ndn::Data>& data)
 {
   BOOST_CHECK(false);
 }
 
-void onValidationFailed2(const ndn::shared_ptr<const ndn::Data>& data,
-			const std::string& failureInfo)
+void 
+onValidationFailed2(const ndn::shared_ptr<const ndn::Data>& data,
+                    const std::string& failureInfo)
 {
   BOOST_CHECK(true);
+}
+
+void 
+publishData(const uint8_t* buf, size_t len, int freshness)
+{
 }
 
 BOOST_AUTO_TEST_CASE (Graph)
@@ -60,7 +69,10 @@ BOOST_AUTO_TEST_CASE (Graph)
 
   shared_ptr<boost::asio::io_service> ioService = make_shared<boost::asio::io_service>();
   shared_ptr<Face> face = make_shared<Face>(ioService);
-  SyncValidator validator(prefix, *anchor, face);
+  shared_ptr<SecRuleRelative> rule;
+  SyncValidator validator(prefix, *anchor, face, 
+                          bind(&publishData, _1, _2, _3),
+                          rule);
 
   validator.addParticipant(*introducer);
   BOOST_CHECK(validator.canTrust(certName2));
@@ -135,7 +147,10 @@ BOOST_AUTO_TEST_CASE (OfflineValidate)
 
   shared_ptr<boost::asio::io_service> ioService = make_shared<boost::asio::io_service>();
   shared_ptr<Face> face = make_shared<Face>(ioService);
-  SyncValidator validator(prefix, *anchor, face);
+  shared_ptr<SecRuleRelative> rule;
+  SyncValidator validator(prefix, *anchor, face,
+                          bind(&publishData, _1, _2, _3),
+                          rule);
 
   validator.addParticipant(*introducer);
   BOOST_CHECK(validator.canTrust(certName2));
@@ -211,7 +226,10 @@ BOOST_AUTO_TEST_CASE (OnlineValidate)
 
   shared_ptr<boost::asio::io_service> ioService = make_shared<boost::asio::io_service>();
   shared_ptr<Face> face = make_shared<Face>(ioService);
-  SyncValidator validator(prefix, *anchor, face);
+  shared_ptr<SecRuleRelative> rule;
+  SyncValidator validator(prefix, *anchor, face,
+                          bind(&publishData, _1, _2, _3),
+                          rule);
 
   validator.addParticipant(*introducer);
   BOOST_CHECK(validator.canTrust(certName2));

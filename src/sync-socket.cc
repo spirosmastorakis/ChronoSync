@@ -31,20 +31,27 @@ namespace Sync {
 using ndn::shared_ptr;
 
 SyncSocket::SyncSocket (const Name& syncPrefix,
-                        const Name& identity,
-                        shared_ptr<Validator> validator,
+                        const ndn::Name& dataPrefix,
+                        uint64_t dataSession,
+                        const IdentityCertificate& myCertificate,
+                        shared_ptr<SecRuleRelative> dataRule,
                         shared_ptr<Face> face,
                         NewDataCallback dataCallback, 
                         RemoveCallback rmCallback )
-  : m_newDataCallback(dataCallback)
-  , m_identity(identity)
-  , m_validator(validator)
-  , m_keyChain(new KeyChain())
+  : m_dataPrefix(dataPrefix)
+  , m_dataSession(dataSession)
+  , m_newDataCallback(dataCallback)
+  , m_myCertificate(myCertificate)
   , m_face(face)
   , m_ioService(face->ioService())
+  , m_syncValidator(new SyncValidator(syncPrefix, 
+                                      m_myCertificate, 
+                                      m_face, 
+                                      bind(&SyncSocket::publishData, this, _1, _2, _3, true),
+                                      dataRule))
   , m_syncLogic (syncPrefix,
-                 identity,
-                 validator,
+                 myCertificate,
+                 m_syncValidator,
                  face,
                  bind(&SyncSocket::passCallback, this, _1),
                  rmCallback)
@@ -54,27 +61,28 @@ SyncSocket::~SyncSocket()
 {
 }
 
-bool 
-SyncSocket::publishData(const Name &prefix, uint64_t session, const char *buf, size_t len, int freshness)
+void
+SyncSocket::publishData(const uint8_t* buf, size_t len, int freshness, bool isCert)
 {
   shared_ptr<Data> data = make_shared<Data>();
   data->setContent(reinterpret_cast<const uint8_t*>(buf), len);
   data->setFreshnessPeriod(1000*freshness);
 
-  m_ioService->post(bind(&SyncSocket::publishDataInternal, this, data, prefix, session));
-
-  return true;  
+  m_ioService->post(bind(&SyncSocket::publishDataInternal, this, 
+                         data, m_dataPrefix, m_dataSession, isCert));
 }
 
 void
-SyncSocket::publishDataInternal(shared_ptr<Data> data, const Name &prefix, uint64_t session)
+SyncSocket::publishDataInternal(shared_ptr<Data> data, const Name &prefix, uint64_t session, bool isCert)
 {
   uint64_t sequence = getNextSeq(prefix, session);
   Name dataName = prefix;
   dataName.append(boost::lexical_cast<string>(session)).append(boost::lexical_cast<string>(sequence));
+  if(isCert)
+    dataName.append("INTRO-CERT");
   data->setName(dataName);
 
-  m_keyChain->signByIdentity(*data, m_identity);
+  m_keyChain.sign(*data, m_myCertificate.getName());
   m_face->put(*data);
 
   SeqNo s(session, sequence + 1);
@@ -84,15 +92,17 @@ SyncSocket::publishDataInternal(shared_ptr<Data> data, const Name &prefix, uint6
 }
 
 void 
-SyncSocket::fetchData(const Name &prefix, const SeqNo &seq, const OnDataValidated& onValidated, int retry)
+SyncSocket::fetchData(const Name &prefix, const SeqNo &seq, const OnDataValidated& dataCallback, int retry)
 {
   Name interestName = prefix;
   interestName.append(boost::lexical_cast<string>(seq.getSession())).append(boost::lexical_cast<string>(seq.getSeq()));
 
-  const OnDataValidationFailed& onValidationFailed = bind(&SyncSocket::onDataValidationFailed, this, _1);
-  
   ndn::Interest interest(interestName);
   interest.setMustBeFresh(true);
+
+  const OnDataValidated& onValidated = bind(&SyncSocket::onDataValidated, this, _1, interestName.size(), dataCallback);
+  const OnDataValidationFailed& onValidationFailed = bind(&SyncSocket::onDataValidationFailed, this, _1, _2);
+
   m_face->expressInterest(interest, 
                           bind(&SyncSocket::onData, this, _1, _2, onValidated, onValidationFailed), 
                           bind(&SyncSocket::onDataTimeout, this, _1, retry, onValidated, onValidationFailed));
@@ -104,7 +114,7 @@ SyncSocket::onData(const ndn::Interest& interest, Data& data,
                    const OnDataValidated& onValidated,
                    const OnDataValidationFailed& onValidationFailed)
 {
-  m_validator->validate(data, onValidated, onValidationFailed);
+  m_syncValidator->validate(data, onValidated, onValidationFailed);
 }
 
 void
@@ -135,24 +145,30 @@ SyncSocket::onDataTimeout(const ndn::Interest& interest,
 }
 
 void
-SyncSocket::onDataValidationFailed(const shared_ptr<const Data>& data)
+SyncSocket::onDataValidated(const shared_ptr<const Data>& data,
+                            size_t interestNameSize,
+                            const OnDataValidated& onValidated)
 {
-  _LOG_DEBUG("data cannot be verified!");
+  _LOG_DEBUG("--------------------" << data->getName());
+  if(data->getName().size() > interestNameSize 
+     && data->getName().get(interestNameSize).toEscapedString() == "INTRO-CERT")
+    {
+      Data rawData;
+      rawData.wireDecode(data->getContent().blockFromValue());
+      IntroCertificate introCert(rawData);
+      m_syncValidator->addParticipant(introCert);
+    }
+  else
+    {
+      onValidated(data);
+    }
 }
 
-
-uint64_t
-SyncSocket::getNextSeq (const Name &prefix, uint64_t session)
+void
+SyncSocket::onDataValidationFailed(const shared_ptr<const Data>& data,
+                                   const std::string& failureInfo)
 {
-  SequenceLog::iterator i = m_sequenceLog.find (prefix);
-
-  if (i != m_sequenceLog.end ())
-    {
-      SeqNo s = i->second;
-      if (s.getSession() == session)
-        return s.getSeq();
-    }
-  return 0;
+  _LOG_DEBUG("data cannot be verified!: " << failureInfo);
 }
 
 }//Sync

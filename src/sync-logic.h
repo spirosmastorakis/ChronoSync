@@ -68,23 +68,15 @@ public:
   typedef boost::function< void (const std::string &/*prefix*/ ) > LogicRemoveCallback;
   typedef boost::function< void (const std::string &)> LogicPerBranchCallback;
 
-  /**
-   * @brief Constructor
-   * @param syncPrefix the name prefix to use for the Sync Interest
-   * @param onUpdate function that will be called when new state is detected
-   * @param onRemove function that will be called when state is removed
-   * @param ccnxHandle ccnx handle
-   * the app data when new remote names are learned
-   */
   SyncLogic (const ndn::Name& syncPrefix,
-             const ndn::Name& identity,
+             const ndn::IdentityCertificate& myCertificate,
              ndn::shared_ptr<ndn::Validator> validator,
              ndn::shared_ptr<ndn::Face> face,
              LogicUpdateCallback onUpdate,
              LogicRemoveCallback onRemove);
 
   SyncLogic (const ndn::Name& syncPrefix,
-             const ndn::Name& identity,
+             const ndn::IdentityCertificate& myCertificate,
              ndn::shared_ptr<ndn::Validator> validator,
              ndn::shared_ptr<ndn::Face> face,
              LogicPerBranchCallback onUpdateBranch);
@@ -184,14 +176,14 @@ private:
   SyncInterestTable m_syncInterestTable;
 
   ndn::Name m_syncPrefix;
-  ndn::Name m_identity;
+  ndn::IdentityCertificate m_myCertificate;
   LogicUpdateCallback m_onUpdate;
   LogicRemoveCallback m_onRemove;
   LogicPerBranchCallback m_onUpdateBranch;
   bool m_perBranch;
-  ndn::ptr_lib::shared_ptr<ndn::Validator> m_validator;
-  ndn::ptr_lib::shared_ptr<ndn::KeyChain> m_keyChain;
-  ndn::ptr_lib::shared_ptr<ndn::Face> m_face;
+  ndn::shared_ptr<ndn::Validator> m_validator;
+  ndn::KeyChain m_keyChain;
+  ndn::shared_ptr<ndn::Face> m_face;
   const ndn::RegisteredPrefixId* m_syncRegisteredPrefixId;
 
   ndn::Scheduler m_scheduler;

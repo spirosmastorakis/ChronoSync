@@ -58,7 +58,7 @@ using ndn::shared_ptr;
 int SyncLogic::m_instanceCounter = 0;
 
 SyncLogic::SyncLogic (const Name& syncPrefix,
-                      const Name& identity,
+                      const IdentityCertificate& myCertificate,
                       shared_ptr<Validator> validator, 
                       shared_ptr<Face> face,
                       LogicUpdateCallback onUpdate,
@@ -66,12 +66,11 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
   : m_state (new FullState)
   , m_syncInterestTable (*face->ioService(), time::seconds(m_syncInterestReexpress))
   , m_syncPrefix (syncPrefix)
-  , m_identity (identity)
+  , m_myCertificate(myCertificate)
   , m_onUpdate (onUpdate)
   , m_onRemove (onRemove)
   , m_perBranch (false)
   , m_validator(validator)
-  , m_keyChain(new KeyChain())
   , m_face(face)
   , m_scheduler(*face->ioService())
   , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
@@ -91,18 +90,17 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
 }
 
 SyncLogic::SyncLogic (const Name& syncPrefix,
-                      const Name& identity,
+                      const IdentityCertificate& myCertificate,
                       shared_ptr<Validator> validator,
                       shared_ptr<Face> face,
                       LogicPerBranchCallback onUpdateBranch)
   : m_state (new FullState)
   , m_syncInterestTable (*face->ioService(), time::seconds (m_syncInterestReexpress))
   , m_syncPrefix (syncPrefix)
-  , m_identity (identity)
+  , m_myCertificate(myCertificate)
   , m_onUpdateBranch (onUpdateBranch)
   , m_perBranch(true)
   , m_validator(validator)
-  , m_keyChain(new KeyChain())
   , m_face(face)
   , m_scheduler(*face->ioService())
   , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
@@ -168,7 +166,7 @@ SyncLogic::onSyncInterest (const Name& prefix, const ndn::Interest& interest)
     {
       _LOG_DEBUG_ID ("<< I " << name);
 
-      if(name.get(m_syncPrefix.size()).toEscapedString() == "intro-cert")
+      if(name.get(m_syncPrefix.size()).toEscapedString() == "CHRONOS-INTRO-CERT")
         // it is a certificate, validator will take care of it.
         return;
 
@@ -644,7 +642,7 @@ SyncLogic::sendSyncData (const Name &name, DigestConstPtr digest, SyncStateMsg &
   syncData.setContent(reinterpret_cast<const uint8_t*>(wireData), size);
   syncData.setFreshnessPeriod(m_syncResponseFreshness);
   
-  m_keyChain->signByIdentity(syncData, m_identity);
+  m_keyChain.sign(syncData, m_myCertificate.getName());
   
   m_face->put(syncData);
   

@@ -26,6 +26,7 @@ const shared_ptr<SecRuleRelative> SyncValidator::DefaultDataRule = shared_ptr<Se
 SyncValidator::SyncValidator(const Name& prefix,
                              const IdentityCertificate& anchor,
                              shared_ptr<Face> face,
+                             const PublishCertCallback& publishCertCallback,
                              shared_ptr<SecRuleRelative> rule,
                              shared_ptr<CertificateCache> certificateCache, 
                              const int stepLimit)
@@ -34,6 +35,7 @@ SyncValidator::SyncValidator(const Name& prefix,
   , m_anchor(anchor)
   , m_stepLimit(stepLimit)
   , m_certificateCache(certificateCache)
+  , m_publishCertCallback(publishCertCallback)
   , m_dataRule(rule)
 {
   if(!static_cast<bool>(face))
@@ -43,10 +45,10 @@ SyncValidator::SyncValidator(const Name& prefix,
     m_certificateCache = make_shared<CertificateCacheTtl>(m_face->ioService());
 
   Name certPrefix = prefix;
-  certPrefix.append("intro-cert");
-  m_prefixId = m_face->setInterestFilter (certPrefix, 
-                                          bind(&SyncValidator::onCertInterest, this, _1, _2), 
-                                          bind(&SyncValidator::onCertRegisterFailed, this, _1, _2));
+  certPrefix.append("CHRONOS-INTRO-CERT");
+  m_prefixId = m_face->setInterestFilter(certPrefix, 
+                                         bind(&SyncValidator::onCertInterest, this, _1, _2), 
+                                         bind(&SyncValidator::onCertRegisterFailed, this, _1, _2));
 
   setAnchor(m_anchor);
 }
@@ -81,12 +83,12 @@ SyncValidator::deriveTrustNodes()
               // Check the nodes introduced by the trusted node.
               Edges::const_iterator edgeIt = m_introCerts.find(*eeIt);
               if(edgeIt != m_introCerts.end() 
-                 && m_trustedNodes.find(edgeIt->second.getIntroduceeName()) == m_trustedNodes.end()
+                 && m_trustedNodes.find(edgeIt->second.getIntroduceeCertName()) == m_trustedNodes.end()
                  && verifySignature(edgeIt->second, publicKey))
                 {
                   // If the introduced node can be validated, add it into trusted node set and the node queue.
-                  m_trustedNodes[edgeIt->second.getIntroduceeName()] = edgeIt->second.getIntroduceeCert().getPublicKeyInfo();
-                  nodeQueue.push(edgeIt->second.getIntroduceeName());
+                  m_trustedNodes[edgeIt->second.getIntroduceeCertName()] = edgeIt->second.getIntroduceeCert().getPublicKeyInfo();
+                  nodeQueue.push(edgeIt->second.getIntroduceeCertName());
                 }
             }
         }
@@ -105,7 +107,7 @@ SyncValidator::checkPolicy (const Data& data,
     return onValidationFailed(data.shared_from_this(), 
                               "Maximum steps of validation reached: " + data.getName().toUri());
 
-  if(m_prefix.isPrefixOf(data.getName()))
+  if(m_prefix.isPrefixOf(data.getName()) || (static_cast<bool>(m_dataRule) && m_dataRule->satisfy(data)))
     {
       try
         {
@@ -123,8 +125,10 @@ SyncValidator::checkPolicy (const Data& data,
             }
           else
             {
+              _LOG_DEBUG("I am: " << m_anchor.getName().get(0).toEscapedString() << " for " << data.getName()); 
+
               Name interestName = m_prefix;
-              interestName.append("intro-cert").append(keyLocatorName.wireEncode());
+              interestName.append("CHRONOS-INTRO-CERT").append(keyLocatorName.wireEncode());
               Interest interest(interestName);
               interest.setInterestLifetime(500);
 
@@ -155,41 +159,9 @@ SyncValidator::checkPolicy (const Data& data,
                                     "Key Locator is not a name: " + data.getName().toUri());
         }
     }
-
-  if(static_cast<bool>(m_dataRule) && m_dataRule->satisfy(data))
-    {
-      try
-        {
-          SignatureSha256WithRsa sig(data.getSignature());
-          Name keyLocatorName = sig.getKeyLocator().getName();
-          
-          TrustNodes::const_iterator it = m_trustedNodes.find(keyLocatorName);
-          if(m_trustedNodes.end() != it)
-            {
-              if(verifySignature(data, sig, it->second))
-                return onValidated(data.shared_from_this());
-              else
-                return onValidationFailed(data.shared_from_this(), 
-                                          "Cannot verify signature: " + data.getName().toUri());
-            }
-          else
-            return onValidationFailed(data.shared_from_this(), 
-                                      "Signer cannot be trusted: " + keyLocatorName.toUri());
-        }
-      catch(SignatureSha256WithRsa::Error& e)
-        {
-          return onValidationFailed(data.shared_from_this(), 
-                                    "Not SignatureSha256WithRsa signature: " + string(e.what()));
-        }
-      catch(KeyLocator::Error& e)
-        {
-          return onValidationFailed(data.shared_from_this(),
-                                    "Key Locator is not a name: " + data.getName().toUri());
-        }
-    }
   else
     return onValidationFailed(data.shared_from_this(),
-                              "No data rule or rule is not satisfied: " + data.getName().toUri());
+                              "No rule or rule is not satisfied: " + data.getName().toUri());
 }
 
 void

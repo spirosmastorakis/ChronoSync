@@ -23,6 +23,8 @@ namespace Sync {
 class SyncValidator : public ndn::Validator
 {
 public:
+  typedef ndn::function< void (const uint8_t*, size_t, int) > PublishCertCallback;
+
   struct Error : public ndn::Validator::Error { Error(const std::string &what) : ndn::Validator::Error(what) {} };
 
   static const ndn::shared_ptr<ndn::CertificateCache> DefaultCertificateCache;
@@ -31,6 +33,7 @@ public:
   SyncValidator(const ndn::Name& prefix,
                 const ndn::IdentityCertificate& anchor,
                 ndn::shared_ptr<ndn::Face> face,
+                const PublishCertCallback& publishCertCallback,
                 ndn::shared_ptr<ndn::SecRuleRelative> rule = DefaultDataRule,
                 ndn::shared_ptr<ndn::CertificateCache> certificateCache = DefaultCertificateCache, 
                 const int stepLimit = 10);
@@ -73,6 +76,9 @@ public:
    */
   inline void
   addParticipant(const IntroCertificate& introCert);
+
+  inline void
+  getIntroCertNames(std::vector<ndn::Name>& list);
 
 #ifdef _TEST
   bool
@@ -144,6 +150,7 @@ private:
   ndn::shared_ptr<ndn::CertificateCache> m_certificateCache;
   ndn::KeyChain m_keychain;
   const ndn::RegisteredPrefixId* m_prefixId;
+  PublishCertCallback m_publishCertCallback;
   ndn::shared_ptr<ndn::SecRuleRelative> m_dataRule;
 
   class IntroNode
@@ -162,12 +169,12 @@ private:
     {
       if(isIntroducer)
         {
-          m_nodeName = introCert.getIntroducerName();
+          m_nodeName = introCert.getIntroducerCertName();
           m_introduceeCerts.push_back(introCert.getName());
         }
       else
         {
-          m_nodeName = introCert.getIntroduceeName();
+          m_nodeName = introCert.getIntroduceeCertName();
           m_introducerCerts.push_back(introCert.getName());
         }
     } 
@@ -253,7 +260,7 @@ SyncValidator::addParticipant(const IntroCertificate& introCert)
   m_introCerts[certName] = introCert;
 
   // Check if the introducer has been added.
-  Nodes::iterator nodeIt = m_introNodes.find(introCert.getIntroducerName());
+  Nodes::iterator nodeIt = m_introNodes.find(introCert.getIntroducerCertName());
   if(nodeIt == m_introNodes.end())
     {
       IntroNode node(introCert, true);
@@ -263,7 +270,7 @@ SyncValidator::addParticipant(const IntroCertificate& introCert)
     nodeIt->second.addIntroCertAsIntroducer(certName);
 
   // Check if the introducee has been added.
-  nodeIt = m_introNodes.find(introCert.getIntroduceeName());
+  nodeIt = m_introNodes.find(introCert.getIntroduceeCertName());
   if(nodeIt == m_introNodes.end())
     {
       IntroNode node(introCert, false);
@@ -273,22 +280,36 @@ SyncValidator::addParticipant(const IntroCertificate& introCert)
     nodeIt->second.addIntroCertAsIntroducee(certName);
 
   // Check if the introducer is one of the trusted nodes.
-  TrustNodes::const_iterator trustNodeIt = m_trustedNodes.find(introCert.getIntroducerName());
+  TrustNodes::const_iterator trustNodeIt = m_trustedNodes.find(introCert.getIntroducerCertName());
   if(trustNodeIt != m_trustedNodes.end() && verifySignature(introCert, trustNodeIt->second))
     // If the introducee, add it into trusted node set.
-    m_trustedNodes[introCert.getIntroduceeName()] = introCert.getIntroduceeCert().getPublicKeyInfo();
+    m_trustedNodes[introCert.getIntroduceeCertName()] = introCert.getIntroduceeCert().getPublicKeyInfo();
 }
 
 inline ndn::shared_ptr<const IntroCertificate>
 SyncValidator::addParticipant(const ndn::IdentityCertificate& introducee)
 {
-  ndn::shared_ptr<IntroCertificate> introCert = ndn::make_shared<IntroCertificate>(m_prefix, introducee, m_anchor.getName().getPrefix(-1));
+  ndn::shared_ptr<IntroCertificate> introCert
+    = ndn::shared_ptr<IntroCertificate>(new IntroCertificate(m_prefix, introducee, m_anchor.getName().getPrefix(-1)));
 
   m_keychain.sign(*introCert, m_anchor.getName());
   
   addParticipant(*introCert);
 
+  // Publish certificate as normal data.
+  ndn::Block block = introCert->wireEncode();
+  m_publishCertCallback(block.wire(), block.size(), 1000);
+
   return introCert;
+}
+
+inline void
+SyncValidator::getIntroCertNames(std::vector<ndn::Name>& list)
+{
+  Edges::const_iterator it = m_introCerts.begin();
+  Edges::const_iterator end = m_introCerts.end();
+  for(; it != end; it++)
+    list.push_back(it->first);
 }
 
 } // namespace Sync

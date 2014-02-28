@@ -18,6 +18,12 @@ namespace Sync {
 
 class IntroCertificate : public ndn::Data
 {
+  /**
+   * Naming convention of IntroCertificate:
+   * /<sync_prefix>/CHRONOS-INTRO-CERT/introducee_certname/introducer_certname/version
+   * Content: introducee's identity certificate;
+   * KeyLocator: introducer's identity certificate;
+   */
 public:
   struct Error : public ndn::Data::Error { Error(const std::string &what) : ndn::Data::Error(what) {} };
 
@@ -33,7 +39,7 @@ public:
    */
   IntroCertificate(const ndn::Name& syncPrefix,
                    const ndn::IdentityCertificate& introduceeCert,
-                   const ndn::Name& introducerName); //without version number
+                   const ndn::Name& introducerCertName); //without version number
 
   /**
    * @brief Construct IntroCertificate using a plain data.
@@ -55,59 +61,60 @@ public:
   }
 
   const ndn::Name&
-  getIntroducerName() const
+  getIntroducerCertName() const
   {
-    return m_introducerName;
+    return m_introducerCertName;
   }
 
   const ndn::Name&
-  getIntroduceeName() const
+  getIntroduceeCertName() const
   {
-    return m_introduceeName;
+    return m_introduceeCertName;
   }
 
 private:
   ndn::Name m_syncPrefix;
   ndn::IdentityCertificate m_introduceeCert;
-  ndn::Name m_introducerName;
-  ndn::Name m_introduceeName;
+  ndn::Name m_introducerCertName;
+  ndn::Name m_introduceeCertName;
 };
 
 inline
 IntroCertificate::IntroCertificate(const ndn::Name& syncPrefix,
                                    const ndn::IdentityCertificate& introduceeCert,
-                                   const ndn::Name& introducerName)
+                                   const ndn::Name& introducerCertName)
   : m_syncPrefix(syncPrefix)
   , m_introduceeCert(introduceeCert)
-  , m_introducerName(introducerName)
-  , m_introduceeName(introduceeCert.getName().getPrefix(-1))
+  , m_introducerCertName(introducerCertName)
+  , m_introduceeCertName(introduceeCert.getName().getPrefix(-1))
 {
-  // Naming convention /<sync_prefix>/intro-cert/introducee_certname/introducer_certname/version/
+  // Naming convention /<sync_prefix>/CHRONOS-INTRO-CERT/introducee_certname/introducer_certname/version
   ndn::Name dataName = m_syncPrefix;
-  dataName.append("intro-cert").append(introduceeCert.getName().getPrefix(-1).wireEncode()).append(introducerName.wireEncode()).appendVersion();
+  dataName.append("CHRONOS-INTRO-CERT")
+    .append(m_introduceeCertName.wireEncode())
+    .append(m_introducerCertName.wireEncode())
+    .appendVersion();
   
   setName(dataName);
-  setContent(introduceeCert.wireEncode());
+  setContent(m_introduceeCert.wireEncode());
 }
 
 inline
 IntroCertificate::IntroCertificate(const ndn::Data& data)
   : Data(data)
 {
+  // Naming convention /<sync_prefix>/CHRONOS-INTRO-CERT/introducee_certname/introducer_certname/version
   ndn::Name dataName = data.getName();
-  ndn::Name introduceeCertName;
-  ndn::Name introducerName;
 
-  if(dataName.size() < 4 || dataName.get(-4).toEscapedString() != "intro-cert")
+  if(dataName.size() < 4 || dataName.get(-4).toEscapedString() != "CHRONOS-INTRO-CERT")
     throw Error("Not a Sync::IntroCertificate");
-
-  m_syncPrefix = dataName.getPrefix(-4);
 
   try
     {
       m_introduceeCert.wireDecode(data.getContent().blockFromValue());
-      m_introducerName.wireDecode(dataName.get(-2).blockFromValue());
-      introduceeCertName.wireDecode(dataName.get(-3).blockFromValue());
+      m_introducerCertName.wireDecode(dataName.get(-2).blockFromValue());
+      m_introduceeCertName.wireDecode(dataName.get(-3).blockFromValue());
+      m_syncPrefix = dataName.getPrefix(-4);
     }
   catch(ndn::IdentityCertificate::Error& e)
     {
@@ -122,15 +129,14 @@ IntroCertificate::IntroCertificate(const ndn::Data& data)
       throw Error("Cannot decode block name");
     }
 
-  if(introduceeCertName != m_introduceeCert.getName().getPrefix(-1))
+  if(m_introduceeCertName != m_introduceeCert.getName().getPrefix(-1))
     throw Error("Invalid Sync::IntroCertificate (inconsistent introducee name)");
 
-  m_introduceeName = introduceeCertName;
-
+  ndn::Name keyLocatorName;
   try
     {
       ndn::SignatureSha256WithRsa sig(data.getSignature());
-      introducerName = sig.getKeyLocator().getName();
+      keyLocatorName = sig.getKeyLocator().getName();
     }
   catch(ndn::KeyLocator::Error& e)
     {
@@ -141,10 +147,7 @@ IntroCertificate::IntroCertificate(const ndn::Data& data)
       throw Error("Invalid Sync::IntroCertificate (inconsistent introducer name#2)");
     }
 
-  if(m_introducerName != introducerName)
-    throw Error("Invalid Sync::IntroCertificate (inconsistent introducer name#3)");
-
-  if(m_introducerName != introducerName)
+  if(m_introducerCertName != keyLocatorName)
     throw Error("Invalid Sync::IntroCertificate (inconsistent introducer name#3)");
 }
 
