@@ -80,6 +80,9 @@ public:
   inline void
   getIntroCertNames(std::vector<ndn::Name>& list);
 
+  inline const IntroCertificate&
+  getIntroCertificate(const ndn::Name& name);
+
 #ifdef _TEST
   bool
   canTrust(const ndn::Name& certName)
@@ -310,6 +313,16 @@ SyncValidator::getIntroCertNames(std::vector<ndn::Name>& list)
   Edges::const_iterator end = m_introCerts.end();
   for(; it != end; it++)
     list.push_back(it->first);
+}
+
+inline const IntroCertificate&
+SyncValidator::getIntroCertificate(const ndn::Name& name)
+{
+  Edges::const_iterator it = m_introCerts.find(name);
+  if(it != m_introCerts.end())
+    return it->second;
+  else
+    throw Error("No cert");
 }
 
 } // namespace Sync

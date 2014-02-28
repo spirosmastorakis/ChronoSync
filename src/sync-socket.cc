@@ -33,9 +33,9 @@ using ndn::shared_ptr;
 SyncSocket::SyncSocket (const Name& syncPrefix,
                         const ndn::Name& dataPrefix,
                         uint64_t dataSession,
+                        shared_ptr<Face> face,
                         const IdentityCertificate& myCertificate,
                         shared_ptr<SecRuleRelative> dataRule,
-                        shared_ptr<Face> face,
                         NewDataCallback dataCallback, 
                         RemoveCallback rmCallback )
   : m_dataPrefix(dataPrefix)
@@ -44,18 +44,30 @@ SyncSocket::SyncSocket (const Name& syncPrefix,
   , m_myCertificate(myCertificate)
   , m_face(face)
   , m_ioService(face->ioService())
-  , m_syncValidator(new SyncValidator(syncPrefix, 
-                                      m_myCertificate, 
-                                      m_face, 
-                                      bind(&SyncSocket::publishData, this, _1, _2, _3, true),
-                                      dataRule))
-  , m_syncLogic (syncPrefix,
-                 myCertificate,
-                 m_syncValidator,
-                 face,
-                 bind(&SyncSocket::passCallback, this, _1),
-                 rmCallback)
-{}
+{
+  if(static_cast<bool>(dataRule))
+    {
+      m_withSecurity = true;
+      m_syncValidator = shared_ptr<Validator>(new SyncValidator(syncPrefix, 
+                                                                m_myCertificate, 
+                                                                m_face, 
+                                                                bind(&SyncSocket::publishData, this, _1, _2, _3, true),
+                                                                dataRule));
+    }
+  else
+    {
+      m_withSecurity = false;
+      m_syncValidator = shared_ptr<Validator>(new ValidatorNull());
+    }
+
+  
+  m_syncLogic = shared_ptr<SyncLogic>(new SyncLogic(syncPrefix,
+                                                    myCertificate,
+                                                    m_syncValidator,
+                                                    m_face,
+                                                    bind(&SyncSocket::passCallback, this, _1),
+                                                    rmCallback));
+}
 
 SyncSocket::~SyncSocket()
 {
@@ -88,7 +100,7 @@ SyncSocket::publishDataInternal(shared_ptr<Data> data, const Name &prefix, uint6
   SeqNo s(session, sequence + 1);
 
   m_sequenceLog[prefix] = s;
-  m_syncLogic.addLocalNames (prefix, session, sequence);
+  m_syncLogic->addLocalNames (prefix, session, sequence);
 }
 
 void 
@@ -153,10 +165,13 @@ SyncSocket::onDataValidated(const shared_ptr<const Data>& data,
   if(data->getName().size() > interestNameSize 
      && data->getName().get(interestNameSize).toEscapedString() == "INTRO-CERT")
     {
+      if(!m_withSecurity) 
+        return;
+
       Data rawData;
       rawData.wireDecode(data->getContent().blockFromValue());
       IntroCertificate introCert(rawData);
-      m_syncValidator->addParticipant(introCert);
+      dynamic_pointer_cast<SyncValidator>(m_syncValidator)->addParticipant(introCert);
     }
   else
     {

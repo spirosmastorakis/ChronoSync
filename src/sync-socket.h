@@ -23,6 +23,7 @@
 
 #include <ndn-cpp-dev/face.hpp>
 #include <ndn-cpp-dev/security/validator.hpp>
+#include <ndn-cpp-dev/security/validator-null.hpp>
 #include <ndn-cpp-dev/security/key-chain.hpp>
 
 #include "sync-logic.h"
@@ -43,15 +44,17 @@ namespace Sync {
 class SyncSocket
 {
 public:
+  struct Error : public std::runtime_error { Error(const std::string &what) : std::runtime_error(what) {} };
+
   typedef ndn::function< void (const std::vector<MissingDataInfo> &, SyncSocket * ) > NewDataCallback;
   typedef ndn::function< void (const std::string &/*prefix*/ ) > RemoveCallback;
 
   SyncSocket (const ndn::Name& syncPrefix, 
               const ndn::Name& dataPrefix,
               uint64_t dataSession,
+              ndn::shared_ptr<ndn::Face> face,
               const ndn::IdentityCertificate& myCertificate,
               ndn::shared_ptr<ndn::SecRuleRelative> dataRule,
-              ndn::shared_ptr<ndn::Face> face,
               NewDataCallback dataCallback, 
               RemoveCallback rmCallback);
 
@@ -63,7 +66,7 @@ public:
   void 
   remove (const ndn::Name &prefix) 
   { 
-    m_syncLogic.remove(prefix); 
+    m_syncLogic->remove(prefix); 
   }
 
   void 
@@ -72,7 +75,7 @@ public:
   std::string 
   getRootDigest() 
   { 
-    return m_syncLogic.getRootDigest(); 
+    return m_syncLogic->getRootDigest(); 
   }
 
   uint64_t
@@ -92,13 +95,44 @@ public:
   SyncLogic &
   getLogic () 
   { 
-    return m_syncLogic; 
+    return *m_syncLogic; 
   }
 
   void
   addParticipant(const ndn::IdentityCertificate& introducee)
   {
-    ndn::shared_ptr<const IntroCertificate> introCert = m_syncValidator->addParticipant(introducee);
+    if(m_withSecurity)
+      {
+        ndn::dynamic_pointer_cast<SyncValidator>(m_syncValidator)->addParticipant(introducee);
+      }
+  }
+
+  void
+  addParticipant(const IntroCertificate& introCert)
+  {
+    if(m_withSecurity)
+      {
+        ndn::dynamic_pointer_cast<SyncValidator>(m_syncValidator)->addParticipant(introCert);
+      }
+  }
+
+  void
+  getIntroCertNames(std::vector<ndn::Name>& list)
+  {
+    if(m_withSecurity)
+      {
+        ndn::dynamic_pointer_cast<SyncValidator>(m_syncValidator)->getIntroCertNames(list);
+      }
+  }
+
+  const IntroCertificate&
+  getIntroCertificate(const ndn::Name& name)
+  {
+    if(m_withSecurity)
+      {
+        return ndn::dynamic_pointer_cast<SyncValidator>(m_syncValidator)->getIntroCertificate(name);
+      }
+    throw Error("You are running SyncSocket without security!");
   }
 
   // // make this a static function so we don't have to create socket instance without
@@ -150,8 +184,9 @@ private:
   ndn::KeyChain m_keyChain;
   ndn::shared_ptr<ndn::Face> m_face;
   ndn::shared_ptr<boost::asio::io_service> m_ioService;
-  ndn::shared_ptr<SyncValidator> m_syncValidator;
-  SyncLogic      m_syncLogic;
+  bool m_withSecurity;
+  ndn::shared_ptr<ndn::Validator> m_syncValidator;
+  ndn::shared_ptr<SyncLogic>      m_syncLogic;
 };
 
 } // Sync

@@ -163,9 +163,9 @@ public:
     m_s1 = ndn::make_shared<SyncSocket>("/let/us/sync",
                                         "/irl.cs.ucla.edu",
                                         0,
+                                        m_face1,
                                         *m_id1,
                                         m_rule,
-                                        m_face1,
                                         bind(&TestSocketApp::fetchAll, &m_a1, _1, _2), 
                                         bind(&TestSocketApp::pass, &m_a1, _1));
     m_s1->addParticipant(*m_id2);
@@ -179,9 +179,9 @@ public:
     m_s2 = ndn::make_shared<SyncSocket>("/let/us/sync",
                                         "/yakshi.org",
                                         0,
+                                        m_face2,
                                         *m_id2,
                                         m_rule,
-                                        m_face2,
                                         bind(&TestSocketApp::fetchAll, &m_a2, _1, _2), 
                                         bind(&TestSocketApp::pass, &m_a2, _1));
     m_s2->addParticipant(*m_id1);
@@ -196,9 +196,9 @@ public:
     m_s3 = ndn::make_shared<SyncSocket>("/let/us/sync",
                                         "/google.com",
                                         0,
+                                        m_face3,
                                         *m_id3,
-                                        m_rule, 
-                                        m_face3, 
+                                        m_rule,  
                                         bind(&TestSocketApp::fetchAll, &m_a3, _1, _2), 
                                         bind(&TestSocketApp::pass, &m_a3, _1));
     m_s3->addParticipant(*m_id2);
@@ -306,9 +306,9 @@ public:
     m_s1 = ndn::make_shared<SyncSocket>("/this/is/the/prefix",
                                         "/xiaonei.com",
                                         0,
+                                        m_face1,
                                         *m_id1,
                                         m_rule,
-                                        m_face1,
                                         bind(&TestSocketApp::fetchNumbers, &m_a1, _1, _2), 
                                         bind(&TestSocketApp::pass, &m_a1, _1));
 
@@ -323,9 +323,9 @@ public:
     m_s2 = ndn::make_shared<SyncSocket>("/this/is/the/prefix",
                                         "/mitbbs.com",
                                         0,
+                                        m_face2,
                                         *m_id2,
                                         m_rule,
-                                        m_face2,
                                         bind(&TestSocketApp::fetchNumbers, &m_a2, _1, _2), 
                                         bind(&TestSocketApp::pass, &m_a2, _1));
 
