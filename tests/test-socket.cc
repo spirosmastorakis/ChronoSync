@@ -43,7 +43,7 @@ using namespace boost;
 INIT_LOGGER ("Test.AppSocket");
 
 #define PRINT 
-//std::cout << "Line: " << __LINE__ << std::endl;
+// std::cout << "Line: " << __LINE__ << std::endl;
 
 class TestSocketApp {
 public:
@@ -65,10 +65,10 @@ public:
     data.insert(make_pair(name, str2));
   }
   
-  void setNum(const ndn::shared_ptr<const ndn::Data>& dataPacket) {
-    int n = dataPacket->getContent().value_size() / 4;
+  void setNum(const ndn::shared_ptr<const ndn::Data>& data) {
+    int n = data->getContent().value_size() / 4;
     uint32_t *numbers = new uint32_t [n];
-    memcpy(numbers, dataPacket->getContent().value(), dataPacket->getContent().value_size());
+    memcpy(numbers, data->getContent().value(), data->getContent().value_size());
     for (int i = 0; i < n; i++) {
       sum += numbers[i];
     }
@@ -160,14 +160,18 @@ public:
   {
     _LOG_DEBUG ("s1");
 
-    m_s1 = ndn::make_shared<SyncSocket>("/let/us/sync",
-                                        "/irl.cs.ucla.edu",
-                                        0,
-                                        m_face1,
-                                        *m_id1,
-                                        m_rule,
-                                        bind(&TestSocketApp::fetchAll, &m_a1, _1, _2), 
-                                        bind(&TestSocketApp::pass, &m_a1, _1));
+    m_s1 = ndn::shared_ptr<SyncSocket>
+      (new SyncSocket("/let/us/sync",
+                      "/irl.cs.ucla.edu",
+                      0,
+                      false,
+                      "/",
+                      m_face1,
+                      *m_id1,
+                      m_rule,
+                      bind(&TestSocketApp::fetchAll, &m_a1, _1, _2), 
+                      bind(&TestSocketApp::pass, &m_a1, _1)));
+
     m_s1->addParticipant(*m_id2);
   }
 
@@ -176,14 +180,18 @@ public:
   {
     _LOG_DEBUG ("s2");
 
-    m_s2 = ndn::make_shared<SyncSocket>("/let/us/sync",
-                                        "/yakshi.org",
-                                        0,
-                                        m_face2,
-                                        *m_id2,
-                                        m_rule,
-                                        bind(&TestSocketApp::fetchAll, &m_a2, _1, _2), 
-                                        bind(&TestSocketApp::pass, &m_a2, _1));
+    m_s2 = ndn::shared_ptr<SyncSocket>
+      (new SyncSocket("/let/us/sync",
+                      "/yakshi.org",
+                      0,
+                      false,
+                      "/",
+                      m_face2,
+                      *m_id2,
+                      m_rule,
+                      bind(&TestSocketApp::fetchAll, &m_a2, _1, _2), 
+                      bind(&TestSocketApp::pass, &m_a2, _1)));
+
     m_s2->addParticipant(*m_id1);
     m_s2->addParticipant(*m_id3);
   }
@@ -193,14 +201,18 @@ public:
   {
     _LOG_DEBUG ("s3");
 
-    m_s3 = ndn::make_shared<SyncSocket>("/let/us/sync",
-                                        "/google.com",
-                                        0,
-                                        m_face3,
-                                        *m_id3,
-                                        m_rule,  
-                                        bind(&TestSocketApp::fetchAll, &m_a3, _1, _2), 
-                                        bind(&TestSocketApp::pass, &m_a3, _1));
+    m_s3 = ndn::shared_ptr<SyncSocket>
+      (new SyncSocket("/let/us/sync",
+                      "/google.com",
+                      0,
+                      false,
+                      "/",
+                      m_face3,
+                      *m_id3,
+                      m_rule,  
+                      bind(&TestSocketApp::fetchAll, &m_a3, _1, _2), 
+                      bind(&TestSocketApp::pass, &m_a3, _1)));
+
     m_s3->addParticipant(*m_id2);
   }
 
@@ -303,14 +315,17 @@ public:
   {
     _LOG_DEBUG ("s1");
     
-    m_s1 = ndn::make_shared<SyncSocket>("/this/is/the/prefix",
-                                        "/xiaonei.com",
-                                        0,
-                                        m_face1,
-                                        *m_id1,
-                                        m_rule,
-                                        bind(&TestSocketApp::fetchNumbers, &m_a1, _1, _2), 
-                                        bind(&TestSocketApp::pass, &m_a1, _1));
+    m_s1 = ndn::shared_ptr<SyncSocket>
+      (new SyncSocket("/this/is/the/prefix",
+                      "/xiaonei.com",
+                      0,
+                      false,
+                      "/",                                        
+                      m_face1,
+                      *m_id1,
+                      m_rule,
+                      bind(&TestSocketApp::fetchNumbers, &m_a1, _1, _2), 
+                      bind(&TestSocketApp::pass, &m_a1, _1)));
 
     m_s1->addParticipant(*m_id2);
   }
@@ -320,14 +335,133 @@ public:
   {
     _LOG_DEBUG ("s2");
 
-    m_s2 = ndn::make_shared<SyncSocket>("/this/is/the/prefix",
-                                        "/mitbbs.com",
-                                        0,
-                                        m_face2,
-                                        *m_id2,
-                                        m_rule,
-                                        bind(&TestSocketApp::fetchNumbers, &m_a2, _1, _2), 
-                                        bind(&TestSocketApp::pass, &m_a2, _1));
+    m_s2 = ndn::shared_ptr<SyncSocket>
+      (new SyncSocket("/this/is/the/prefix",
+                      "/mitbbs.com",
+                      0,
+                      false,
+                      "/",
+                      m_face2,
+                      *m_id2,
+                      m_rule,
+                      bind(&TestSocketApp::fetchNumbers, &m_a2, _1, _2), 
+                      bind(&TestSocketApp::pass, &m_a2, _1)));
+
+    m_s2->addParticipant(*m_id1);
+  }
+  
+  void
+  publishSocket1(string data)
+  {
+    _LOG_DEBUG ("s1 publish");
+    m_s1->publishData (reinterpret_cast<const uint8_t*>(data.c_str()), data.size(), 1000); 
+  }
+
+  void
+  publishSocket2(string data)
+  {
+    _LOG_DEBUG ("s2 publish");
+    m_s2->publishData (reinterpret_cast<const uint8_t*>(data.c_str()), data.size(), 1000); 
+  }
+
+  void
+  setSocket1(const char* ptr, size_t size)
+  {
+    _LOG_DEBUG ("a1 setNum");
+    m_a1.setNum ("/xiaonei.com", ptr, size); 
+  }
+
+  void
+  setSocket2(const char* ptr, size_t size)
+  {
+    _LOG_DEBUG ("a2 setNum");
+    m_a2.setNum ("/mitbbs.com", ptr, size); 
+  }
+
+  void
+  check(int num)
+  { 
+    _LOG_DEBUG ("codnum " << num);
+    _LOG_DEBUG ("a1 sum " << m_a1.sum);
+    _LOG_DEBUG ("a2 sum " << m_a2.sum);
+
+    BOOST_CHECK(m_a1.sum == m_a2.sum && m_a1.sum == num);
+  }
+
+  void
+  done()
+  {
+    m_s1.reset();
+    m_s2.reset();
+
+    m_keyChain.deleteIdentity(m_name1);
+    m_keyChain.deleteIdentity(m_name2);
+  }
+
+  ndn::KeyChain m_keyChain;
+  ndn::shared_ptr<ndn::SecRuleRelative> m_rule;
+
+  TestSocketApp m_a1, m_a2;
+  ndn::shared_ptr<ndn::IdentityCertificate> m_id1, m_id2;
+  ndn::shared_ptr<ndn::Face> m_face1, m_face2;
+  ndn::Name m_name1, m_name2;
+  ndn::shared_ptr<SyncSocket> m_s1, m_s2;
+};
+
+
+
+class TestSet3{
+public:
+  TestSet3(ndn::shared_ptr<boost::asio::io_service> ioService)
+    : m_face1(new ndn::Face(ioService))
+    , m_face2(new ndn::Face(ioService))
+    , m_name1("/xiaonei.com/" + boost::lexical_cast<std::string>(ndn::time::now()))
+    , m_name2("/mitbbs.com/" + boost::lexical_cast<std::string>(ndn::time::now()))
+  {
+    m_id1 = m_keyChain.getCertificate(m_keyChain.createIdentity(m_name1));
+    m_id2 = m_keyChain.getCertificate(m_keyChain.createIdentity(m_name2));
+
+    m_rule = ndn::make_shared<ndn::SecRuleRelative>("^(<>*)<><>$",
+                                                    "^(<>*)<><KEY><ksk-.*><ID-CERT>$",
+                                                    "==", "\\1", "\\1", true);
+  }
+
+  void
+  createSyncSocket1()
+  {
+    _LOG_DEBUG ("s1");
+    
+    m_s1 = ndn::shared_ptr<SyncSocket>
+      (new SyncSocket("/this/is/the/prefix",
+                      "/xiaonei.com",
+                      1,
+                      true,
+                      "/abc",                                        
+                      m_face1,
+                      *m_id1,
+                      m_rule,
+                      bind(&TestSocketApp::fetchNumbers, &m_a1, _1, _2), 
+                      bind(&TestSocketApp::pass, &m_a1, _1)));
+
+    m_s1->addParticipant(*m_id2);
+  }
+
+  void
+  createSyncSocket2()
+  {
+    _LOG_DEBUG ("s2");
+
+    m_s2 = ndn::shared_ptr<SyncSocket>
+      (new SyncSocket("/this/is/the/prefix",
+                      "/mitbbs.com",
+                      1,
+                      false,
+                      "/",
+                      m_face2,
+                      *m_id2,
+                      m_rule,
+                      bind(&TestSocketApp::fetchNumbers, &m_a2, _1, _2), 
+                      bind(&TestSocketApp::pass, &m_a2, _1)));
 
     m_s2->addParticipant(*m_id1);
   }
@@ -455,6 +589,29 @@ BOOST_AUTO_TEST_CASE (AppSocketTest2)
   scheduler.scheduleEvent(ndn::time::seconds(1.15), ndn::bind(&TestSet2::setSocket2, &testSet2, (const char *) newNum, sizeof (newNum)));
   scheduler.scheduleEvent(ndn::time::seconds(2.00), ndn::bind(&TestSet2::check, &testSet2, 30));
   scheduler.scheduleEvent(ndn::time::seconds(7.00), ndn::bind(&TestSet2::done, &testSet2));
+
+  ioService->run();
+}
+
+BOOST_AUTO_TEST_CASE (AppSocketTest3)
+{
+  ndn::shared_ptr<boost::asio::io_service> ioService = ndn::make_shared<boost::asio::io_service>();
+  ndn::Scheduler scheduler(*ioService);
+  TestSet3 testSet3(ioService);
+
+  scheduler.scheduleEvent(ndn::time::seconds(0.00), ndn::bind(&TestSet3::createSyncSocket1, &testSet3));
+  scheduler.scheduleEvent(ndn::time::seconds(0.20), ndn::bind(&TestSet3::createSyncSocket2, &testSet3));
+  uint32_t num[5] = {0, 1, 2, 3, 4};
+  string data0((const char *) num, sizeof(num));
+  scheduler.scheduleEvent(ndn::time::seconds(1.00), ndn::bind(&TestSet3::publishSocket1, &testSet3, data0));
+  scheduler.scheduleEvent(ndn::time::seconds(1.50), ndn::bind(&TestSet3::setSocket1, &testSet3, (const char *) num, sizeof (num)));
+  scheduler.scheduleEvent(ndn::time::seconds(2.00), ndn::bind(&TestSet3::check, &testSet3, 10));
+  uint32_t newNum[5] = {9, 7, 2, 1, 1};
+  string data1((const char *) newNum, sizeof(newNum));
+  scheduler.scheduleEvent(ndn::time::seconds(3.00), ndn::bind(&TestSet3::publishSocket2, &testSet3, data1));
+  scheduler.scheduleEvent(ndn::time::seconds(3.50), ndn::bind(&TestSet3::setSocket2, &testSet3, (const char *) newNum, sizeof (newNum)));
+  scheduler.scheduleEvent(ndn::time::seconds(5.00), ndn::bind(&TestSet3::check, &testSet3, 30));
+  scheduler.scheduleEvent(ndn::time::seconds(7.00), ndn::bind(&TestSet3::done, &testSet3));
 
   ioService->run();
 }

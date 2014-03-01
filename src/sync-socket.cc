@@ -30,9 +30,15 @@ namespace Sync {
 
 using ndn::shared_ptr;
 
+static const uint8_t ROUTING_PREFIX_SEPARATOR[2] = {0xF0, 0x2E};
+
+const Name SyncSocket::EMPTY_NAME = Name();
+
 SyncSocket::SyncSocket (const Name& syncPrefix,
-                        const ndn::Name& dataPrefix,
+                        const Name& dataPrefix,
                         uint64_t dataSession,
+                        bool withRoutingPrefix,
+                        const Name& routingPrefix, 
                         shared_ptr<Face> face,
                         const IdentityCertificate& myCertificate,
                         shared_ptr<SecRuleRelative> dataRule,
@@ -40,11 +46,19 @@ SyncSocket::SyncSocket (const Name& syncPrefix,
                         RemoveCallback rmCallback )
   : m_dataPrefix(dataPrefix)
   , m_dataSession(dataSession)
+  , m_withRoutingPrefix(false)
   , m_newDataCallback(dataCallback)
   , m_myCertificate(myCertificate)
   , m_face(face)
   , m_ioService(face->ioService())
 {
+  if(withRoutingPrefix && !routingPrefix.isPrefixOf(m_dataPrefix))
+    {
+      m_withRoutingPrefix = true;
+      m_routableDataPrefix.append(routingPrefix).append(ROUTING_PREFIX_SEPARATOR, 2).append(m_dataPrefix);
+    }
+
+
   if(static_cast<bool>(dataRule))
     {
       m_withSecurity = true;
@@ -81,30 +95,50 @@ SyncSocket::publishData(const uint8_t* buf, size_t len, int freshness, bool isCe
   data->setFreshnessPeriod(1000*freshness);
 
   m_ioService->post(bind(&SyncSocket::publishDataInternal, this, 
-                         data, m_dataPrefix, m_dataSession, isCert));
+                         data, isCert));
 }
 
 void
-SyncSocket::publishDataInternal(shared_ptr<Data> data, const Name &prefix, uint64_t session, bool isCert)
+SyncSocket::publishDataInternal(shared_ptr<Data> data, bool isCert)
 {
-  uint64_t sequence = getNextSeq(prefix, session);
-  Name dataName = prefix;
-  dataName.append(boost::lexical_cast<string>(session)).append(boost::lexical_cast<string>(sequence));
+  Name dataPrefix = (m_withRoutingPrefix ? m_routableDataPrefix : m_dataPrefix);
+
+  uint64_t sequence = getNextSeq();
+
+  Name dataName;
+  dataName.append(m_dataPrefix)
+    .append(boost::lexical_cast<string>(m_dataSession))
+    .append(boost::lexical_cast<string>(sequence));
   if(isCert)
     dataName.append("INTRO-CERT");
   data->setName(dataName);
-
   m_keyChain.sign(*data, m_myCertificate.getName());
-  m_face->put(*data);
 
-  SeqNo s(session, sequence + 1);
+  if(m_withRoutingPrefix)
+    {
+      Name wrappedName;
+      wrappedName.append(m_routableDataPrefix)
+        .append(boost::lexical_cast<string>(m_dataSession))
+        .append(boost::lexical_cast<string>(sequence));
 
-  m_sequenceLog[prefix] = s;
-  m_syncLogic->addLocalNames (prefix, session, sequence);
+      Data wrappedData(wrappedName);
+      wrappedData.setContent(data->wireEncode());
+      m_keyChain.sign(wrappedData, m_myCertificate.getName());
+
+      m_face->put(wrappedData);
+    }
+  else
+    {
+      m_face->put(*data);
+    }
+
+  SeqNo s(m_dataSession, sequence + 1);
+  m_sequenceLog[dataPrefix] = s;
+  m_syncLogic->addLocalNames (dataPrefix, m_dataSession, sequence); // If DNS works, we should use pure m_dataprefix rather than the one with routing prefix.
 }
 
 void 
-SyncSocket::fetchData(const Name &prefix, const SeqNo &seq, const OnDataValidated& dataCallback, int retry)
+SyncSocket::fetchData(const Name& prefix, const SeqNo& seq, const OnDataValidated& dataCallback, int retry)
 {
   Name interestName = prefix;
   interestName.append(boost::lexical_cast<string>(seq.getSession())).append(boost::lexical_cast<string>(seq.getSeq()));
@@ -112,28 +146,50 @@ SyncSocket::fetchData(const Name &prefix, const SeqNo &seq, const OnDataValidate
   ndn::Interest interest(interestName);
   interest.setMustBeFresh(true);
 
-  const OnDataValidated& onValidated = bind(&SyncSocket::onDataValidated, this, _1, interestName.size(), dataCallback);
+  m_face->expressInterest(interest, 
+                          bind(&SyncSocket::onData, this, _1, _2, dataCallback), 
+                          bind(&SyncSocket::onDataTimeout, this, _1, retry, dataCallback));
+
+}
+
+void
+SyncSocket::onData(const ndn::Interest& interest, Data& data, const OnDataValidated& dataCallback)
+{
+  bool encaped = false;
+
+  Name interestName = interest.getName();
+  Name::const_iterator it = interestName.begin();
+  Name::const_iterator end = interestName.end();
+
+  size_t offset = interestName.size();
+  for(; it != end; it++)
+    {
+      offset--;
+      if(it->toEscapedString() == "%F0.")
+        {
+          encaped = true;
+          break;
+        }
+    }
+
+  if(!encaped)
+    offset = interestName.size();
+
+  const OnDataValidated& onValidated = bind(&SyncSocket::onDataValidated, this, _1, offset, dataCallback);
   const OnDataValidationFailed& onValidationFailed = bind(&SyncSocket::onDataValidationFailed, this, _1, _2);
 
-  m_face->expressInterest(interest, 
-                          bind(&SyncSocket::onData, this, _1, _2, onValidated, onValidationFailed), 
-                          bind(&SyncSocket::onDataTimeout, this, _1, retry, onValidated, onValidationFailed));
-
+  if(encaped)
+    {
+      shared_ptr<Data> innerData = make_shared<Data>();
+      innerData->wireDecode(data.getContent().blockFromValue());
+      m_syncValidator->validate(*innerData, onValidated, onValidationFailed);
+    }
+  else
+    m_syncValidator->validate(data, onValidated, onValidationFailed);
 }
 
 void
-SyncSocket::onData(const ndn::Interest& interest, Data& data,
-                   const OnDataValidated& onValidated,
-                   const OnDataValidationFailed& onValidationFailed)
-{
-  m_syncValidator->validate(data, onValidated, onValidationFailed);
-}
-
-void
-SyncSocket::onDataTimeout(const ndn::Interest& interest, 
-                          int retry,
-                          const OnDataValidated& onValidated,
-                          const OnDataValidationFailed& onValidationFailed)
+SyncSocket::onDataTimeout(const ndn::Interest& interest, int retry, const OnDataValidated& dataCallback)
 {
   if(retry > 0)
     {
@@ -142,14 +198,12 @@ SyncSocket::onDataTimeout(const ndn::Interest& interest,
                                    this,
                                    _1,
                                    _2,
-                                   onValidated,
-                                   onValidationFailed),
+                                   dataCallback),
                               bind(&SyncSocket::onDataTimeout, 
                                    this,
                                    _1,
                                    retry - 1,
-                                   onValidated,
-                                   onValidationFailed));
+                                   dataCallback));
                               
     }
   else
@@ -161,7 +215,6 @@ SyncSocket::onDataValidated(const shared_ptr<const Data>& data,
                             size_t interestNameSize,
                             const OnDataValidated& onValidated)
 {
-  _LOG_DEBUG("--------------------" << data->getName());
   if(data->getName().size() > interestNameSize 
      && data->getName().get(interestNameSize).toEscapedString() == "INTRO-CERT")
     {
