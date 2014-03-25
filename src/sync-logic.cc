@@ -31,7 +31,6 @@
 #include <boost/lexical_cast.hpp>
 #include <vector>
 
-using namespace std;
 using namespace ndn;
 
 INIT_LOGGER ("SyncLogic");
@@ -89,7 +88,7 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
   m_reexpressingInterestId = m_scheduler.scheduleEvent (time::seconds (0), // no need to add jitter
                                                         bind (&SyncLogic::sendSyncInterest, this));
 
-  m_instanceId = string("Instance " + boost::lexical_cast<string>(m_instanceCounter++) + " ");
+  m_instanceId = std::string("Instance " + boost::lexical_cast<std::string>(m_instanceCounter++) + " ");
 }
 
 SyncLogic::SyncLogic (const Name& syncPrefix,
@@ -141,8 +140,8 @@ SyncLogic::convertNameToDigestAndType (const Name &name)
   BOOST_ASSERT (nameLengthDiff > 0);
   BOOST_ASSERT (nameLengthDiff < 3);
   
-  string hash = name.get(-1).toEscapedString();
-  string interestType;
+  std::string hash = name.get(-1).toEscapedString();
+  std::string interestType;
   
   if(nameLengthDiff == 1)
     interestType = "normal";
@@ -152,7 +151,7 @@ SyncLogic::convertNameToDigestAndType (const Name &name)
   _LOG_DEBUG_ID (hash << ", " << interestType);
 
   DigestPtr digest = boost::make_shared<Digest> ();
-  istringstream is (hash);
+  std::istringstream is (hash);
   is >> *digest;
 
   return make_tuple (digest, interestType);
@@ -174,7 +173,7 @@ SyncLogic::onSyncInterest (const Name& prefix, const ndn::Interest& interest)
         return;
 
       DigestConstPtr digest;
-      string type;
+      std::string type;
       tie (digest, type) = convertNameToDigestAndType (name);
 
       if (type == "normal") // kind of ineffective...
@@ -195,7 +194,7 @@ SyncLogic::onSyncInterest (const Name& prefix, const ndn::Interest& interest)
 }
 
 void
-SyncLogic::onSyncRegisterFailed(const Name& prefix, const string& msg)
+SyncLogic::onSyncRegisterFailed(const Name& prefix, const std::string& msg)
 {
   _LOG_DEBUG_ID("Sync prefix registration failed! " << msg);
 }
@@ -232,7 +231,7 @@ SyncLogic::onSyncDataValidated(const shared_ptr<const Data>& data)
       _LOG_DEBUG_ID ("<< D " << name);
   
       DigestConstPtr digest;
-      string type;
+      std::string type;
       tie (digest, type) = convertNameToDigestAndType (name);
 
       if (type == "normal")
@@ -338,7 +337,7 @@ SyncLogic::processSyncData (const Name &name, DigestConstPtr digest, const char 
       }
       msg >> diff;
 
-      vector<MissingDataInfo> v;
+      std::vector<MissingDataInfo> v;
       BOOST_FOREACH (LeafConstPtr leaf, diff.getLeaves().get<ordered>())
         {
           DiffLeafConstPtr diffLeaf = boost::dynamic_pointer_cast<const DiffLeaf> (leaf);
@@ -372,15 +371,15 @@ SyncLogic::processSyncData (const Name &name, DigestConstPtr digest, const char 
                   {
                     MissingDataInfo mdi = {info->toString(), oldSeq, seq};
                     {
-                      ostringstream interestName;
+                      std::ostringstream interestName;
                       interestName << mdi.prefix << "/" << mdi.high.getSession() << "/" << mdi.high.getSeq();
                       _LOG_DEBUG_ID("+++++++++++++++ " + interestName.str());
                     }
                     if (m_perBranch)
                     {
-                       ostringstream interestName;
-                       interestName << mdi.prefix << "/" << mdi.high.getSession() << "/" << mdi.high.getSeq();
-                       m_onUpdateBranch(interestName.str());
+                      std::ostringstream interestName;
+                      interestName << mdi.prefix << "/" << mdi.high.getSession() << "/" << mdi.high.getSeq();
+                      m_onUpdateBranch(interestName.str());
                     }
                     else
                     {
@@ -575,7 +574,7 @@ SyncLogic::sendSyncInterest ()
 
   {
     m_outstandingInterestName = m_syncPrefix;
-    ostringstream os;
+    std::ostringstream os;
     os << *m_state->getDigest();
     m_outstandingInterestName.append(os.str());
     _LOG_DEBUG_ID (">> I " << m_outstandingInterestName);
@@ -599,7 +598,7 @@ SyncLogic::sendSyncInterest ()
 void
 SyncLogic::sendSyncRecoveryInterests (DigestConstPtr digest)
 {
-  ostringstream os;
+  std::ostringstream os;
   os << *digest;
   
   Name interestName = m_syncPrefix;
@@ -670,10 +669,10 @@ SyncLogic::sendSyncData (const Name &name, DigestConstPtr digest, SyncStateMsg &
     }
 }
 
-string
+std::string
 SyncLogic::getRootDigest() 
 {
-  ostringstream os;
+  std::ostringstream os;
   os << *m_state->getDigest();
   return os.str();
 }
@@ -704,7 +703,7 @@ SyncLogic::getBranchPrefixes() const
       // do not return forwarder prefix
       if (prefix != forwarderPrefix)
       {
-        m.insert(pair<std::string, bool>(prefix, false));
+        m.insert(std::pair<std::string, bool>(prefix, false));
       }
     }
 

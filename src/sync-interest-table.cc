@@ -22,7 +22,6 @@
 
 #include "sync-interest-table.h"
 #include "sync-logging.h"
-using namespace std;
 
 INIT_LOGGER ("SyncInterestTable");
 
@@ -54,7 +53,7 @@ SyncInterestTable::pop ()
 }
 
 bool
-SyncInterestTable::insert (DigestConstPtr digest, const string &name, bool unknownState/*=false*/)
+SyncInterestTable::insert (DigestConstPtr digest, const std::string& name, bool unknownState/*=false*/)
 {
   bool existent = false;
   
@@ -76,7 +75,7 @@ SyncInterestTable::size () const
 }
 
 bool
-SyncInterestTable::remove (const string &name)
+SyncInterestTable::remove (const std::string& name)
 {
   InterestContainer::index<named>::type::iterator item = m_table.get<named> ().find (name);
   if (item != m_table.get<named> ().end ())

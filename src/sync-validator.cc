@@ -14,11 +14,12 @@
 #include <queue>
 
 using namespace ndn;
-using namespace std;
 
 INIT_LOGGER ("SyncValidator");
 
 namespace Sync {
+
+using ndn::shared_ptr;
 
 const shared_ptr<CertificateCache> SyncValidator::DefaultCertificateCache = shared_ptr<CertificateCache>();
 const shared_ptr<SecRuleRelative> SyncValidator::DefaultDataRule = shared_ptr<SecRuleRelative>();
@@ -56,7 +57,7 @@ SyncValidator::SyncValidator(const Name& prefix,
 void
 SyncValidator::deriveTrustNodes()
 {
-  queue<Name> nodeQueue;
+  std::queue<Name> nodeQueue;
 
   // Clear existing trust nodes.
   m_trustedNodes.clear();
@@ -151,7 +152,7 @@ SyncValidator::checkPolicy (const Data& data,
       catch(SignatureSha256WithRsa::Error& e)
         {
           return onValidationFailed(data.shared_from_this(), 
-                                    "Not SignatureSha256WithRsa signature: " + string(e.what()));
+                                    "Not SignatureSha256WithRsa signature: " + std::string(e.what()));
         }
       catch(KeyLocator::Error& e)
         {
@@ -194,13 +195,13 @@ SyncValidator::onCertificateValidated(const shared_ptr<const Data>& signCertific
   catch(IntroCertificate::Error& e)
     {
       return onValidationFailed(data, 
-                                "Intro cert decoding error: " + string(e.what()));
+                                "Intro cert decoding error: " + std::string(e.what()));
     }
 }
 
 void
 SyncValidator::onCertificateValidationFailed(const shared_ptr<const Data>& signCertificate, 
-                                             const string& failureInfo,
+                                             const std::string& failureInfo,
                                              const shared_ptr<const Data>& data, 
                                              const OnDataValidationFailed& onValidationFailed)
 {
@@ -223,7 +224,7 @@ SyncValidator::onCertInterest(const Name& prefix, const Interest& interest)
 }
 
 void
-SyncValidator::onCertRegisterFailed(const Name& prefix, const string& msg)
+SyncValidator::onCertRegisterFailed(const Name& prefix, const std::string& msg)
 {
   _LOG_DEBUG("SyncValidator::onCertRegisterFailed: " << msg);
 }

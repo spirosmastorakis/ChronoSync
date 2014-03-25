@@ -21,7 +21,6 @@
 #include "sync-socket.h"
 #include "sync-logging.h"
 
-using namespace std;
 using namespace ndn;
 
 INIT_LOGGER ("SyncSocket");
@@ -107,8 +106,8 @@ SyncSocket::publishDataInternal(shared_ptr<Data> data, bool isCert)
 
   Name dataName;
   dataName.append(m_dataPrefix)
-    .append(boost::lexical_cast<string>(m_dataSession))
-    .append(boost::lexical_cast<string>(sequence));
+    .append(boost::lexical_cast<std::string>(m_dataSession))
+    .append(boost::lexical_cast<std::string>(sequence));
   if(isCert)
     dataName.append("INTRO-CERT");
   data->setName(dataName);
@@ -118,8 +117,8 @@ SyncSocket::publishDataInternal(shared_ptr<Data> data, bool isCert)
     {
       Name wrappedName;
       wrappedName.append(m_routableDataPrefix)
-        .append(boost::lexical_cast<string>(m_dataSession))
-        .append(boost::lexical_cast<string>(sequence));
+        .append(boost::lexical_cast<std::string>(m_dataSession))
+        .append(boost::lexical_cast<std::string>(sequence));
 
       Data wrappedData(wrappedName);
       wrappedData.setContent(data->wireEncode());
@@ -141,7 +140,7 @@ void
 SyncSocket::fetchData(const Name& prefix, const SeqNo& seq, const OnDataValidated& dataCallback, int retry)
 {
   Name interestName = prefix;
-  interestName.append(boost::lexical_cast<string>(seq.getSession())).append(boost::lexical_cast<string>(seq.getSeq()));
+  interestName.append(boost::lexical_cast<std::string>(seq.getSession())).append(boost::lexical_cast<std::string>(seq.getSeq()));
 
   ndn::Interest interest(interestName);
   interest.setMustBeFresh(true);

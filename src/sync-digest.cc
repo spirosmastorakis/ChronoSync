@@ -41,7 +41,6 @@ typedef boost::error_info<struct tag_errmsg, int> errmsg_info_int;
 
 using namespace boost;
 using namespace boost::archive::iterators;
-using namespace std;
 
 // Other options: VP_md2, EVP_md5, EVP_sha, EVP_sha1, EVP_sha256, EVP_dss, EVP_dss1, EVP_mdc2, EVP_ripemd160
 #define HASH_FUNCTION EVP_sha256
@@ -95,7 +94,7 @@ struct hex_to_4_bit
   }
 };
 
-typedef transform_width<transform_iterator<hex_to_4_bit<string::const_iterator::value_type>, string::const_iterator>, 8, 4> string_to_binary;
+typedef transform_width<transform_iterator<hex_to_4_bit<std::string::const_iterator::value_type>, std::string::const_iterator>, 8, 4> string_to_binary;
 
 namespace Sync {
 
@@ -224,7 +223,7 @@ operator << (std::ostream &os, const Digest &digest)
 {
   BOOST_ASSERT (!digest.m_buffer.empty ());
   
-  ostreambuf_iterator<char> out_it (os); // ostream iterator
+  std::ostreambuf_iterator<char> out_it (os); // ostream iterator
   // need to encode to base64
   copy (string_from_binary (digest.m_buffer.begin ()),
         string_from_binary (digest.m_buffer.end ()),
@@ -236,7 +235,7 @@ operator << (std::ostream &os, const Digest &digest)
 std::istream &
 operator >> (std::istream &is, Digest &digest)
 {
-  string str;
+  std::string str;
   is >> str; // read string first
 
   if (str.size () == 0)
