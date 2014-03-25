@@ -93,15 +93,16 @@ public:
   }
 
   void
-  finish()
+  finish(ndn::shared_ptr<boost::asio::io_service> ioService)
   {
+    ioService->stop();
   }
   
   void
   createSyncLogic(int index, 
                   ndn::shared_ptr<Handler> h)
   { 
-    ndn::Name identity("/tmp-" + boost::lexical_cast<std::string>(ndn::time::now()));
+    ndn::Name identity("/tmp-" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()));
     ndn::shared_ptr<ndn::IdentityCertificate> cert = m_keyChain.getCertificate(m_keyChain.createIdentity(identity));
     m_faces[index] = ndn::make_shared<ndn::Face>(m_ioService);
     m_l[index] = new SyncLogic(ndn::Name("/bcast"), 
@@ -166,17 +167,17 @@ BOOST_AUTO_TEST_CASE (SyncLogicTest)
   ndn::shared_ptr<Handler> h1 = ndn::make_shared<Handler>("1");
   ndn::shared_ptr<Handler> h2 = ndn::make_shared<Handler>("2");
 
-  scheduler.scheduleEvent(ndn::time::seconds(0), ndn::bind(&TestCore::createSyncLogic, &testCore, 0, h1));
-  scheduler.scheduleEvent(ndn::time::seconds(0.1), ndn::bind(&TestCore::getOldDigestForOne, &testCore));
-  scheduler.scheduleEvent(ndn::time::seconds(0.2), ndn::bind(&TestCore::addLocalNamesForOne, &testCore, "/one", 1, 2));
-  scheduler.scheduleEvent(ndn::time::seconds(0.3), ndn::bind(&checkMapSize, h1, 0));
-  scheduler.scheduleEvent(ndn::time::seconds(0.4), ndn::bind(&TestCore::createSyncLogic, &testCore, 1, h2));
-  scheduler.scheduleEvent(ndn::time::seconds(0.5), ndn::bind(&checkMapSize, h1, 0));
-  scheduler.scheduleEvent(ndn::time::seconds(0.6), ndn::bind(&checkMapSize, h2, 1));
-  scheduler.scheduleEvent(ndn::time::seconds(0.7), ndn::bind(&TestCore::removeForOne, &testCore, "/one"));
-  scheduler.scheduleEvent(ndn::time::seconds(0.8), ndn::bind(&TestCore::getNewDigestForOne, &testCore));
-  scheduler.scheduleEvent(ndn::time::seconds(0.9), ndn::bind(&TestCore::checkDigest, &testCore));
-  scheduler.scheduleEvent(ndn::time::seconds(1.0), ndn::bind(&TestCore::finish, &testCore));
+  scheduler.scheduleEvent(ndn::time::milliseconds(0), ndn::bind(&TestCore::createSyncLogic, &testCore, 0, h1));
+  scheduler.scheduleEvent(ndn::time::milliseconds(100), ndn::bind(&TestCore::getOldDigestForOne, &testCore));
+  scheduler.scheduleEvent(ndn::time::milliseconds(200), ndn::bind(&TestCore::addLocalNamesForOne, &testCore, "/one", 1, 2));
+  scheduler.scheduleEvent(ndn::time::milliseconds(300), ndn::bind(&checkMapSize, h1, 0));
+  scheduler.scheduleEvent(ndn::time::milliseconds(400), ndn::bind(&TestCore::createSyncLogic, &testCore, 1, h2));
+  scheduler.scheduleEvent(ndn::time::milliseconds(500), ndn::bind(&checkMapSize, h1, 0));
+  scheduler.scheduleEvent(ndn::time::milliseconds(600), ndn::bind(&checkMapSize, h2, 1));
+  scheduler.scheduleEvent(ndn::time::milliseconds(700), ndn::bind(&TestCore::removeForOne, &testCore, "/one"));
+  scheduler.scheduleEvent(ndn::time::milliseconds(800), ndn::bind(&TestCore::getNewDigestForOne, &testCore));
+  scheduler.scheduleEvent(ndn::time::milliseconds(900), ndn::bind(&TestCore::checkDigest, &testCore));
+  scheduler.scheduleEvent(ndn::time::milliseconds(1000), ndn::bind(&TestCore::finish, &testCore, ioService));
   
   ioService->run();
 

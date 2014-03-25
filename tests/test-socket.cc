@@ -142,9 +142,9 @@ public:
     : m_face1(new ndn::Face(ioService))
     , m_face2(new ndn::Face(ioService))
     , m_face3(new ndn::Face(ioService))
-    , m_name1("/irl.cs.ucla.edu/" + boost::lexical_cast<std::string>(ndn::time::now()))
-    , m_name2("/yakshi.org/" + boost::lexical_cast<std::string>(ndn::time::now()))
-    , m_name3("/google.com/" + boost::lexical_cast<std::string>(ndn::time::now()))
+    , m_name1("/irl.cs.ucla.edu/" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()))
+    , m_name2("/yakshi.org/" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()))
+    , m_name3("/google.com/" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()))
   {
     m_id1 = m_keyChain.getCertificate(m_keyChain.createIdentity(m_name1));
     m_id2 = m_keyChain.getCertificate(m_keyChain.createIdentity(m_name2));
@@ -272,7 +272,7 @@ public:
   }
 
   void
-  done()
+  done(ndn::shared_ptr<boost::asio::io_service> ioService)
   {
     m_s1.reset();
     m_s2.reset();
@@ -282,6 +282,7 @@ public:
     m_keyChain.deleteIdentity(m_name2);
     m_keyChain.deleteIdentity(m_name3);
 
+    ioService->stop();
   }
 
   ndn::KeyChain m_keyChain;
@@ -299,8 +300,8 @@ public:
   TestSet2(ndn::shared_ptr<boost::asio::io_service> ioService)
     : m_face1(new ndn::Face(ioService))
     , m_face2(new ndn::Face(ioService))
-    , m_name1("/xiaonei.com/" + boost::lexical_cast<std::string>(ndn::time::now()))
-    , m_name2("/mitbbs.com/" + boost::lexical_cast<std::string>(ndn::time::now()))
+    , m_name1("/xiaonei.com/" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()))
+    , m_name2("/mitbbs.com/" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()))
   {
     m_id1 = m_keyChain.getCertificate(m_keyChain.createIdentity(m_name1));
     m_id2 = m_keyChain.getCertificate(m_keyChain.createIdentity(m_name2));
@@ -389,13 +390,15 @@ public:
   }
 
   void
-  done()
+  done(ndn::shared_ptr<boost::asio::io_service> ioService)
   {
     m_s1.reset();
     m_s2.reset();
 
     m_keyChain.deleteIdentity(m_name1);
     m_keyChain.deleteIdentity(m_name2);
+
+    ioService->stop();
   }
 
   ndn::KeyChain m_keyChain;
@@ -415,8 +418,8 @@ public:
   TestSet3(ndn::shared_ptr<boost::asio::io_service> ioService)
     : m_face1(new ndn::Face(ioService))
     , m_face2(new ndn::Face(ioService))
-    , m_name1("/xiaonei.com/" + boost::lexical_cast<std::string>(ndn::time::now()))
-    , m_name2("/mitbbs.com/" + boost::lexical_cast<std::string>(ndn::time::now()))
+    , m_name1("/xiaonei.com/" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()))
+    , m_name2("/mitbbs.com/" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()))
   {
     m_id1 = m_keyChain.getCertificate(m_keyChain.createIdentity(m_name1));
     m_id2 = m_keyChain.getCertificate(m_keyChain.createIdentity(m_name2));
@@ -505,13 +508,15 @@ public:
   }
 
   void
-  done()
+  done(ndn::shared_ptr<boost::asio::io_service> ioService)
   {
     m_s1.reset();
     m_s2.reset();
 
     m_keyChain.deleteIdentity(m_name1);
     m_keyChain.deleteIdentity(m_name2);
+
+    ioService->stop();
   }
 
   ndn::KeyChain m_keyChain;
@@ -532,40 +537,40 @@ BOOST_AUTO_TEST_CASE (AppSocketTest1)
   ndn::Scheduler scheduler(*ioService);
   TestSet1 testSet1(ioService);
 
-  scheduler.scheduleEvent(ndn::time::seconds(0.00), ndn::bind(&TestSet1::createSyncSocket1, &testSet1));
-  scheduler.scheduleEvent(ndn::time::seconds(0.05), ndn::bind(&TestSet1::createSyncSocket2, &testSet1));
-  scheduler.scheduleEvent(ndn::time::seconds(0.10), ndn::bind(&TestSet1::createSyncSocket3, &testSet1));
+  scheduler.scheduleEvent(ndn::time::milliseconds(0), ndn::bind(&TestSet1::createSyncSocket1, &testSet1));
+  scheduler.scheduleEvent(ndn::time::milliseconds(50), ndn::bind(&TestSet1::createSyncSocket2, &testSet1));
+  scheduler.scheduleEvent(ndn::time::milliseconds(100), ndn::bind(&TestSet1::createSyncSocket3, &testSet1));
   string data0 = "Very funny Scotty, now beam down my clothes";
-  scheduler.scheduleEvent(ndn::time::seconds(0.15), ndn::bind(&TestSet1::publishSocket1, &testSet1, data0));
-  scheduler.scheduleEvent(ndn::time::seconds(1.15), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/1", data0));
-  scheduler.scheduleEvent(ndn::time::seconds(1.16), ndn::bind(&TestSet1::check, &testSet1, 1)); 
+  scheduler.scheduleEvent(ndn::time::milliseconds(150), ndn::bind(&TestSet1::publishSocket1, &testSet1, data0));
+  scheduler.scheduleEvent(ndn::time::milliseconds(1150), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/1", data0));
+  scheduler.scheduleEvent(ndn::time::milliseconds(1160), ndn::bind(&TestSet1::check, &testSet1, 1)); 
   string data1 = "Yes, give me that ketchup";
   string data2 = "Don't look conspicuous, it draws fire";
-  scheduler.scheduleEvent(ndn::time::seconds(1.17), ndn::bind(&TestSet1::publishSocket1, &testSet1, data1));
-  scheduler.scheduleEvent(ndn::time::seconds(1.18), ndn::bind(&TestSet1::publishSocket1, &testSet1, data2));
-  scheduler.scheduleEvent(ndn::time::seconds(2.15), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/2", data1));
-  scheduler.scheduleEvent(ndn::time::seconds(2.16), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/3", data2));
-  scheduler.scheduleEvent(ndn::time::seconds(2.17), ndn::bind(&TestSet1::check, &testSet1, 2));
+  scheduler.scheduleEvent(ndn::time::milliseconds(1170), ndn::bind(&TestSet1::publishSocket1, &testSet1, data1));
+  scheduler.scheduleEvent(ndn::time::milliseconds(1180), ndn::bind(&TestSet1::publishSocket1, &testSet1, data2));
+  scheduler.scheduleEvent(ndn::time::milliseconds(2150), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/2", data1));
+  scheduler.scheduleEvent(ndn::time::milliseconds(2160), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/3", data2));
+  scheduler.scheduleEvent(ndn::time::milliseconds(2170), ndn::bind(&TestSet1::check, &testSet1, 2));
   string data3 = "You surf the Internet, I surf the real world";
   string data4 = "I got a fortune cookie once that said 'You like Chinese food'";
   string data5 = "Real men wear pink. Why? Because their wives make them";
-  scheduler.scheduleEvent(ndn::time::seconds(3.18), ndn::bind(&TestSet1::publishSocket3, &testSet1, data3));
-  scheduler.scheduleEvent(ndn::time::seconds(3.20), ndn::bind(&TestSet1::publishSocket2, &testSet1, data4));
-  scheduler.scheduleEvent(ndn::time::seconds(3.21), ndn::bind(&TestSet1::publishSocket2, &testSet1, data5));
-  scheduler.scheduleEvent(ndn::time::seconds(4.71), ndn::bind(&TestSet1::setSocket3, &testSet1, "/0/1", data3));
-  scheduler.scheduleEvent(ndn::time::seconds(4.72), ndn::bind(&TestSet1::setSocket2, &testSet1, "/0/2", data4));
-  scheduler.scheduleEvent(ndn::time::seconds(4.73), ndn::bind(&TestSet1::setSocket2, &testSet1, "/0/3", data5));
-  scheduler.scheduleEvent(ndn::time::seconds(4.80), ndn::bind(&TestSet1::check, &testSet1, 3));
+  scheduler.scheduleEvent(ndn::time::milliseconds(3180), ndn::bind(&TestSet1::publishSocket3, &testSet1, data3));
+  scheduler.scheduleEvent(ndn::time::milliseconds(3200), ndn::bind(&TestSet1::publishSocket2, &testSet1, data4));
+  scheduler.scheduleEvent(ndn::time::milliseconds(3210), ndn::bind(&TestSet1::publishSocket2, &testSet1, data5));
+  scheduler.scheduleEvent(ndn::time::milliseconds(4710), ndn::bind(&TestSet1::setSocket3, &testSet1, "/0/1", data3));
+  scheduler.scheduleEvent(ndn::time::milliseconds(4720), ndn::bind(&TestSet1::setSocket2, &testSet1, "/0/2", data4));
+  scheduler.scheduleEvent(ndn::time::milliseconds(4730), ndn::bind(&TestSet1::setSocket2, &testSet1, "/0/3", data5));
+  scheduler.scheduleEvent(ndn::time::milliseconds(4800), ndn::bind(&TestSet1::check, &testSet1, 3));
   // not sure weither this is simultanous data generation from multiple sources
   _LOG_DEBUG ("Simultaneous publishing");
   string data6 = "Shakespeare says: 'Prose before hos.'";
   string data7 = "Pick good people, talent never wears out";
-  scheduler.scheduleEvent(ndn::time::seconds(5.50), ndn::bind(&TestSet1::publishSocket1, &testSet1, data6));
-  scheduler.scheduleEvent(ndn::time::seconds(5.50), ndn::bind(&TestSet1::publishSocket2, &testSet1, data7));
-  scheduler.scheduleEvent(ndn::time::seconds(6.80), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/4", data6));
-  scheduler.scheduleEvent(ndn::time::seconds(6.80), ndn::bind(&TestSet1::setSocket2, &testSet1, "/0/4", data7));
-  scheduler.scheduleEvent(ndn::time::seconds(6.90), ndn::bind(&TestSet1::check, &testSet1, 4));
-  scheduler.scheduleEvent(ndn::time::seconds(7.00), ndn::bind(&TestSet1::done, &testSet1));
+  scheduler.scheduleEvent(ndn::time::milliseconds(5500), ndn::bind(&TestSet1::publishSocket1, &testSet1, data6));
+  scheduler.scheduleEvent(ndn::time::milliseconds(5500), ndn::bind(&TestSet1::publishSocket2, &testSet1, data7));
+  scheduler.scheduleEvent(ndn::time::milliseconds(6800), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/4", data6));
+  scheduler.scheduleEvent(ndn::time::milliseconds(6800), ndn::bind(&TestSet1::setSocket2, &testSet1, "/0/4", data7));
+  scheduler.scheduleEvent(ndn::time::milliseconds(6900), ndn::bind(&TestSet1::check, &testSet1, 4));
+  scheduler.scheduleEvent(ndn::time::milliseconds(7000), ndn::bind(&TestSet1::done, &testSet1, ioService));
 
   ioService->run();
 }
@@ -576,19 +581,19 @@ BOOST_AUTO_TEST_CASE (AppSocketTest2)
   ndn::Scheduler scheduler(*ioService);
   TestSet2 testSet2(ioService);
 
-  scheduler.scheduleEvent(ndn::time::seconds(0.00), ndn::bind(&TestSet2::createSyncSocket1, &testSet2));
-  scheduler.scheduleEvent(ndn::time::seconds(0.05), ndn::bind(&TestSet2::createSyncSocket2, &testSet2));
+  scheduler.scheduleEvent(ndn::time::milliseconds(0), ndn::bind(&TestSet2::createSyncSocket1, &testSet2));
+  scheduler.scheduleEvent(ndn::time::milliseconds(50), ndn::bind(&TestSet2::createSyncSocket2, &testSet2));
   uint32_t num[5] = {0, 1, 2, 3, 4};
   string data0((const char *) num, sizeof(num));
-  scheduler.scheduleEvent(ndn::time::seconds(0.10), ndn::bind(&TestSet2::publishSocket1, &testSet2, data0));
-  scheduler.scheduleEvent(ndn::time::seconds(0.15), ndn::bind(&TestSet2::setSocket1, &testSet2, (const char *) num, sizeof (num)));
-  scheduler.scheduleEvent(ndn::time::seconds(1.00), ndn::bind(&TestSet2::check, &testSet2, 10));
+  scheduler.scheduleEvent(ndn::time::milliseconds(100), ndn::bind(&TestSet2::publishSocket1, &testSet2, data0));
+  scheduler.scheduleEvent(ndn::time::milliseconds(150), ndn::bind(&TestSet2::setSocket1, &testSet2, (const char *) num, sizeof (num)));
+  scheduler.scheduleEvent(ndn::time::milliseconds(1000), ndn::bind(&TestSet2::check, &testSet2, 10));
   uint32_t newNum[5] = {9, 7, 2, 1, 1};
   string data1((const char *) newNum, sizeof(newNum));
-  scheduler.scheduleEvent(ndn::time::seconds(1.10), ndn::bind(&TestSet2::publishSocket2, &testSet2, data1));
-  scheduler.scheduleEvent(ndn::time::seconds(1.15), ndn::bind(&TestSet2::setSocket2, &testSet2, (const char *) newNum, sizeof (newNum)));
-  scheduler.scheduleEvent(ndn::time::seconds(2.00), ndn::bind(&TestSet2::check, &testSet2, 30));
-  scheduler.scheduleEvent(ndn::time::seconds(7.00), ndn::bind(&TestSet2::done, &testSet2));
+  scheduler.scheduleEvent(ndn::time::milliseconds(1100), ndn::bind(&TestSet2::publishSocket2, &testSet2, data1));
+  scheduler.scheduleEvent(ndn::time::milliseconds(1150), ndn::bind(&TestSet2::setSocket2, &testSet2, (const char *) newNum, sizeof (newNum)));
+  scheduler.scheduleEvent(ndn::time::milliseconds(2000), ndn::bind(&TestSet2::check, &testSet2, 30));
+  scheduler.scheduleEvent(ndn::time::milliseconds(7000), ndn::bind(&TestSet2::done, &testSet2, ioService));
 
   ioService->run();
 }
@@ -599,19 +604,19 @@ BOOST_AUTO_TEST_CASE (AppSocketTest3)
   ndn::Scheduler scheduler(*ioService);
   TestSet3 testSet3(ioService);
 
-  scheduler.scheduleEvent(ndn::time::seconds(0.00), ndn::bind(&TestSet3::createSyncSocket1, &testSet3));
-  scheduler.scheduleEvent(ndn::time::seconds(0.20), ndn::bind(&TestSet3::createSyncSocket2, &testSet3));
+  scheduler.scheduleEvent(ndn::time::milliseconds(0), ndn::bind(&TestSet3::createSyncSocket1, &testSet3));
+  scheduler.scheduleEvent(ndn::time::milliseconds(200), ndn::bind(&TestSet3::createSyncSocket2, &testSet3));
   uint32_t num[5] = {0, 1, 2, 3, 4};
   string data0((const char *) num, sizeof(num));
-  scheduler.scheduleEvent(ndn::time::seconds(1.00), ndn::bind(&TestSet3::publishSocket1, &testSet3, data0));
-  scheduler.scheduleEvent(ndn::time::seconds(1.50), ndn::bind(&TestSet3::setSocket1, &testSet3, (const char *) num, sizeof (num)));
-  scheduler.scheduleEvent(ndn::time::seconds(2.00), ndn::bind(&TestSet3::check, &testSet3, 10));
+  scheduler.scheduleEvent(ndn::time::milliseconds(1000), ndn::bind(&TestSet3::publishSocket1, &testSet3, data0));
+  scheduler.scheduleEvent(ndn::time::milliseconds(1500), ndn::bind(&TestSet3::setSocket1, &testSet3, (const char *) num, sizeof (num)));
+  scheduler.scheduleEvent(ndn::time::milliseconds(2000), ndn::bind(&TestSet3::check, &testSet3, 10));
   uint32_t newNum[5] = {9, 7, 2, 1, 1};
   string data1((const char *) newNum, sizeof(newNum));
-  scheduler.scheduleEvent(ndn::time::seconds(3.00), ndn::bind(&TestSet3::publishSocket2, &testSet3, data1));
-  scheduler.scheduleEvent(ndn::time::seconds(3.50), ndn::bind(&TestSet3::setSocket2, &testSet3, (const char *) newNum, sizeof (newNum)));
-  scheduler.scheduleEvent(ndn::time::seconds(5.00), ndn::bind(&TestSet3::check, &testSet3, 30));
-  scheduler.scheduleEvent(ndn::time::seconds(7.00), ndn::bind(&TestSet3::done, &testSet3));
+  scheduler.scheduleEvent(ndn::time::milliseconds(3000), ndn::bind(&TestSet3::publishSocket2, &testSet3, data1));
+  scheduler.scheduleEvent(ndn::time::milliseconds(3500), ndn::bind(&TestSet3::setSocket2, &testSet3, (const char *) newNum, sizeof (newNum)));
+  scheduler.scheduleEvent(ndn::time::milliseconds(5000), ndn::bind(&TestSet3::check, &testSet3, 30));
+  scheduler.scheduleEvent(ndn::time::milliseconds(7000), ndn::bind(&TestSet3::done, &testSet3, ioService));
 
   ioService->run();
 }

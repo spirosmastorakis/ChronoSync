@@ -49,13 +49,16 @@ INIT_LOGGER ("SyncLogic");
   (time::seconds(sec) + time::milliseconds(GET_RANDOM (m_reexpressionJitter)))
 
 #define TIME_MILLISECONDS_WITH_JITTER(ms) \
-  (time::seconds(ms) + time::milliseconds(GET_RANDOM (m_reexpressionJitter)))
+  (time::milliseconds(ms) + time::milliseconds(GET_RANDOM (m_reexpressionJitter)))
 
 namespace Sync {
 
 using ndn::shared_ptr;
 
 int SyncLogic::m_instanceCounter = 0;
+
+const int SyncLogic::m_syncResponseFreshness = 1000; // MUST BE dividable by 1000!!!
+const int SyncLogic::m_syncInterestReexpress = 4; // seconds
 
 SyncLogic::SyncLogic (const Name& syncPrefix,
                       const IdentityCertificate& myCertificate,
@@ -430,7 +433,7 @@ SyncLogic::processSyncData (const Name &name, DigestConstPtr digest, const char 
       // satisfyPendingSyncInterests (diffLog); // if there are interests in PIT, there is a point to satisfy them using new state
   
       // if state has changed, then it is safe to express a new interest
-      time::Duration after = time::milliseconds(GET_RANDOM (m_reexpressionJitter));
+      time::system_clock::Duration after = time::milliseconds(GET_RANDOM (m_reexpressionJitter));
       // cout << "------------ reexpress interest after: " << after << endl;
       EventId eventId = m_scheduler.scheduleEvent (after,
                                                    bind (&SyncLogic::sendSyncInterest, this));
@@ -602,7 +605,7 @@ SyncLogic::sendSyncRecoveryInterests (DigestConstPtr digest)
   Name interestName = m_syncPrefix;
   interestName.append("recovery").append(os.str());
 
-  time::Duration nextRetransmission = time::milliseconds (m_recoveryRetransmissionInterval + GET_RANDOM (m_reexpressionJitter));
+  time::system_clock::Duration nextRetransmission = time::milliseconds (m_recoveryRetransmissionInterval + GET_RANDOM (m_reexpressionJitter));
 
   m_recoveryRetransmissionInterval <<= 1;
     
@@ -640,7 +643,7 @@ SyncLogic::sendSyncData (const Name &name, DigestConstPtr digest, SyncStateMsg &
 
   Data syncData(name);
   syncData.setContent(reinterpret_cast<const uint8_t*>(wireData), size);
-  syncData.setFreshnessPeriod(m_syncResponseFreshness);
+  syncData.setFreshnessPeriod(time::milliseconds(m_syncResponseFreshness));
   
   m_keyChain.sign(syncData, m_myCertificate.getName());
   
@@ -658,7 +661,7 @@ SyncLogic::sendSyncData (const Name &name, DigestConstPtr digest, SyncStateMsg &
     {
       _LOG_DEBUG_ID ("Satisfied our own Interest. Re-expressing (hopefully with a new digest)");
       
-      time::Duration after = time::milliseconds(GET_RANDOM (m_reexpressionJitter));
+      time::system_clock::Duration after = time::milliseconds(GET_RANDOM (m_reexpressionJitter));
       // cout << "------------ reexpress interest after: " << after << endl;
       EventId eventId = m_scheduler.scheduleEvent (after,
                                                    bind (&SyncLogic::sendSyncInterest, this));

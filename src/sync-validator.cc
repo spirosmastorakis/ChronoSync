@@ -130,7 +130,7 @@ SyncValidator::checkPolicy (const Data& data,
               Name interestName = m_prefix;
               interestName.append("CHRONOS-INTRO-CERT").append(keyLocatorName.wireEncode());
               Interest interest(interestName);
-              interest.setInterestLifetime(500);
+              interest.setInterestLifetime(time::milliseconds(500));
 
               OnDataValidated onKeyValidated = bind(&SyncValidator::onCertificateValidated, this, 
                                                     _1, data.shared_from_this(), onValidated, onValidationFailed);

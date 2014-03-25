@@ -92,7 +92,7 @@ SyncSocket::publishData(const uint8_t* buf, size_t len, int freshness, bool isCe
 {
   shared_ptr<Data> data = make_shared<Data>();
   data->setContent(reinterpret_cast<const uint8_t*>(buf), len);
-  data->setFreshnessPeriod(1000*freshness);
+  data->setFreshnessPeriod(time::milliseconds(1000*freshness));
 
   m_ioService->post(bind(&SyncSocket::publishDataInternal, this, 
                          data, isCert));
