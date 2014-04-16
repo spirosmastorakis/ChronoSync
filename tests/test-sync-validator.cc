@@ -8,33 +8,33 @@
 
 BOOST_AUTO_TEST_SUITE(TestSyncValidator)
 
-void 
+void
 onValidated(const ndn::shared_ptr<const ndn::Data>& data)
 {
   BOOST_CHECK(true);
 }
 
-void 
+void
 onValidationFailed(const ndn::shared_ptr<const ndn::Data>& data,
                    const std::string& failureInfo)
 {
   BOOST_CHECK(false);
 }
 
-void 
+void
 onValidated2(const ndn::shared_ptr<const ndn::Data>& data)
 {
   BOOST_CHECK(false);
 }
 
-void 
+void
 onValidationFailed2(const ndn::shared_ptr<const ndn::Data>& data,
                     const std::string& failureInfo)
 {
   BOOST_CHECK(true);
 }
 
-void 
+void
 publishData(const uint8_t* buf, size_t len, int freshness)
 {
 }
@@ -70,13 +70,13 @@ BOOST_AUTO_TEST_CASE (Graph)
   shared_ptr<boost::asio::io_service> ioService = make_shared<boost::asio::io_service>();
   shared_ptr<Face> face = make_shared<Face>(ioService);
   shared_ptr<SecRuleRelative> rule;
-  SyncValidator validator(prefix, *anchor, face, 
+  SyncValidator validator(prefix, *anchor, *face,
                           bind(&publishData, _1, _2, _3),
                           rule);
 
   validator.addParticipant(*introducer);
   BOOST_CHECK(validator.canTrust(certName2));
-  
+
   IntroCertificate introCert(prefix, *introducee, certName2.getPrefix(-1));
   keychain.sign(introCert, certName2);
   validator.addParticipant(introCert);
@@ -108,7 +108,7 @@ BOOST_AUTO_TEST_CASE (Graph)
   BOOST_CHECK(validator.canTrust(certName3));
   BOOST_CHECK(validator.canTrust(certName4) == false);
   BOOST_CHECK(validator.canTrust(certName5));
-  
+
 
   keychain.deleteIdentity(identity1);
   keychain.deleteIdentity(identity2);
@@ -153,13 +153,13 @@ BOOST_AUTO_TEST_CASE (OfflineValidate)
   shared_ptr<boost::asio::io_service> ioService = make_shared<boost::asio::io_service>();
   shared_ptr<Face> face = make_shared<Face>(ioService);
   shared_ptr<SecRuleRelative> rule;
-  SyncValidator validator(prefix, *anchor, face,
+  SyncValidator validator(prefix, *anchor, *face,
                           bind(&publishData, _1, _2, _3),
                           rule);
 
   validator.addParticipant(*introducer);
   BOOST_CHECK(validator.canTrust(certName2));
-  
+
   IntroCertificate introCert(prefix, *introducee, certName2.getPrefix(-1));
   keychain.sign(introCert, certName2);
   validator.addParticipant(introCert);
@@ -211,7 +211,7 @@ struct FacesFixture
     : regPrefixId(0)
     , regPrefixId2(0)
   {}
-  
+
   void
   onInterest(ndn::shared_ptr<ndn::Face> face, ndn::shared_ptr<ndn::Data> data)
   {
@@ -231,7 +231,7 @@ struct FacesFixture
   {}
 
   void
-  validate(ndn::shared_ptr<Sync::SyncValidator> validator, ndn::shared_ptr<ndn::Data> data, 
+  validate(ndn::shared_ptr<Sync::SyncValidator> validator, ndn::shared_ptr<ndn::Data> data,
            const ndn::Name& certName3, const ndn::Name& certName4)
   {
     validator->validate(*data,
@@ -261,17 +261,17 @@ BOOST_FIXTURE_TEST_CASE(OnlineValidate, FacesFixture)
   Name prefix("/Sync/TestSyncValidator/OnlineValidate");
   KeyChain keychain;
 
-  Name identity1("/TestSyncValidator/OnlineValidate-1/" 
+  Name identity1("/TestSyncValidator/OnlineValidate-1/"
                  + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()));
   Name certName1 = keychain.createIdentity(identity1);
   shared_ptr<IdentityCertificate> anchor = keychain.getCertificate(certName1);
 
-  Name identity2("/TestSyncValidator/OnlineValidate-2/" 
+  Name identity2("/TestSyncValidator/OnlineValidate-2/"
                  + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()));
   Name certName2 = keychain.createIdentity(identity2);
   shared_ptr<IdentityCertificate> introducer = keychain.getCertificate(certName2);
 
-  Name identity3("/TestSyncValidator/OnlineValidate-3/" 
+  Name identity3("/TestSyncValidator/OnlineValidate-3/"
                  + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()));
   Name certName3 = keychain.createIdentity(identity3);
   shared_ptr<IdentityCertificate> introducee = keychain.getCertificate(certName3);
@@ -287,11 +287,11 @@ BOOST_FIXTURE_TEST_CASE(OnlineValidate, FacesFixture)
 
   shared_ptr<SecRuleRelative> rule;
   shared_ptr<SyncValidator> validator = shared_ptr<SyncValidator>
-    (new SyncValidator(prefix, *anchor, face2, bind(&publishData, _1, _2, _3), rule));
+    (new SyncValidator(prefix, *anchor, *face2, bind(&publishData, _1, _2, _3), rule));
 
   validator->addParticipant(*introducer);
   BOOST_CHECK(validator->canTrust(certName2));
-  
+
   shared_ptr<IntroCertificate> introCert = shared_ptr<IntroCertificate>(new IntroCertificate(prefix, *introducee, certName2.getPrefix(-1)));
   keychain.sign(*introCert, certName2);
   BOOST_CHECK(validator->canTrust(certName3) == false);
@@ -313,7 +313,7 @@ BOOST_FIXTURE_TEST_CASE(OnlineValidate, FacesFixture)
   regPrefixId = face->setInterestFilter(introCert->getName().getPrefix(-1),
                                        bind(&FacesFixture::onInterest, this, face, introCert),
                                        bind(&FacesFixture::onRegFailed, this));
-  
+
   regPrefixId2 = face->setInterestFilter(introCert2->getName().getPrefix(-1),
 					bind(&FacesFixture::onInterest2, this, face, introCert2),
 					bind(&FacesFixture::onRegFailed, this));

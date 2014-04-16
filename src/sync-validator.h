@@ -32,16 +32,16 @@ public:
 
   SyncValidator(const ndn::Name& prefix,
                 const ndn::IdentityCertificate& anchor,
-                ndn::shared_ptr<ndn::Face> face,
+                ndn::Face& face,
                 const PublishCertCallback& publishCertCallback,
                 ndn::shared_ptr<ndn::SecRuleRelative> rule = DefaultDataRule,
-                ndn::shared_ptr<ndn::CertificateCache> certificateCache = DefaultCertificateCache, 
+                ndn::shared_ptr<ndn::CertificateCache> certificateCache = DefaultCertificateCache,
                 const int stepLimit = 10);
 
   virtual
   ~SyncValidator()
   {
-    m_face->unsetInterestFilter(m_prefixId);
+    m_face.unsetInterestFilter(m_prefixId);
   }
 
   /**
@@ -50,7 +50,7 @@ public:
    * The anchor should be the participant's own certificate.
    * This anchor node is the origin of the derived trust graph.
    * Once the new anchor is set, derive the TrustNode set.
-   * 
+   *
    * @param anchor.
    */
   inline void
@@ -58,7 +58,7 @@ public:
 
   /**
    * @brief Add a node into the trust graph.
-   * 
+   *
    * The method also create an edge from trust anchor to the node.
    *
    * @param introducee.
@@ -90,39 +90,39 @@ public:
     return (m_trustedNodes.find(certName.getPrefix(-1)) != m_trustedNodes.end());
   }
 #endif //_DEBUG
-  
+
 protected:
   /***********************
    * From ndn::Validator *
    ***********************/
   virtual void
-  checkPolicy (const ndn::Data& data, 
-               int stepCount, 
-               const ndn::OnDataValidated& onValidated, 
+  checkPolicy (const ndn::Data& data,
+               int stepCount,
+               const ndn::OnDataValidated& onValidated,
                const ndn::OnDataValidationFailed& onValidationFailed,
                std::vector<ndn::shared_ptr<ndn::ValidationRequest> >& nextSteps);
 
   virtual void
-  checkPolicy (const ndn::Interest& interest, 
-               int stepCount, 
-               const ndn::OnInterestValidated& onValidated, 
+  checkPolicy (const ndn::Interest& interest,
+               int stepCount,
+               const ndn::OnInterestValidated& onValidated,
                const ndn::OnInterestValidationFailed& onValidationFailed,
                std::vector<ndn::shared_ptr<ndn::ValidationRequest> >& nextSteps);
 private:
   void
   deriveTrustNodes();
 
-  
+
   void
-  onCertificateValidated(const ndn::shared_ptr<const ndn::Data>& signCertificate, 
-                         const ndn::shared_ptr<const ndn::Data>& data, 
-                         const ndn::OnDataValidated& onValidated, 
+  onCertificateValidated(const ndn::shared_ptr<const ndn::Data>& signCertificate,
+                         const ndn::shared_ptr<const ndn::Data>& data,
+                         const ndn::OnDataValidated& onValidated,
                          const ndn::OnDataValidationFailed& onValidationFailed);
-  
+
   void
   onCertificateValidationFailed(const ndn::shared_ptr<const ndn::Data>& signCertificate,
                                 const std::string& failureInfo,
-                                const ndn::shared_ptr<const ndn::Data>& data, 
+                                const ndn::shared_ptr<const ndn::Data>& data,
                                 const ndn::OnDataValidationFailed& onValidationFailed);
 
   void
@@ -136,7 +136,7 @@ private:
 
   // Syncprefix
   ndn::Name m_prefix;
-  
+
   // The map
   typedef std::map<const ndn::Name, IntroNode> Nodes;
   typedef std::map<const ndn::Name, IntroCertificate> Edges;
@@ -147,7 +147,7 @@ private:
   typedef std::map<const ndn::Name, ndn::PublicKey> TrustNodes;
   ndn::IdentityCertificate m_anchor;
   TrustNodes m_trustedNodes;
-  
+
   // others
   int m_stepLimit;
   ndn::shared_ptr<ndn::CertificateCache> m_certificateCache;
@@ -167,7 +167,7 @@ private:
     IntroNode(const ndn::IdentityCertificate& idCert)
       : m_nodeName(idCert.getName().getPrefix(-1))
     {}
-    
+
     IntroNode(const IntroCertificate& introCert, bool isIntroducer)
     {
       if(isIntroducer)
@@ -180,8 +180,8 @@ private:
           m_nodeName = introCert.getIntroduceeCertName();
           m_introducerCerts.push_back(introCert.getName());
         }
-    } 
-    
+    }
+
     ~IntroNode()
     {}
 
@@ -221,14 +221,14 @@ private:
       if(std::find(m_introduceeCerts.begin(), m_introduceeCerts.end(), introCertName) == m_introduceeCerts.end())
         m_introduceeCerts.push_back(introCertName);
     }
-    
+
     void
     addIntroCertAsIntroducee(const ndn::Name& introCertName)
     {
       if(std::find(m_introducerCerts.begin(), m_introducerCerts.end(), introCertName) == m_introducerCerts.end())
         m_introducerCerts.push_back(introCertName);
     }
-  
+
   private:
     ndn::Name m_nodeName;
     std::vector<ndn::Name> m_introducerCerts;
@@ -241,7 +241,7 @@ inline void
 SyncValidator::setAnchor(const ndn::IdentityCertificate& anchor)
 {
   m_anchor = anchor;
-  
+
   // Add anchor into trust graph if it does not exist.
   IntroNode origin(m_anchor);
   Nodes::const_iterator nodeIt = m_introNodes.find(origin.name());
@@ -296,7 +296,7 @@ SyncValidator::addParticipant(const ndn::IdentityCertificate& introducee)
     = ndn::shared_ptr<IntroCertificate>(new IntroCertificate(m_prefix, introducee, m_anchor.getName().getPrefix(-1)));
 
   m_keychain.sign(*introCert, m_anchor.getName());
-  
+
   addParticipant(*introCert);
 
   // Publish certificate as normal data.

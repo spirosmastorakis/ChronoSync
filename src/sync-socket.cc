@@ -37,11 +37,11 @@ SyncSocket::SyncSocket (const Name& syncPrefix,
                         const Name& dataPrefix,
                         uint64_t dataSession,
                         bool withRoutingPrefix,
-                        const Name& routingPrefix, 
+                        const Name& routingPrefix,
                         shared_ptr<Face> face,
                         const IdentityCertificate& myCertificate,
                         shared_ptr<SecRuleRelative> dataRule,
-                        NewDataCallback dataCallback, 
+                        NewDataCallback dataCallback,
                         RemoveCallback rmCallback )
   : m_dataPrefix(dataPrefix)
   , m_dataSession(dataSession)
@@ -61,9 +61,9 @@ SyncSocket::SyncSocket (const Name& syncPrefix,
   if(static_cast<bool>(dataRule))
     {
       m_withSecurity = true;
-      m_syncValidator = shared_ptr<Validator>(new SyncValidator(syncPrefix, 
-                                                                m_myCertificate, 
-                                                                m_face, 
+      m_syncValidator = shared_ptr<Validator>(new SyncValidator(syncPrefix,
+                                                                m_myCertificate,
+                                                                *m_face,
                                                                 bind(&SyncSocket::publishData, this, _1, _2, _3, true),
                                                                 dataRule));
     }
@@ -73,7 +73,7 @@ SyncSocket::SyncSocket (const Name& syncPrefix,
       m_syncValidator = shared_ptr<Validator>(new ValidatorNull());
     }
 
-  
+
   m_syncLogic = shared_ptr<SyncLogic>(new SyncLogic(syncPrefix,
                                                     myCertificate,
                                                     m_syncValidator,
@@ -93,7 +93,7 @@ SyncSocket::publishData(const uint8_t* buf, size_t len, int freshness, bool isCe
   data->setContent(reinterpret_cast<const uint8_t*>(buf), len);
   data->setFreshnessPeriod(time::milliseconds(1000*freshness));
 
-  m_ioService->post(bind(&SyncSocket::publishDataInternal, this, 
+  m_ioService->post(bind(&SyncSocket::publishDataInternal, this,
                          data, isCert));
 }
 
@@ -136,7 +136,7 @@ SyncSocket::publishDataInternal(shared_ptr<Data> data, bool isCert)
   m_syncLogic->addLocalNames (dataPrefix, m_dataSession, sequence); // If DNS works, we should use pure m_dataprefix rather than the one with routing prefix.
 }
 
-void 
+void
 SyncSocket::fetchData(const Name& prefix, const SeqNo& seq, const OnDataValidated& dataCallback, int retry)
 {
   Name interestName = prefix;
@@ -145,8 +145,8 @@ SyncSocket::fetchData(const Name& prefix, const SeqNo& seq, const OnDataValidate
   ndn::Interest interest(interestName);
   interest.setMustBeFresh(true);
 
-  m_face->expressInterest(interest, 
-                          bind(&SyncSocket::onData, this, _1, _2, dataCallback), 
+  m_face->expressInterest(interest,
+                          bind(&SyncSocket::onData, this, _1, _2, dataCallback),
                           bind(&SyncSocket::onDataTimeout, this, _1, retry, dataCallback));
 
 }
@@ -198,12 +198,12 @@ SyncSocket::onDataTimeout(const ndn::Interest& interest, int retry, const OnData
                                    _1,
                                    _2,
                                    dataCallback),
-                              bind(&SyncSocket::onDataTimeout, 
+                              bind(&SyncSocket::onDataTimeout,
                                    this,
                                    _1,
                                    retry - 1,
                                    dataCallback));
-                              
+
     }
   else
     _LOG_DEBUG("interest eventually time out!");
@@ -214,10 +214,10 @@ SyncSocket::onDataValidated(const shared_ptr<const Data>& data,
                             size_t interestNameSize,
                             const OnDataValidated& onValidated)
 {
-  if(data->getName().size() > interestNameSize 
+  if(data->getName().size() > interestNameSize
      && data->getName().get(interestNameSize).toEscapedString() == "INTRO-CERT")
     {
-      if(!m_withSecurity) 
+      if(!m_withSecurity)
         return;
 
       Data rawData;

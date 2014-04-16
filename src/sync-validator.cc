@@ -26,10 +26,10 @@ const shared_ptr<SecRuleRelative> SyncValidator::DefaultDataRule = shared_ptr<Se
 
 SyncValidator::SyncValidator(const Name& prefix,
                              const IdentityCertificate& anchor,
-                             shared_ptr<Face> face,
+                             Face& face,
                              const PublishCertCallback& publishCertCallback,
                              shared_ptr<SecRuleRelative> rule,
-                             shared_ptr<CertificateCache> certificateCache, 
+                             shared_ptr<CertificateCache> certificateCache,
                              const int stepLimit)
   : Validator(face)
   , m_prefix(prefix)
@@ -39,16 +39,13 @@ SyncValidator::SyncValidator(const Name& prefix,
   , m_publishCertCallback(publishCertCallback)
   , m_dataRule(rule)
 {
-  if(!static_cast<bool>(face))
-    throw Error("Face is not set!");
-
   if(!static_cast<bool>(m_certificateCache))
-    m_certificateCache = make_shared<CertificateCacheTtl>(m_face->ioService());
+    m_certificateCache = make_shared<CertificateCacheTtl>(m_face.ioService());
 
   Name certPrefix = prefix;
   certPrefix.append("CHRONOS-INTRO-CERT");
-  m_prefixId = m_face->setInterestFilter(certPrefix, 
-                                         bind(&SyncValidator::onCertInterest, this, _1, _2), 
+  m_prefixId = m_face.setInterestFilter(certPrefix,
+                                         bind(&SyncValidator::onCertInterest, this, _1, _2),
                                          bind(&SyncValidator::onCertRegisterFailed, this, _1, _2));
 
   setAnchor(m_anchor);
@@ -83,7 +80,7 @@ SyncValidator::deriveTrustNodes()
             {
               // Check the nodes introduced by the trusted node.
               Edges::const_iterator edgeIt = m_introCerts.find(*eeIt);
-              if(edgeIt != m_introCerts.end() 
+              if(edgeIt != m_introCerts.end()
                  && m_trustedNodes.find(edgeIt->second.getIntroduceeCertName()) == m_trustedNodes.end()
                  && verifySignature(edgeIt->second, publicKey))
                 {
@@ -98,14 +95,14 @@ SyncValidator::deriveTrustNodes()
 }
 
 void
-SyncValidator::checkPolicy (const Data& data, 
-                            int stepCount, 
-                            const OnDataValidated& onValidated, 
+SyncValidator::checkPolicy (const Data& data,
+                            int stepCount,
+                            const OnDataValidated& onValidated,
                             const OnDataValidationFailed& onValidationFailed,
                             std::vector<shared_ptr<ValidationRequest> >& nextSteps)
 {
   if(m_stepLimit == stepCount)
-    return onValidationFailed(data.shared_from_this(), 
+    return onValidationFailed(data.shared_from_this(),
                               "Maximum steps of validation reached: " + data.getName().toUri());
 
   if(m_prefix.isPrefixOf(data.getName()) || (static_cast<bool>(m_dataRule) && m_dataRule->satisfy(data)))
@@ -121,25 +118,25 @@ SyncValidator::checkPolicy (const Data& data,
               if(verifySignature(data, sig, it->second))
                 return onValidated(data.shared_from_this());
               else
-                return onValidationFailed(data.shared_from_this(), 
+                return onValidationFailed(data.shared_from_this(),
                                           "Cannot verify signature: " + data.getName().toUri());
             }
           else
             {
-              _LOG_DEBUG("I am: " << m_anchor.getName().get(0).toEscapedString() << " for " << data.getName()); 
+              _LOG_DEBUG("I am: " << m_anchor.getName().get(0).toEscapedString() << " for " << data.getName());
 
               Name interestName = m_prefix;
               interestName.append("CHRONOS-INTRO-CERT").append(keyLocatorName.wireEncode());
               Interest interest(interestName);
               interest.setInterestLifetime(time::milliseconds(500));
 
-              OnDataValidated onKeyValidated = bind(&SyncValidator::onCertificateValidated, this, 
+              OnDataValidated onKeyValidated = bind(&SyncValidator::onCertificateValidated, this,
                                                     _1, data.shared_from_this(), onValidated, onValidationFailed);
-              
-              OnDataValidationFailed onKeyValidationFailed = bind(&SyncValidator::onCertificateValidationFailed, this, 
-                                                                  _1, _2, data.shared_from_this(), onValidationFailed);              
 
-              shared_ptr<ValidationRequest> nextStep = make_shared<ValidationRequest>(interest, 
+              OnDataValidationFailed onKeyValidationFailed = bind(&SyncValidator::onCertificateValidationFailed, this,
+                                                                  _1, _2, data.shared_from_this(), onValidationFailed);
+
+              shared_ptr<ValidationRequest> nextStep = make_shared<ValidationRequest>(interest,
                                                                                       onKeyValidated,
                                                                                       onKeyValidationFailed,
                                                                                       1,
@@ -151,7 +148,7 @@ SyncValidator::checkPolicy (const Data& data,
         }
       catch(SignatureSha256WithRsa::Error& e)
         {
-          return onValidationFailed(data.shared_from_this(), 
+          return onValidationFailed(data.shared_from_this(),
                                     "Not SignatureSha256WithRsa signature: " + std::string(e.what()));
         }
       catch(KeyLocator::Error& e)
@@ -166,9 +163,9 @@ SyncValidator::checkPolicy (const Data& data,
 }
 
 void
-SyncValidator::checkPolicy (const Interest& interest, 
-                            int stepCount, 
-                            const OnInterestValidated& onValidated, 
+SyncValidator::checkPolicy (const Interest& interest,
+                            int stepCount,
+                            const OnInterestValidated& onValidated,
                             const OnInterestValidationFailed& onValidationFailed,
                             std::vector<shared_ptr<ValidationRequest> >& nextSteps)
 {
@@ -176,33 +173,33 @@ SyncValidator::checkPolicy (const Interest& interest,
 }
 
 void
-SyncValidator::onCertificateValidated(const shared_ptr<const Data>& signCertificate, 
-                                      const shared_ptr<const Data>& data, 
-                                      const OnDataValidated& onValidated, 
+SyncValidator::onCertificateValidated(const shared_ptr<const Data>& signCertificate,
+                                      const shared_ptr<const Data>& data,
+                                      const OnDataValidated& onValidated,
                                       const OnDataValidationFailed& onValidationFailed)
 {
   try
     {
       IntroCertificate introCert(*signCertificate);
       addParticipant(introCert);
-      
+
       if(verifySignature(*data, introCert.getIntroduceeCert().getPublicKeyInfo()))
         return onValidated(data);
       else
-        return onValidationFailed(data, 
+        return onValidationFailed(data,
                                   "Cannot verify signature: " + data->getName().toUri());
     }
   catch(IntroCertificate::Error& e)
     {
-      return onValidationFailed(data, 
+      return onValidationFailed(data,
                                 "Intro cert decoding error: " + std::string(e.what()));
     }
 }
 
 void
-SyncValidator::onCertificateValidationFailed(const shared_ptr<const Data>& signCertificate, 
+SyncValidator::onCertificateValidationFailed(const shared_ptr<const Data>& signCertificate,
                                              const std::string& failureInfo,
-                                             const shared_ptr<const Data>& data, 
+                                             const shared_ptr<const Data>& data,
                                              const OnDataValidationFailed& onValidationFailed)
 {
   onValidationFailed(data, failureInfo);
@@ -211,13 +208,13 @@ SyncValidator::onCertificateValidationFailed(const shared_ptr<const Data>& signC
 void
 SyncValidator::onCertInterest(const Name& prefix, const Interest& interest)
 {
-  Name name = interest.getName(); 
+  Name name = interest.getName();
   Edges::const_iterator it = m_introCerts.begin();
   for(; it != m_introCerts.end(); it++)
     {
       if(name.isPrefixOf(it->first))
         {
-          m_face->put(it->second);
+          m_face.put(it->second);
           return;
         }
     }
