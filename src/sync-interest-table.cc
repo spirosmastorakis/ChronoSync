@@ -17,7 +17,7 @@
  *
  * Author: Zhenkai Zhu <zhenkai@cs.ucla.edu>
  *         Chaoyi Bian <bcy@pku.edu.cn>
- *	   Alexander Afanasyev <alexander.afanasyev@ucla.edu>
+ *         Alexander Afanasyev <alexander.afanasyev@ucla.edu>
  */
 
 #include "sync-interest-table.h"
@@ -56,7 +56,7 @@ bool
 SyncInterestTable::insert (DigestConstPtr digest, const std::string& name, bool unknownState/*=false*/)
 {
   bool existent = false;
-  
+
   InterestContainer::index<named>::type::iterator it = m_table.get<named> ().find (name);
   if (it != m_table.end())
     {
@@ -100,14 +100,14 @@ SyncInterestTable::remove (DigestConstPtr digest)
 }
 
 void SyncInterestTable::expireInterests ()
-{ 
+{
   uint32_t count = 0;
   ndn::time::system_clock::TimePoint expireTime = ndn::time::system_clock::now() - m_entryLifetime;
-  
+
   while (m_table.size () > 0)
     {
       InterestContainer::index<timed>::type::iterator item = m_table.get<timed> ().begin ();
-      
+
       if (item->m_time <= expireTime)
         {
           m_table.get<timed> ().erase (item);

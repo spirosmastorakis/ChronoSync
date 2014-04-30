@@ -10,7 +10,7 @@
 
 #include "sync-validator.h"
 #include "sync-logging.h"
-#include <ndn-cpp-dev/security/certificate-cache-ttl.hpp>
+#include <ndn-cxx/security/certificate-cache-ttl.hpp>
 #include <queue>
 
 using namespace ndn;
@@ -40,7 +40,7 @@ SyncValidator::SyncValidator(const Name& prefix,
   , m_dataRule(rule)
 {
   if(!static_cast<bool>(m_certificateCache))
-    m_certificateCache = make_shared<CertificateCacheTtl>(m_face.ioService());
+    m_certificateCache = make_shared<CertificateCacheTtl>(boost::ref(m_face.getIoService()));
 
   Name certPrefix = prefix;
   certPrefix.append("CHRONOS-INTRO-CERT");

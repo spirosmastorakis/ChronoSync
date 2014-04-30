@@ -17,7 +17,7 @@
  *
  * Author: Zhenkai Zhu <zhenkai@cs.ucla.edu>
  *         Chaoyi Bian <bcy@pku.edu.cn>
- *	   Alexander Afanasyev <alexander.afanasyev@ucla.edu>
+ *         Alexander Afanasyev <alexander.afanasyev@ucla.edu>
  */
 
 #include "sync-diff-state.h"
@@ -43,7 +43,7 @@ DiffStatePtr
 DiffState::diff () const
 {
   DiffStatePtr ret = make_shared<DiffState> ();
-  
+
   DiffStatePtr state = m_next;
   while (state != 0)
     {
@@ -71,10 +71,10 @@ DiffState::operator += (const DiffState &state)
           BOOST_ASSERT (false);
         }
     }
-  
+
   return *this;
 }
-  
+
 // from State
 boost::tuple<bool/*inserted*/, bool/*updated*/, SeqNo/*oldSeqNo*/>
 DiffState::update (NameInfoConstPtr info, const SeqNo &seq)

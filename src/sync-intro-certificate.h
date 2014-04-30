@@ -11,8 +11,8 @@
 #ifndef SYNC_INTRO_CERTIFICATE_H
 #define SYNC_INTRO_CERTIFICATE_H
 
-#include <ndn-cpp-dev/security/identity-certificate.hpp>
-#include <ndn-cpp-dev/security/signature-sha256-with-rsa.hpp>
+#include <ndn-cxx/security/identity-certificate.hpp>
+#include <ndn-cxx/security/signature-sha256-with-rsa.hpp>
 
 namespace Sync {
 
@@ -29,7 +29,7 @@ public:
 
   IntroCertificate()
   {}
-  
+
   /**
    * @brief Construct IntroCertificate from IdentityCertificate
    *
@@ -43,7 +43,7 @@ public:
 
   /**
    * @brief Construct IntroCertificate using a plain data.
-   * 
+   *
    * if data is not actually IntroCertificate, Error will be thrown out.
    *
    * @param data
@@ -94,7 +94,7 @@ IntroCertificate::IntroCertificate(const ndn::Name& syncPrefix,
     .append(m_introduceeCertName.wireEncode())
     .append(m_introducerCertName.wireEncode())
     .appendVersion();
-  
+
   setName(dataName);
   setContent(m_introduceeCert.wireEncode());
 }

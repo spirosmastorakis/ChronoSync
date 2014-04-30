@@ -28,10 +28,10 @@
 #include <memory>
 #include <map>
 
-#include <ndn-cpp-dev/face.hpp>
-#include <ndn-cpp-dev/security/validator.hpp>
-#include <ndn-cpp-dev/security/key-chain.hpp>
-#include <ndn-cpp-dev/util/scheduler.hpp>
+#include <ndn-cxx/face.hpp>
+#include <ndn-cxx/security/validator.hpp>
+#include <ndn-cxx/security/key-chain.hpp>
+#include <ndn-cxx/util/scheduler.hpp>
 
 #include "sync-interest-table.h"
 #include "sync-diff-state.h"
@@ -108,7 +108,7 @@ public:
   std::map<std::string, bool>
   getBranchPrefixes() const;
 
-private: 
+private:
   void
   delayedChecksLoop ();
 
@@ -137,12 +137,12 @@ private:
   void
   processSyncData (const ndn::Name &name,
                    DigestConstPtr digest, const char *wireData, size_t len);
-  
+
   void
   processSyncRecoveryInterest (const ndn::Name &name,
                                DigestConstPtr digest);
-  
-  void 
+
+  void
   insertToDiffLog (DiffStatePtr diff);
 
   void
@@ -167,7 +167,7 @@ private:
 
   size_t
   getNumberOfBranches () const;
-  
+
 private:
   FullStatePtr m_state;
   DiffStateContainer m_log;
@@ -198,11 +198,11 @@ private:
 
   static const int m_defaultRecoveryRetransmitInterval = 200; // milliseconds
   uint32_t m_recoveryRetransmissionInterval; // milliseconds
-  
+
   ndn::EventId m_delayedInterestProcessingId;
   ndn::EventId m_reexpressingInterestId;
   ndn::EventId m_reexpressingRecoveryInterestId;
-  
+
   std::string m_instanceId;
   static int m_instanceCounter;
 };

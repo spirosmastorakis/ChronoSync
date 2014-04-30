@@ -17,7 +17,7 @@
  *
  * Author: Zhenkai Zhu <zhenkai@cs.ucla.edu>
  *         Chaoyi Bian <bcy@pku.edu.cn>
- *	   Alexander Afanasyev <alexander.afanasyev@ucla.edu>
+ *         Alexander Afanasyev <alexander.afanasyev@ucla.edu>
  */
 
 #ifndef SYNC_LEAF_H
@@ -42,7 +42,7 @@ public:
    */
   Leaf (NameInfoConstPtr info, const SeqNo &seq);
   virtual ~Leaf ();
-  
+
   /**
    * @brief Get name of the leaf
    */
@@ -63,7 +63,7 @@ public:
    */
   virtual void
   setSeq (const SeqNo &seq);
-  
+
 private:
   NameInfoConstPtr m_info;
   SeqNo m_seq;

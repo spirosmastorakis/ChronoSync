@@ -17,7 +17,7 @@
  *
  * Author: Zhenkai Zhu <zhenkai@cs.ucla.edu>
  *         Chaoyi Bian <bcy@pku.edu.cn>
- *	   Alexander Afanasyev <alexander.afanasyev@ucla.edu>
+ *         Alexander Afanasyev <alexander.afanasyev@ucla.edu>
  */
 
 #include "sync-state.h"
@@ -33,7 +33,7 @@
 // using namespace std;
 using namespace boost;
 
-typedef error_info<struct tag_errmsg, std::string> info_str; 
+typedef error_info<struct tag_errmsg, std::string> info_str;
 
 using namespace Sync::Error;
 
@@ -44,7 +44,7 @@ std::ostream &
 operator << (std::ostream &os, const State &state)
 {
   os << "<state>"; DEBUG_ENDL;
-  
+
   BOOST_FOREACH (shared_ptr<const Leaf> leaf, state.getLeaves ().get<ordered> ())
     {
       shared_ptr<const DiffLeaf> diffLeaf = dynamic_pointer_cast<const DiffLeaf> (leaf);
@@ -106,7 +106,7 @@ operator >> (std::istream &in, State &state)
 
   if (doc.RootElement() == 0)
         BOOST_THROW_EXCEPTION (SyncXmlDecodingFailure () << info_str ("Empty XML"));
-  
+
   for (TiXmlElement *iterator = doc.RootElement()->FirstChildElement ("item");
        iterator != 0;
        iterator = iterator->NextSiblingElement("item"))
@@ -114,15 +114,15 @@ operator >> (std::istream &in, State &state)
       TiXmlElement *name = iterator->FirstChildElement ("name");
       if (name == 0 || name->GetText() == 0)
         BOOST_THROW_EXCEPTION (SyncXmlDecodingFailure () << info_str ("<name> element is missing"));
-        
+
       NameInfoConstPtr info = StdNameInfo::FindOrCreate (name->GetText());
-      
+
       if (iterator->Attribute("action") == 0 || strcmp(iterator->Attribute("action"), "update") == 0)
         {
           TiXmlElement *seq = iterator->FirstChildElement ("seq");
           if (seq == 0)
             BOOST_THROW_EXCEPTION (SyncXmlDecodingFailure () << info_str ("<seq> element is missing"));
-          
+
           TiXmlElement *session = seq->FirstChildElement ("session");
           TiXmlElement *seqno = seq->FirstChildElement ("seqno");
 

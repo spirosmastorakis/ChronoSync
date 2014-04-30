@@ -12,10 +12,10 @@
 #define SYNC_VALIDATOR_H
 
 #include "sync-intro-certificate.h"
-#include <ndn-cpp-dev/security/validator.hpp>
-#include <ndn-cpp-dev/security/key-chain.hpp>
-#include <ndn-cpp-dev/security/sec-rule-relative.hpp>
-#include <ndn-cpp-dev/security/certificate-cache.hpp>
+#include <ndn-cxx/security/validator.hpp>
+#include <ndn-cxx/security/key-chain.hpp>
+#include <ndn-cxx/security/sec-rule-relative.hpp>
+#include <ndn-cxx/security/certificate-cache.hpp>
 #include <map>
 
 namespace Sync {

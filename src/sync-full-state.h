@@ -17,13 +17,13 @@
  *
  * Author: Zhenkai Zhu <zhenkai@cs.ucla.edu>
  *         Chaoyi Bian <bcy@pku.edu.cn>
- *	   Alexander Afanasyev <alexander.afanasyev@ucla.edu>
+ *         Alexander Afanasyev <alexander.afanasyev@ucla.edu>
  */
 
 #ifndef SYNC_FULL_STATE_H
 #define SYNC_FULL_STATE_H
 
-#include <ndn-cpp-dev/util/time.hpp>
+#include <ndn-cxx/util/time.hpp>
 #include "sync-state.h"
 
 namespace Sync {
@@ -61,14 +61,14 @@ public:
    */
   DigestConstPtr
   getDigest ();
-  
+
   // from State
   virtual boost::tuple<bool/*inserted*/, bool/*updated*/, SeqNo/*oldSeqNo*/>
   update (NameInfoConstPtr info, const SeqNo &seq);
 
   virtual bool
   remove (NameInfoConstPtr info);
-  
+
 private:
   ndn::time::system_clock::TimePoint m_lastUpdated; ///< @brief Time when state was updated last time
   DigestPtr m_digest;

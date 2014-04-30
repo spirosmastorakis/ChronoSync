@@ -17,7 +17,7 @@
  *
  * Author: Zhenkai Zhu <zhenkai@cs.ucla.edu>
  *         Chaoyi Bian <bcy@pku.edu.cn>
- *	   Alexander Afanasyev <alexander.afanasyev@ucla.edu>
+ *         Alexander Afanasyev <alexander.afanasyev@ucla.edu>
  */
 
 #ifndef SYNC_NAME_INFO_H
@@ -39,7 +39,7 @@ class NameInfo
 {
 private:
   typedef boost::weak_ptr<const NameInfo> const_weak_ptr;
-  
+
 public:
   virtual ~NameInfo () { };
 
@@ -75,7 +75,7 @@ public:
    */
   virtual std::string
   toString () const = 0;
-  
+
 protected:
   // actual stuff
   size_t m_id; ///< @brief Identifies NameInfo throughout the library (for hash container, doesn't need to be strictly unique)

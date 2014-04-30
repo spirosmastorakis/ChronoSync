@@ -17,11 +17,11 @@
  *
  * Author: Zhenkai Zhu <zhenkai@cs.ucla.edu>
  *         Chaoyi Bian <bcy@pku.edu.cn>
- *	   Alexander Afanasyev <alexander.afanasyev@ucla.edu>
+ *         Alexander Afanasyev <alexander.afanasyev@ucla.edu>
  */
 
 #include <boost/test/unit_test.hpp>
-#include <boost/test/output_test_stream.hpp> 
+#include <boost/test/output_test_stream.hpp>
 using boost::test_tools::output_test_stream;
 
 #include <boost/make_shared.hpp>
@@ -30,7 +30,7 @@ using boost::test_tools::output_test_stream;
 #include "sync-logging.h"
 #include "sync-socket.h"
 #include "sync-validator.h"
-#include <ndn-cpp-dev/security/validator-null.hpp>
+#include <ndn-cxx/security/validator-null.hpp>
 
 extern "C" {
 #include <unistd.h>
@@ -42,7 +42,7 @@ using namespace boost;
 
 INIT_LOGGER ("Test.AppSocket");
 
-#define PRINT 
+#define PRINT
 // std::cout << "Line: " << __LINE__ << std::endl;
 
 class TestSocketApp {
@@ -64,7 +64,7 @@ public:
     string str2(buf, len);
     data.insert(make_pair(name, str2));
   }
-  
+
   void setNum(const ndn::shared_ptr<const ndn::Data>& data) {
     int n = data->getContent().value_size() / 4;
     uint32_t *numbers = new uint32_t [n];
@@ -120,7 +120,7 @@ public:
   }
 
   string toString(){
-    map<ndn::Name, string>::iterator it = data.begin(); 
+    map<ndn::Name, string>::iterator it = data.begin();
     string str = "\n";
     for (; it != data.end(); ++it){
       str += "<";
@@ -169,7 +169,7 @@ public:
                       m_face1,
                       *m_id1,
                       m_rule,
-                      bind(&TestSocketApp::fetchAll, &m_a1, _1, _2), 
+                      bind(&TestSocketApp::fetchAll, &m_a1, _1, _2),
                       bind(&TestSocketApp::pass, &m_a1, _1)));
 
     m_s1->addParticipant(*m_id2);
@@ -189,13 +189,13 @@ public:
                       m_face2,
                       *m_id2,
                       m_rule,
-                      bind(&TestSocketApp::fetchAll, &m_a2, _1, _2), 
+                      bind(&TestSocketApp::fetchAll, &m_a2, _1, _2),
                       bind(&TestSocketApp::pass, &m_a2, _1)));
 
     m_s2->addParticipant(*m_id1);
     m_s2->addParticipant(*m_id3);
   }
-  
+
   void
   createSyncSocket3()
   {
@@ -209,8 +209,8 @@ public:
                       "/",
                       m_face3,
                       *m_id3,
-                      m_rule,  
-                      bind(&TestSocketApp::fetchAll, &m_a3, _1, _2), 
+                      m_rule,
+                      bind(&TestSocketApp::fetchAll, &m_a3, _1, _2),
                       bind(&TestSocketApp::pass, &m_a3, _1)));
 
     m_s3->addParticipant(*m_id2);
@@ -220,21 +220,21 @@ public:
   publishSocket1(string data)
   {
     _LOG_DEBUG ("s1 publish");
-    m_s1->publishData (reinterpret_cast<const uint8_t*>(data.c_str()), data.size(), 1000); 
+    m_s1->publishData (reinterpret_cast<const uint8_t*>(data.c_str()), data.size(), 1000);
   }
 
   void
   publishSocket2(string data)
   {
     _LOG_DEBUG ("s2 publish");
-    m_s2->publishData (reinterpret_cast<const uint8_t*>(data.c_str()), data.size(), 1000); 
+    m_s2->publishData (reinterpret_cast<const uint8_t*>(data.c_str()), data.size(), 1000);
   }
 
   void
   publishSocket3(string data)
   {
     _LOG_DEBUG ("s3 publish");
-    m_s3->publishData (reinterpret_cast<const uint8_t*>(data.c_str()), data.size(), 1000); 
+    m_s3->publishData (reinterpret_cast<const uint8_t*>(data.c_str()), data.size(), 1000);
   }
 
   void
@@ -243,7 +243,7 @@ public:
     _LOG_DEBUG ("a1 set");
     ndn::Name name("/irl.cs.ucla.edu");
     name.append(suffix);
-    m_a1.set (name, data.c_str(), data.size()); 
+    m_a1.set (name, data.c_str(), data.size());
   }
 
   void
@@ -252,7 +252,7 @@ public:
     _LOG_DEBUG ("a2 set");
     ndn::Name name("/yakshi.org");
     name.append(suffix);
-    m_a2.set (name, data.c_str(), data.size()); 
+    m_a2.set (name, data.c_str(), data.size());
   }
 
   void
@@ -261,12 +261,12 @@ public:
     _LOG_DEBUG ("a3 set");
     ndn::Name name("/google.com");
     name.append(suffix);
-    m_a3.set (name, data.c_str(), data.size()); 
+    m_a3.set (name, data.c_str(), data.size());
   }
 
   void
   check(int round)
-  { 
+  {
     BOOST_CHECK_EQUAL(m_a1.toString(), m_a2.toString());
     BOOST_CHECK_EQUAL(m_a2.toString(), m_a3.toString());
   }
@@ -315,17 +315,17 @@ public:
   createSyncSocket1()
   {
     _LOG_DEBUG ("s1");
-    
+
     m_s1 = ndn::shared_ptr<SyncSocket>
       (new SyncSocket("/this/is/the/prefix",
                       "/xiaonei.com",
                       0,
                       false,
-                      "/",                                        
+                      "/",
                       m_face1,
                       *m_id1,
                       m_rule,
-                      bind(&TestSocketApp::fetchNumbers, &m_a1, _1, _2), 
+                      bind(&TestSocketApp::fetchNumbers, &m_a1, _1, _2),
                       bind(&TestSocketApp::pass, &m_a1, _1)));
 
     m_s1->addParticipant(*m_id2);
@@ -345,43 +345,43 @@ public:
                       m_face2,
                       *m_id2,
                       m_rule,
-                      bind(&TestSocketApp::fetchNumbers, &m_a2, _1, _2), 
+                      bind(&TestSocketApp::fetchNumbers, &m_a2, _1, _2),
                       bind(&TestSocketApp::pass, &m_a2, _1)));
 
     m_s2->addParticipant(*m_id1);
   }
-  
+
   void
   publishSocket1(string data)
   {
     _LOG_DEBUG ("s1 publish");
-    m_s1->publishData (reinterpret_cast<const uint8_t*>(data.c_str()), data.size(), 1000); 
+    m_s1->publishData (reinterpret_cast<const uint8_t*>(data.c_str()), data.size(), 1000);
   }
 
   void
   publishSocket2(string data)
   {
     _LOG_DEBUG ("s2 publish");
-    m_s2->publishData (reinterpret_cast<const uint8_t*>(data.c_str()), data.size(), 1000); 
+    m_s2->publishData (reinterpret_cast<const uint8_t*>(data.c_str()), data.size(), 1000);
   }
 
   void
   setSocket1(const char* ptr, size_t size)
   {
     _LOG_DEBUG ("a1 setNum");
-    m_a1.setNum ("/xiaonei.com", ptr, size); 
+    m_a1.setNum ("/xiaonei.com", ptr, size);
   }
 
   void
   setSocket2(const char* ptr, size_t size)
   {
     _LOG_DEBUG ("a2 setNum");
-    m_a2.setNum ("/mitbbs.com", ptr, size); 
+    m_a2.setNum ("/mitbbs.com", ptr, size);
   }
 
   void
   check(int num)
-  { 
+  {
     _LOG_DEBUG ("codnum " << num);
     _LOG_DEBUG ("a1 sum " << m_a1.sum);
     _LOG_DEBUG ("a2 sum " << m_a2.sum);
@@ -433,17 +433,17 @@ public:
   createSyncSocket1()
   {
     _LOG_DEBUG ("s1");
-    
+
     m_s1 = ndn::shared_ptr<SyncSocket>
       (new SyncSocket("/this/is/the/prefix",
                       "/xiaonei.com",
                       1,
                       true,
-                      "/abc",                                        
+                      "/abc",
                       m_face1,
                       *m_id1,
                       m_rule,
-                      bind(&TestSocketApp::fetchNumbers, &m_a1, _1, _2), 
+                      bind(&TestSocketApp::fetchNumbers, &m_a1, _1, _2),
                       bind(&TestSocketApp::pass, &m_a1, _1)));
 
     m_s1->addParticipant(*m_id2);
@@ -463,43 +463,43 @@ public:
                       m_face2,
                       *m_id2,
                       m_rule,
-                      bind(&TestSocketApp::fetchNumbers, &m_a2, _1, _2), 
+                      bind(&TestSocketApp::fetchNumbers, &m_a2, _1, _2),
                       bind(&TestSocketApp::pass, &m_a2, _1)));
 
     m_s2->addParticipant(*m_id1);
   }
-  
+
   void
   publishSocket1(string data)
   {
     _LOG_DEBUG ("s1 publish");
-    m_s1->publishData (reinterpret_cast<const uint8_t*>(data.c_str()), data.size(), 1000); 
+    m_s1->publishData (reinterpret_cast<const uint8_t*>(data.c_str()), data.size(), 1000);
   }
 
   void
   publishSocket2(string data)
   {
     _LOG_DEBUG ("s2 publish");
-    m_s2->publishData (reinterpret_cast<const uint8_t*>(data.c_str()), data.size(), 1000); 
+    m_s2->publishData (reinterpret_cast<const uint8_t*>(data.c_str()), data.size(), 1000);
   }
 
   void
   setSocket1(const char* ptr, size_t size)
   {
     _LOG_DEBUG ("a1 setNum");
-    m_a1.setNum ("/xiaonei.com", ptr, size); 
+    m_a1.setNum ("/xiaonei.com", ptr, size);
   }
 
   void
   setSocket2(const char* ptr, size_t size)
   {
     _LOG_DEBUG ("a2 setNum");
-    m_a2.setNum ("/mitbbs.com", ptr, size); 
+    m_a2.setNum ("/mitbbs.com", ptr, size);
   }
 
   void
   check(int num)
-  { 
+  {
     _LOG_DEBUG ("codnum " << num);
     _LOG_DEBUG ("a1 sum " << m_a1.sum);
     _LOG_DEBUG ("a2 sum " << m_a2.sum);
@@ -543,7 +543,7 @@ BOOST_AUTO_TEST_CASE (AppSocketTest1)
   string data0 = "Very funny Scotty, now beam down my clothes";
   scheduler.scheduleEvent(ndn::time::milliseconds(150), ndn::bind(&TestSet1::publishSocket1, &testSet1, data0));
   scheduler.scheduleEvent(ndn::time::milliseconds(1150), ndn::bind(&TestSet1::setSocket1, &testSet1, "/0/1", data0));
-  scheduler.scheduleEvent(ndn::time::milliseconds(1160), ndn::bind(&TestSet1::check, &testSet1, 1)); 
+  scheduler.scheduleEvent(ndn::time::milliseconds(1160), ndn::bind(&TestSet1::check, &testSet1, 1));
   string data1 = "Yes, give me that ketchup";
   string data2 = "Don't look conspicuous, it draws fire";
   scheduler.scheduleEvent(ndn::time::milliseconds(1170), ndn::bind(&TestSet1::publishSocket1, &testSet1, data1));

@@ -21,10 +21,10 @@
 #ifndef _SYNC_SOCKET_H
 #define _SYNC_SOCKET_H
 
-#include <ndn-cpp-dev/face.hpp>
-#include <ndn-cpp-dev/security/validator.hpp>
-#include <ndn-cpp-dev/security/validator-null.hpp>
-#include <ndn-cpp-dev/security/key-chain.hpp>
+#include <ndn-cxx/face.hpp>
+#include <ndn-cxx/security/validator.hpp>
+#include <ndn-cxx/security/validator-null.hpp>
+#include <ndn-cxx/security/key-chain.hpp>
 
 #include "sync-logic.h"
 #include "sync-seq-no.h"
@@ -51,7 +51,7 @@ public:
 
   static const ndn::Name EMPTY_NAME;
 
-  SyncSocket(const ndn::Name& syncPrefix, 
+  SyncSocket(const ndn::Name& syncPrefix,
              const ndn::Name& dataPrefix,
              uint64_t dataSession,
              bool withRoutingPrefix,
@@ -59,7 +59,7 @@ public:
              ndn::shared_ptr<ndn::Face> face,
              const ndn::IdentityCertificate& myCertificate,
              ndn::shared_ptr<ndn::SecRuleRelative> dataRule,
-             NewDataCallback dataCallback, 
+             NewDataCallback dataCallback,
              RemoveCallback rmCallback);
 
   ~SyncSocket();
@@ -67,10 +67,10 @@ public:
   void
   publishData(const uint8_t* buf, size_t len, int freshness, bool isCert = false);
 
-  void 
-  leave() 
-  { 
-    m_syncLogic->remove(m_withRoutingPrefix ? m_routableDataPrefix : m_dataPrefix); 
+  void
+  leave()
+  {
+    m_syncLogic->remove(m_withRoutingPrefix ? m_routableDataPrefix : m_dataPrefix);
   }
 
   void
@@ -79,13 +79,13 @@ public:
     m_syncLogic->remove(prefix);
   }
 
-  void 
+  void
   fetchData(const ndn::Name &prefix, const SeqNo &seq, const ndn::OnDataValidated& onValidated, int retry = 0);
 
-  std::string 
-  getRootDigest() 
-  { 
-    return m_syncLogic->getRootDigest(); 
+  std::string
+  getRootDigest()
+  {
+    return m_syncLogic->getRootDigest();
   }
 
   uint64_t
@@ -93,7 +93,7 @@ public:
   {
     // If DNS works, we should use pure m_dataprefix rather than the one with routing prefix.
     SequenceLog::iterator i = m_sequenceLog.find (m_withRoutingPrefix ? m_routableDataPrefix : m_dataPrefix);
-    
+
     if (i != m_sequenceLog.end ())
       {
         SeqNo s = i->second;
@@ -104,9 +104,9 @@ public:
   }
 
   SyncLogic &
-  getLogic() 
-  { 
-    return *m_syncLogic; 
+  getLogic()
+  {
+    return *m_syncLogic;
   }
 
   void
@@ -149,16 +149,16 @@ public:
   // // make this a static function so we don't have to create socket instance without
   // // knowing the local prefix. it's a wrong place for this function anyway
   // static std::string
-  // GetLocalPrefix (); 
-  
+  // GetLocalPrefix ();
+
 private:
   void
   publishDataInternal(ndn::shared_ptr<ndn::Data> data, bool isCert);
 
-  void 
-  passCallback(const std::vector<MissingDataInfo> &v) 
-  { 
-    m_newDataCallback(v, this); 
+  void
+  passCallback(const std::vector<MissingDataInfo> &v)
+  {
+    m_newDataCallback(v, this);
   }
 
   void

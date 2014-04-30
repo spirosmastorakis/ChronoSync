@@ -17,7 +17,7 @@
  *
  * Author: Zhenkai Zhu <zhenkai@cs.ucla.edu>
  *         Chaoyi Bian <bcy@pku.edu.cn>
- *	   Alexander Afanasyev <alexander.afanasyev@ucla.edu>
+ *         Alexander Afanasyev <alexander.afanasyev@ucla.edu>
  */
 
 #ifndef SYNC_DIFF_LEAF_H
@@ -40,7 +40,7 @@ enum Operation
 
 /**
  * @ingroup sync
- * @brief Annotated SYNC leaf 
+ * @brief Annotated SYNC leaf
  */
 class DiffLeaf : public Leaf
 {

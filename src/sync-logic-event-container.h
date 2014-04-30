@@ -17,7 +17,7 @@
  *
  * Author: Zhenkai Zhu <zhenkai@cs.ucla.edu>
  *         Chaoyi Bian <bcy@pku.edu.cn>
- *	   Alexander Afanasyev <alexander.afanasyev@ucla.edu>
+ *         Alexander Afanasyev <alexander.afanasyev@ucla.edu>
  */
 
 #ifndef SYNC_LOGIC_EVENT_CONTAINER_H
@@ -49,7 +49,7 @@ struct LogicEvent
     , event (_event)
     , lbl (_label)
   { }
-  
+
   boost::system_time time;
   Event event;
   uint32_t lbl;

@@ -17,17 +17,17 @@
  *
  * Author: Zhenkai Zhu <zhenkai@cs.ucla.edu>
  *         Chaoyi Bian <bcy@pku.edu.cn>
- *	   Alexander Afanasyev <alexander.afanasyev@ucla.edu>
+ *         Alexander Afanasyev <alexander.afanasyev@ucla.edu>
  */
 
 #include <boost/test/unit_test.hpp>
-#include <boost/test/output_test_stream.hpp> 
+#include <boost/test/output_test_stream.hpp>
 #include <map>
 using boost::test_tools::output_test_stream;
 
 #include <boost/make_shared.hpp>
 
-#include <ndn-cpp-dev/security/validator-null.hpp>
+#include <ndn-cxx/security/validator-null.hpp>
 #include "sync-logic.h"
 #include "sync-seq-no.h"
 
@@ -38,7 +38,7 @@ using namespace Sync;
 struct Handler
 {
   string instance;
-  
+
   Handler (const string &_instance)
   : instance (_instance)
   {
@@ -54,7 +54,7 @@ struct Handler
   void onUpdate (const string &p/*prefix*/, const SeqNo &seq/*newSeq*/, const SeqNo &oldSeq/*oldSeq*/)
   {
     m_map[p] = seq.getSeq ();
-    
+
     // cout << instance << "\t";
     // if (!oldSeq.isValid ())
     //   cout << "Inserted: " << p << " (" << seq << ")" << endl;
@@ -79,10 +79,10 @@ public:
   {
     m_l[0] = 0;
     m_l[1] = 0;
-    
+
     m_validator = ndn::make_shared<ndn::ValidatorNull>();
   }
-  
+
   ~TestCore()
   {
     if(m_l[0] != 0)
@@ -97,19 +97,19 @@ public:
   {
     ioService->stop();
   }
-  
+
   void
-  createSyncLogic(int index, 
+  createSyncLogic(int index,
                   ndn::shared_ptr<Handler> h)
-  { 
+  {
     ndn::Name identity("/tmp-" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()));
     ndn::shared_ptr<ndn::IdentityCertificate> cert = m_keyChain.getCertificate(m_keyChain.createIdentity(identity));
     m_faces[index] = ndn::make_shared<ndn::Face>(m_ioService);
-    m_l[index] = new SyncLogic(ndn::Name("/bcast"), 
+    m_l[index] = new SyncLogic(ndn::Name("/bcast"),
                                *cert,
-                               m_validator, m_faces[index], 
-                               bind (&Handler::wrapper, &*h, _1), 
-                               bind (&Handler::onRemove, &*h, _1)); 
+                               m_validator, m_faces[index],
+                               bind (&Handler::wrapper, &*h, _1),
+                               bind (&Handler::onRemove, &*h, _1));
   }
 
   void
@@ -117,7 +117,7 @@ public:
   {
     m_oldDigest = m_l[0]->getRootDigest();
   }
-  
+
   void
   getNewDigestForOne()
   {
@@ -135,7 +135,7 @@ public:
   {
     m_l[0]->remove(name);
   }
-  
+
   void
   checkDigest()
   {
@@ -178,7 +178,7 @@ BOOST_AUTO_TEST_CASE (SyncLogicTest)
   scheduler.scheduleEvent(ndn::time::milliseconds(800), ndn::bind(&TestCore::getNewDigestForOne, &testCore));
   scheduler.scheduleEvent(ndn::time::milliseconds(900), ndn::bind(&TestCore::checkDigest, &testCore));
   scheduler.scheduleEvent(ndn::time::milliseconds(1000), ndn::bind(&TestCore::finish, &testCore, ioService));
-  
+
   ioService->run();
 
 }

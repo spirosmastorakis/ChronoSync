@@ -31,8 +31,8 @@ def configure(conf):
     else:
         conf.add_supported_cxxflags (cxxflags = ['-O3', '-g'])
 
-    conf.check_cfg(package='libndn-cpp-dev', args=['--cflags', '--libs'], uselib_store='NDNCPP', mandatory=True)
-    
+    conf.check_cfg(package='libndn-cxx', args=['--cflags', '--libs'], uselib_store='NDNCXX', mandatory=True)
+
     conf.check_cfg(package='openssl', args=['--cflags', '--libs'], uselib_store='OPENSSL', mandatory=True)
 
     conf.check_boost(lib='system iostreams thread unit_test_framework')
@@ -56,10 +56,10 @@ def build (bld):
         # vnum = "1.0.0",
         features=['cxx', 'cxxshlib'],
         source =  bld.path.ant_glob (['src/**/*.cc', 'src/**/*.proto']),
-        use = 'BOOST NDNCPP OPENSSL',
+        use = 'BOOST NDNCXX OPENSSL',
         includes = ['src'],
         )
-    
+
     # Unit tests
     if bld.get_define("_TEST"):
       unittests = bld.program (
@@ -77,15 +77,15 @@ def build (bld):
             unittests.use += ' LOG4CXX'
 
     bld.install_files (
-        dest = "%s/ChronoSync" % bld.env['INCLUDEDIR'], 
-        files = bld.path.ant_glob(['src/**/*.h']), 
+        dest = "%s/ChronoSync" % bld.env['INCLUDEDIR'],
+        files = bld.path.ant_glob(['src/**/*.h']),
         cwd = bld.path.find_dir ("src"),
         relative_trick = True,
         )
 
     bld.install_files (
-        dest = "%s/ChronoSync" % bld.env['INCLUDEDIR'], 
-        files = bld.path.get_bld().ant_glob(['src/**/*.h']), 
+        dest = "%s/ChronoSync" % bld.env['INCLUDEDIR'],
+        files = bld.path.get_bld().ant_glob(['src/**/*.h']),
         cwd = bld.path.get_bld().find_dir ("src"),
         relative_trick = True,
         )
