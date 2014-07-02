@@ -1,27 +1,24 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012 University of California, Los Angeles
+ * Copyright (c) 2012-2014 University of California, Los Angeles
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation;
+ * This file is part of ChronoSync, synchronization library for distributed realtime
+ * applications for NDN.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * ChronoSync is free software: you can redistribute it and/or modify it under the terms
+ * of the GNU General Public License as published by the Free Software Foundation, either
+ * version 3 of the License, or (at your option) any later version.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * ChronoSync is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ * PURPOSE.  See the GNU General Public License for more details.
  *
- * Author: Zhenkai Zhu <zhenkai@cs.ucla.edu>
- *         Chaoyi Bian <bcy@pku.edu.cn>
- *	   Alexander Afanasyev <alexander.afanasyev@ucla.edu>
+ * You should have received a copy of the GNU General Public License along with
+ * ChronoSync, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <boost/test/unit_test.hpp>
-#include <boost/test/output_test_stream.hpp> 
+#include <boost/test/output_test_stream.hpp>
 using boost::test_tools::output_test_stream;
 
 #include "sync-digest.h"
@@ -51,13 +48,13 @@ BOOST_AUTO_TEST_CASE (DigestGenerationTest)
 
   // fix hash
   d1.finalize ();
-  
+
   BOOST_CHECK_NO_THROW (d1.getHash ());
   BOOST_CHECK (!d1.empty ());
   BOOST_CHECK (d1 == d1);
 
   BOOST_CHECK_THROW (d1 << "2", DigestCalculationError);
-  
+
   output_test_stream output;
   BOOST_CHECK_NO_THROW (output << d1);
   // BOOST_CHECK (output.check_length (40, false) );
@@ -73,12 +70,12 @@ BOOST_AUTO_TEST_CASE (DigestComparison)
   // BOOST_CHECK_THROW (d1 == d1, DigestCalculationError);
   BOOST_CHECK_NO_THROW (d1.finalize ());
   BOOST_CHECK (d1 == d1);
-  
+
   Digest d2;
   BOOST_CHECK_NO_THROW (d2 << "2\n");
   BOOST_CHECK_NO_THROW (d2.finalize ());
   BOOST_CHECK (d1 != d2);
-  
+
   Digest d3;
   // istringstream is (string ("e5fa44f2b31c1fb553b6021e7360d07d5d91ff5e")); // real sha-1 for "1\n"
 	istringstream is (string ("4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865")); // real sha256 for "1\n"
@@ -95,7 +92,7 @@ BOOST_AUTO_TEST_CASE (DigestComparison)
 
   istringstream is3 (string ("25fa44f2b31c1fb553b6021e7360d07d5d91ff5e")); // some fake hash
   BOOST_CHECK_NO_THROW (is3 >> d4);
-  
+
   BOOST_CHECK (d4 != d1);
   BOOST_CHECK (d4 != d2);
   BOOST_CHECK (d4 != d3);

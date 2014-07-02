@@ -1,27 +1,24 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012 University of California, Los Angeles
+ * Copyright (c) 2012-2014 University of California, Los Angeles
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation;
+ * This file is part of ChronoSync, synchronization library for distributed realtime
+ * applications for NDN.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * ChronoSync is free software: you can redistribute it and/or modify it under the terms
+ * of the GNU General Public License as published by the Free Software Foundation, either
+ * version 3 of the License, or (at your option) any later version.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * ChronoSync is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ * PURPOSE.  See the GNU General Public License for more details.
  *
- * Author: Zhenkai Zhu <zhenkai@cs.ucla.edu>
- *         Chaoyi Bian <bcy@pku.edu.cn>
- *	   Alexander Afanasyev <alexander.afanasyev@ucla.edu>
+ * You should have received a copy of the GNU General Public License along with
+ * ChronoSync, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <boost/test/unit_test.hpp>
-#include <boost/test/output_test_stream.hpp> 
+#include <boost/test/output_test_stream.hpp>
 #include <map>
 using boost::test_tools::output_test_stream;
 
@@ -37,10 +34,9 @@ BOOST_AUTO_TEST_CASE (InterestTableTest)
 {
   // Alex: test is broken due to changes in SyncInterestTable
   cerr << "InterestTableTest is broken" << endl;
-  
+
   // SyncInterestTable *table = 0;
   // BOOST_CHECK_NO_THROW (table = new SyncInterestTable ());
 
   // BOOST_CHECK_NO_THROW (delete table);
 }
-
