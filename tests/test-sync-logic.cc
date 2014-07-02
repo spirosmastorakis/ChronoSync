@@ -101,7 +101,7 @@ public:
   {
     ndn::Name identity("/tmp-" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()));
     ndn::shared_ptr<ndn::IdentityCertificate> cert = m_keyChain.getCertificate(m_keyChain.createIdentity(identity));
-    m_faces[index] = ndn::make_shared<ndn::Face>(m_ioService);
+    m_faces[index] = ndn::make_shared<ndn::Face>(ndn::ref(*m_ioService));
     m_l[index] = new SyncLogic(ndn::Name("/bcast"),
                                *cert,
                                m_validator, m_faces[index],

@@ -134,7 +134,7 @@ SyncValidator::checkPolicy (const Data& data,
             }
           else
             {
-              _LOG_DEBUG("I am: " << m_anchor.getName().get(0).toEscapedString() << " for " << data.getName());
+              _LOG_DEBUG("I am: " << m_anchor.getName().get(0).toUri() << " for " << data.getName());
 
               Name interestName = m_prefix;
               interestName.append("CHRONOS-INTRO-CERT").append(keyLocatorName.wireEncode());

@@ -1,5 +1,6 @@
 .lock-waf*
-.waf*
+.waf-1*
+.waf3*
 build/
 *.pyc
 doc/html

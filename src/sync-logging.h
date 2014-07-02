@@ -61,10 +61,12 @@ INIT_LOGGERS ();
 #ifdef _DEBUG
 
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/thread/thread_time.hpp>
+#include <boost/thread/thread.hpp>
 #include <iostream>
 
 #define _LOG_DEBUG(x) \
-  std::clog << boost::get_system_time () << " " << boost::this_thread::get_id () << " " << x << endl;
+  std::clog << boost::get_system_time () << " " << boost::this_thread::get_id () << " " << x << std::endl;
 
 #else
 #define _LOG_DEBUG(x)
