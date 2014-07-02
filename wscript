@@ -33,8 +33,6 @@ def configure(conf):
 
     conf.check_cfg(package='libndn-cxx', args=['--cflags', '--libs'], uselib_store='NDNCXX', mandatory=True)
 
-    conf.check_cfg(package='openssl', args=['--cflags', '--libs'], uselib_store='OPENSSL', mandatory=True)
-
     conf.check_boost(lib='system iostreams thread unit_test_framework')
 
     if conf.options.log4cxx:
@@ -56,7 +54,7 @@ def build (bld):
         # vnum = "1.0.0",
         features=['cxx', 'cxxshlib'],
         source =  bld.path.ant_glob (['src/**/*.cc', 'src/**/*.proto']),
-        use = 'BOOST NDNCXX OPENSSL',
+        use = 'BOOST NDNCXX',
         includes = ['src'],
         )
 
