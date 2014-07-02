@@ -139,9 +139,9 @@ public:
 class TestSet1{
 public:
   TestSet1(ndn::shared_ptr<boost::asio::io_service> ioService)
-    : m_face1(new ndn::Face(ioService))
-    , m_face2(new ndn::Face(ioService))
-    , m_face3(new ndn::Face(ioService))
+    : m_face1(new ndn::Face(*ioService))
+    , m_face2(new ndn::Face(*ioService))
+    , m_face3(new ndn::Face(*ioService))
     , m_name1("/irl.cs.ucla.edu/" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()))
     , m_name2("/yakshi.org/" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()))
     , m_name3("/google.com/" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()))
@@ -298,8 +298,8 @@ public:
 class TestSet2{
 public:
   TestSet2(ndn::shared_ptr<boost::asio::io_service> ioService)
-    : m_face1(new ndn::Face(ioService))
-    , m_face2(new ndn::Face(ioService))
+    : m_face1(new ndn::Face(*ioService))
+    , m_face2(new ndn::Face(*ioService))
     , m_name1("/xiaonei.com/" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()))
     , m_name2("/mitbbs.com/" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()))
   {
@@ -416,8 +416,8 @@ public:
 class TestSet3{
 public:
   TestSet3(ndn::shared_ptr<boost::asio::io_service> ioService)
-    : m_face1(new ndn::Face(ioService))
-    , m_face2(new ndn::Face(ioService))
+    : m_face1(new ndn::Face(*ioService))
+    , m_face2(new ndn::Face(*ioService))
     , m_name1("/xiaonei.com/" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()))
     , m_name2("/mitbbs.com/" + boost::lexical_cast<std::string>(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count()))
   {

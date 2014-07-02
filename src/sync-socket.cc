@@ -49,7 +49,7 @@ SyncSocket::SyncSocket (const Name& syncPrefix,
   , m_newDataCallback(dataCallback)
   , m_myCertificate(myCertificate)
   , m_face(face)
-  , m_ioService(face->ioService())
+  , m_ioService(face->getIoService())
 {
   if(withRoutingPrefix && !routingPrefix.isPrefixOf(m_dataPrefix))
     {
@@ -93,8 +93,8 @@ SyncSocket::publishData(const uint8_t* buf, size_t len, int freshness, bool isCe
   data->setContent(reinterpret_cast<const uint8_t*>(buf), len);
   data->setFreshnessPeriod(time::milliseconds(1000*freshness));
 
-  m_ioService->post(bind(&SyncSocket::publishDataInternal, this,
-                         data, isCert));
+  m_ioService.post(bind(&SyncSocket::publishDataInternal, this,
+                        data, isCert));
 }
 
 void
@@ -164,7 +164,7 @@ SyncSocket::onData(const ndn::Interest& interest, Data& data, const OnDataValida
   for(; it != end; it++)
     {
       offset--;
-      if(it->toEscapedString() == "%F0.")
+      if(it->toUri() == "%F0.")
         {
           encaped = true;
           break;
@@ -215,7 +215,7 @@ SyncSocket::onDataValidated(const shared_ptr<const Data>& data,
                             const OnDataValidated& onValidated)
 {
   if(data->getName().size() > interestNameSize
-     && data->getName().get(interestNameSize).toEscapedString() == "INTRO-CERT")
+     && data->getName().get(interestNameSize).toUri() == "INTRO-CERT")
     {
       if(!m_withSecurity)
         return;

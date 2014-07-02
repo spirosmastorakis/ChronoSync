@@ -32,8 +32,8 @@ SyncInterestTable::SyncInterestTable (boost::asio::io_service& io, ndn::time::sy
   : m_entryLifetime (lifetime)
   , m_scheduler(io)
 {
-  m_scheduler.schedulePeriodicEvent (ndn::time::seconds (4), ndn::time::seconds (4),
-                                     ndn::bind(&SyncInterestTable::expireInterests, this));
+  m_scheduler.scheduleEvent(ndn::time::seconds (4),
+                            ndn::bind(&SyncInterestTable::expireInterests, this));
 }
 
 SyncInterestTable::~SyncInterestTable ()
@@ -116,6 +116,9 @@ void SyncInterestTable::expireInterests ()
       else
         break;
   }
+
+  m_scheduler.scheduleEvent(ndn::time::seconds (4),
+                            ndn::bind(&SyncInterestTable::expireInterests, this));
 }
 
 

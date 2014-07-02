@@ -189,7 +189,7 @@ private:
   ndn::IdentityCertificate m_myCertificate;
   ndn::KeyChain m_keyChain;
   ndn::shared_ptr<ndn::Face> m_face;
-  ndn::shared_ptr<boost::asio::io_service> m_ioService;
+  boost::asio::io_service& m_ioService;
   bool m_withSecurity;
   ndn::shared_ptr<ndn::Validator> m_syncValidator;
   ndn::shared_ptr<SyncLogic>      m_syncLogic;

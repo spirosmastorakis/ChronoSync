@@ -6,6 +6,10 @@
 #include <boost/test/unit_test.hpp>
 #include "sync-validator.h"
 
+#include <boost/lexical_cast.hpp>
+#include <boost/asio.hpp>
+#include <ndn-cxx/util/scheduler.hpp>
+
 BOOST_AUTO_TEST_SUITE(TestSyncValidator)
 
 void
@@ -68,7 +72,7 @@ BOOST_AUTO_TEST_CASE (Graph)
   shared_ptr<IdentityCertificate> introducee2 = keychain.getCertificate(certName5);
 
   shared_ptr<boost::asio::io_service> ioService = make_shared<boost::asio::io_service>();
-  shared_ptr<Face> face = make_shared<Face>(ioService);
+  shared_ptr<Face> face = make_shared<Face>(ref(*ioService));
   shared_ptr<SecRuleRelative> rule;
   SyncValidator validator(prefix, *anchor, *face,
                           bind(&publishData, _1, _2, _3),
@@ -151,7 +155,7 @@ BOOST_AUTO_TEST_CASE (OfflineValidate)
   shared_ptr<IdentityCertificate> introducee2 = keychain.getCertificate(certName5);
 
   shared_ptr<boost::asio::io_service> ioService = make_shared<boost::asio::io_service>();
-  shared_ptr<Face> face = make_shared<Face>(ioService);
+  shared_ptr<Face> face = make_shared<Face>(ref(*ioService));
   shared_ptr<SecRuleRelative> rule;
   SyncValidator validator(prefix, *anchor, *face,
                           bind(&publishData, _1, _2, _3),
@@ -246,7 +250,7 @@ struct FacesFixture
   void
   terminate(ndn::shared_ptr<ndn::Face> face)
   {
-    face->ioService()->stop();
+    face->getIoService().stop();
   }
 
   const ndn::RegisteredPrefixId* regPrefixId;
@@ -282,8 +286,8 @@ BOOST_FIXTURE_TEST_CASE(OnlineValidate, FacesFixture)
   shared_ptr<IdentityCertificate> introducee2 = keychain.getCertificate(certName4);
 
   shared_ptr<boost::asio::io_service> ioService = make_shared<boost::asio::io_service>();
-  shared_ptr<Face> face = make_shared<Face>(ioService);
-  shared_ptr<Face> face2 = make_shared<Face>(ioService);
+  shared_ptr<Face> face = make_shared<Face>(ref(*ioService));
+  shared_ptr<Face> face2 = make_shared<Face>(ref(*ioService));
 
   shared_ptr<SecRuleRelative> rule;
   shared_ptr<SyncValidator> validator = shared_ptr<SyncValidator>

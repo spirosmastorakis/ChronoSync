@@ -106,7 +106,7 @@ IntroCertificate::IntroCertificate(const ndn::Data& data)
   // Naming convention /<sync_prefix>/CHRONOS-INTRO-CERT/introducee_certname/introducer_certname/version
   ndn::Name dataName = data.getName();
 
-  if(dataName.size() < 4 || dataName.get(-4).toEscapedString() != "CHRONOS-INTRO-CERT")
+  if(dataName.size() < 4 || dataName.get(-4).toUri() != "CHRONOS-INTRO-CERT")
     throw Error("Not a Sync::IntroCertificate");
 
   try
