@@ -67,7 +67,7 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
                       LogicUpdateCallback onUpdate,
                       LogicRemoveCallback onRemove)
   : m_state (new FullState)
-  , m_syncInterestTable (*face->ioService(), time::seconds(m_syncInterestReexpress))
+  , m_syncInterestTable (face->getIoService(), time::seconds(m_syncInterestReexpress))
   , m_syncPrefix (syncPrefix)
   , m_myCertificate(myCertificate)
   , m_onUpdate (onUpdate)
@@ -75,7 +75,7 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
   , m_perBranch (false)
   , m_validator(validator)
   , m_face(face)
-  , m_scheduler(*face->ioService())
+  , m_scheduler(face->getIoService())
   , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
   , m_rangeUniformRandom (m_randomGenerator, boost::uniform_int<> (200,1000))
   , m_reexpressionJitter (m_randomGenerator, boost::uniform_int<> (100,500))
@@ -98,14 +98,14 @@ SyncLogic::SyncLogic (const Name& syncPrefix,
                       shared_ptr<Face> face,
                       LogicPerBranchCallback onUpdateBranch)
   : m_state (new FullState)
-  , m_syncInterestTable (*face->ioService(), time::seconds (m_syncInterestReexpress))
+  , m_syncInterestTable (face->getIoService(), time::seconds (m_syncInterestReexpress))
   , m_syncPrefix (syncPrefix)
   , m_myCertificate(myCertificate)
   , m_onUpdateBranch (onUpdateBranch)
   , m_perBranch(true)
   , m_validator(validator)
   , m_face(face)
-  , m_scheduler(*face->ioService())
+  , m_scheduler(face->getIoService())
   , m_randomGenerator (static_cast<unsigned int> (std::time (0)))
   , m_rangeUniformRandom (m_randomGenerator, boost::uniform_int<> (200,1000))
   , m_reexpressionJitter (m_randomGenerator, boost::uniform_int<> (100,500))
@@ -141,13 +141,13 @@ SyncLogic::convertNameToDigestAndType (const Name &name)
   BOOST_ASSERT (nameLengthDiff > 0);
   BOOST_ASSERT (nameLengthDiff < 3);
 
-  std::string hash = name.get(-1).toEscapedString();
+  std::string hash = name.get(-1).toUri();
   std::string interestType;
 
   if(nameLengthDiff == 1)
     interestType = "normal";
   else
-    interestType = name.get(-2).toEscapedString();
+    interestType = name.get(-2).toUri();
 
   _LOG_DEBUG_ID (hash << ", " << interestType);
 
@@ -169,7 +169,7 @@ SyncLogic::onSyncInterest (const Name& prefix, const ndn::Interest& interest)
     {
       _LOG_DEBUG_ID ("<< I " << name);
 
-      if(name.get(m_syncPrefix.size()).toEscapedString() == "CHRONOS-INTRO-CERT")
+      if(name.get(m_syncPrefix.size()).toUri() == "CHRONOS-INTRO-CERT")
         // it is a certificate, validator will take care of it.
         return;
 
