@@ -24,7 +24,7 @@
 #include "sync-interest-table.h"
 #include "sync-logging.h"
 
-INIT_LOGGER ("SyncInterestTable");
+INIT_LOGGER ("SyncInterestTable")
 
 namespace Sync
 {

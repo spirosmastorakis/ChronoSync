@@ -34,7 +34,7 @@
 
 using namespace ndn;
 
-INIT_LOGGER ("SyncLogic");
+INIT_LOGGER ("SyncLogic")
 
 
 #ifdef _DEBUG

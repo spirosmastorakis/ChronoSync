@@ -27,7 +27,7 @@
 
 using namespace ndn;
 
-INIT_LOGGER ("SyncSocket");
+INIT_LOGGER ("SyncSocket")
 
 namespace Sync {
 

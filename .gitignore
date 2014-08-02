@@ -1,15 +1,14 @@
-.lock-waf*
+# Emacs temp files
+*~
+
+# Mac OSX
+.DS_*
+
+# waf build system
 .waf-1*
-.waf3*
+.waf3-*
+.lock*
 build/
-*.pyc
-doc/html
-.DS_Store
-animation.xml
-.R*
-*.app
-Makefile
-*.o
-ui_*
-moc_*
-*.pb.*
+
+# Compiled python code
+**/*.pyc

@@ -21,12 +21,8 @@ def configure(conf):
     else:
         defaultFlags += ['-std=c++03']
 
-    defaultFlags += [
-        # '-pedantic',
-        '-Wall',
-        '-Wno-long-long',
-        '-Wno-unneeded-internal-declaration'
-        ]
+    defaultFlags += ['-Wall', '-Wno-long-long', '-Wno-unneeded-internal-declaration',
+                     '-Wno-c++11-extensions', '-Wno-nested-anon-types']
 
     if conf.options.debug:
         conf.define('_DEBUG', 1)
@@ -35,7 +31,6 @@ def configure(conf):
                          '-g3',
                          '-fcolor-diagnostics', # clang
                          '-fdiagnostics-color', # gcc >= 4.9
-                         # '-Werror',
                          '-Wno-error=maybe-uninitialized', # Bug #1560
                         ]
         if areCustomCxxflagsPresent:

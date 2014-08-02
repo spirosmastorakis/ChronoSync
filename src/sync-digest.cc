@@ -24,8 +24,8 @@
 #include "sync-digest.h"
 #include <string.h>
 
-#include <boost/assert.hpp>
-#include <boost/throw_exception.hpp>
+#include "boost-header.h"
+
 typedef boost::error_info<struct tag_errmsg, std::string> errmsg_info_str;
 typedef boost::error_info<struct tag_errmsg, int> errmsg_info_int;
 
@@ -36,9 +36,7 @@ typedef boost::error_info<struct tag_errmsg, int> errmsg_info_int;
 // #include <boost/archive/iterators/binary_from_base64.hpp>
 // #endif
 
-#include <boost/archive/iterators/transform_width.hpp>
-#include <boost/iterator/transform_iterator.hpp>
-#include <boost/archive/iterators/dataflow_exception.hpp>
+
 
 using namespace boost;
 using namespace boost::archive::iterators;

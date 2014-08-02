@@ -25,7 +25,7 @@
 #ifndef SYNC_LOGIC_H
 #define SYNC_LOGIC_H
 
-#include <boost/random.hpp>
+#include "boost-header.h"
 #include <memory>
 #include <map>
 

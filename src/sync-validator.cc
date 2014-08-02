@@ -26,7 +26,7 @@
 
 using namespace ndn;
 
-INIT_LOGGER ("SyncValidator");
+INIT_LOGGER ("SyncValidator")
 
 namespace Sync {
 
