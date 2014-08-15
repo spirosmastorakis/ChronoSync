@@ -1,0 +1,22 @@
+# -*- Mode: python; py-indent-offset: 4; indent-tabs-mode: nil; coding: utf-8; -*-
+from waflib import Utils
+
+top = '..'
+
+def build(bld):
+    unit_test_main = bld(
+        target='unit-tests-main',
+        name='unit-tests-main',
+        features='cxx',
+        source=bld.path.ant_glob(['*.cpp']),
+        use='ChronoSync',
+        )
+
+    unit_test = bld.program(
+        target="../unit-tests",
+        source=bld.path.ant_glob(['unit-tests/**/*.cpp']),
+        features=['cxx', 'cxxprogram'],
+        use='ChronoSync, unit-tests-main',
+        includes=['.'],
+        install_path=None,
+        )

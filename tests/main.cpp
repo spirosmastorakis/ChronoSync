@@ -17,26 +17,7 @@
  * ChronoSync, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/test/unit_test.hpp>
-#include <boost/test/output_test_stream.hpp>
-#include <map>
-using boost::test_tools::output_test_stream;
+#define BOOST_TEST_MAIN 1
+#define BOOST_TEST_DYN_LINK 1
 
-#include <boost/make_shared.hpp>
-
-#include "sync-interest-table.h"
-
-using namespace Sync;
-using namespace std;
-using namespace boost;
-
-BOOST_AUTO_TEST_CASE (InterestTableTest)
-{
-  // Alex: test is broken due to changes in SyncInterestTable
-  cerr << "InterestTableTest is broken" << endl;
-
-  // SyncInterestTable *table = 0;
-  // BOOST_CHECK_NO_THROW (table = new SyncInterestTable ());
-
-  // BOOST_CHECK_NO_THROW (delete table);
-}
+#include "boost-test.hpp"

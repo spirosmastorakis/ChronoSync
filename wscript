@@ -34,34 +34,31 @@ def configure(conf):
         conf.define('_TESTS', 1);
         boost_libs += ' unit_test_framework'
 
+    conf.check_boost(lib=boost_libs)
+
     if conf.options.log4cxx:
         conf.check_cfg(package='liblog4cxx', args=['--cflags', '--libs'], uselib_store='LOG4CXX',
                        mandatory=True)
+
+    conf.write_config_header('config.hpp')
 
 def build(bld):
     libsync = bld(
         target="ChronoSync",
         # vnum = "1.0.0",
         features=['cxx', 'cxxshlib'],
-        source =  bld.path.ant_glob(['src/**/*.cc', 'src/**/*.proto']),
+        source =  bld.path.ant_glob(['src/**/*.cpp', 'src/**/*.proto']),
         use = 'BOOST NDN_CXX',
-        includes = ['src'],
+        includes = ['src', '.'],
         )
 
     # Unit tests
-    if bld.get_define("_TESTS"):
-      unittests = bld.program(
-          target="unit-tests",
-          source = bld.path.ant_glob(['tests/**/*.cc']),
-          features=['cxx', 'cxxprogram'],
-          use = 'ChronoSync',
-          includes = ['src'],
-          install_path = None,
-          )
+    if bld.env["_TESTS"]:
+        bld.recurse('tests')
 
     if bld.get_define("HAVE_LOG4CXX"):
         libsync.use += ' LOG4CXX'
-        if bld.get_define("_TESTS"):
+        if bld.env["_TESTS"]:
             unittests.use += ' LOG4CXX'
 
     bld.install_files(
