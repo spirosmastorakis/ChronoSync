@@ -21,52 +21,58 @@
  * @author Alexander Afanasyev <http://lasr.cs.ucla.edu/afanasyev/index.html>
  */
 
-#ifndef SYNC_FULL_LEAF_H
-#define SYNC_FULL_LEAF_H
+#include "leaf.hpp"
 
-#include "sync-leaf.h"
+namespace chronosync {
 
-namespace Sync {
-
-/**
- * @ingroup sync
- * @brief SYNC leaf for the full state (with support of Digest calculation)
- */
-class FullLeaf : public Leaf
+Leaf::Leaf(const Name& sessionName, const SeqNo& seq)
+  : m_sessionName(sessionName)
+  , m_seq(seq)
 {
-public:
-  /**
-   * @brief Constructor to create an UPDATE diff leaf
-   * @param info Smart pointer to leaf's name
-   * @param seq  Initial sequence number of the pointer
-   */
-  FullLeaf (NameInfoConstPtr info, const SeqNo &seq);
-  virtual ~FullLeaf () { }
+  updateDigest();
+}
 
-  /**
-   * @brief Get hash digest of the leaf
-   *
-   * The underlying Digest object is recalculated on every update or removal
-   * (including updates of child classes)
-   */
-  const Digest &
-  getDigest () const { return m_digest; }
+Leaf::Leaf(const Name& userPrefix, uint64_t session, const SeqNo& seq)
+  : m_sessionName(userPrefix)
+  , m_seq(seq)
+{
+  m_sessionName.appendNumber(session);
+  updateDigest();
+}
 
-  // from Leaf
-  virtual void
-  setSeq (const SeqNo &seq);
+Leaf::~Leaf()
+{
+}
 
-private:
-  void
-  updateDigest ();
+ndn::ConstBufferPtr
+Leaf::getDigest() const
+{
+  return m_digest.computeDigest();
+}
 
-private:
-  Digest m_digest;
-};
+void
+Leaf::setSeq(const SeqNo& seq)
+{
+  if (seq > m_seq) {
+    m_seq = seq;
+    updateDigest();
+  }
+}
 
-typedef boost::shared_ptr<FullLeaf> FullLeafPtr;
-typedef boost::shared_ptr<const FullLeaf> FullLeafConstPtr;
+void
+Leaf::updateDigest()
+{
+  m_digest.reset();
+  m_digest << getSessionName().wireEncode() << getSeq();
+  m_digest.computeDigest();
+}
 
-} // Sync
+std::ostream&
+operator<<(std::ostream& os, const Leaf& leaf)
+{
+  os << leaf.getSessionName() << "(" << leaf.getSeq() << ")";
+  return os;
+}
 
-#endif // SYNC_FULL_LEAF_H
+
+} // namespace chronosync

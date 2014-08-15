@@ -50,6 +50,7 @@ def build(bld):
         source =  bld.path.ant_glob(['src/**/*.cpp', 'src/**/*.proto']),
         use = 'BOOST NDN_CXX',
         includes = ['src', '.'],
+        export_includes=['src', '.'],
         )
 
     # Unit tests

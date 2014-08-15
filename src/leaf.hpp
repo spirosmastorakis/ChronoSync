@@ -19,67 +19,75 @@
  * @author Zhenkai Zhu <http://irl.cs.ucla.edu/~zhenkai/>
  * @author Chaoyi Bian <bcy@pku.edu.cn>
  * @author Alexander Afanasyev <http://lasr.cs.ucla.edu/afanasyev/index.html>
+ * @author Yingdi Yu <yingdi@cs.ucla.edu>
  */
 
-#ifndef SYNC_LEAF_H
-#define SYNC_LEAF_H
+#ifndef CHRONOSYNC_LEAF_HPP
+#define CHRONOSYNC_LEAF_HPP
 
-#include "sync-seq-no.h"
-#include "sync-name-info.h"
+#include "common.hpp"
+#include <ndn-cxx/util/digest.hpp>
 
-namespace Sync {
+namespace chronosync {
+
+typedef uint64_t SeqNo;
 
 /**
- * \ingroup sync
  * @brief Sync tree leaf
+ *
+ * The leaf node should be copyable when used to construct diff between two states.
  */
 class Leaf
 {
 public:
-  /**
-   * @brief Constructor
-   * @param info Smart pointer to leaf's name
-   * @param seq  Initial sequence number of the pointer
-   */
-  Leaf (NameInfoConstPtr info, const SeqNo &seq);
-  virtual ~Leaf ();
+  Leaf(const Name& sessionName, const SeqNo& seq);
 
-  /**
-   * @brief Get name of the leaf
-   */
-  NameInfoConstPtr
-  getInfo () const { return m_info; }
+  Leaf(const Name& userPrefix, uint64_t session, const SeqNo& seq);
 
-  /**
-   * @brief Get sequence number of the leaf
-   */
+  virtual
+  ~Leaf();
+
+  const Name&
+  getSessionName() const
+  {
+    return m_sessionName;
+  }
+
   const SeqNo&
-  getSeq () const { return m_seq; }
+  getSeq() const
+  {
+    return m_seq;
+  }
+
+  ndn::ConstBufferPtr
+  getDigest() const;
 
   /**
    * @brief Update sequence number of the leaf
    * @param seq Sequence number
    *
-   * Sequence number is updated to the largest value among this->m_seq and seq
+   * If seq is no greater than getSeq(), this operation has no effect.
    */
   virtual void
-  setSeq (const SeqNo &seq);
+  setSeq(const SeqNo& seq);
 
 private:
-  NameInfoConstPtr m_info;
-  SeqNo m_seq;
+  void
+  updateDigest();
+
+private:
+  Name     m_sessionName;
+  SeqNo    m_seq;
+
+  mutable ndn::util::Sha256 m_digest;
 };
 
 typedef boost::shared_ptr<Leaf> LeafPtr;
-typedef boost::shared_ptr<const Leaf> LeafConstPtr;
+typedef boost::shared_ptr<const Leaf> ConstLeafPtr;
 
-inline std::ostream &
-operator << (std::ostream &os, const Leaf &leaf)
-{
-  os << *leaf.getInfo () << "(" << leaf.getSeq () << ")";
-  return os;
-}
+std::ostream&
+operator<<(std::ostream& os, const Leaf& leaf);
 
-} // Sync
+} // namespace chronosync
 
-#endif // SYNC_LEAF_H
+#endif // CHRONOSYNC_LEAF_HPP
