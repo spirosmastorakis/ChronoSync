@@ -19,84 +19,84 @@
  * @author Zhenkai Zhu <http://irl.cs.ucla.edu/~zhenkai/>
  * @author Chaoyi Bian <bcy@pku.edu.cn>
  * @author Alexander Afanasyev <http://lasr.cs.ucla.edu/afanasyev/index.html>
+ * @author Yingdi Yu <yingdi@cs.ucla.edu>
  */
 
-#ifndef SYNC_STATE_LEAF_CONTAINER
-#define SYNC_STATE_LEAF_CONTAINER
+#ifndef CHRONOSYNC_LEAF_CONTAINER_HPP
+#define CHRONOSYNC_LEAF_CONTAINER_HPP
 
-#include "sync-leaf.h"
-#include "sync-name-info.h"
+#include "mi-tag.hpp"
+#include "leaf.hpp"
+
+#include <ndn-cxx/util/crypto.hpp>
 
 #include <boost/multi_index_container.hpp>
-// #include <boost/multi_index/tag.hpp>
 #include <boost/multi_index/ordered_index.hpp>
-// #include <boost/multi_index/composite_key.hpp>
 #include <boost/multi_index/hashed_index.hpp>
-// #include <boost/multi_index/random_access_index.hpp>
-// #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/mem_fun.hpp>
+
+
+
+namespace chronosync {
 
 namespace mi = boost::multi_index;
 
-namespace Sync {
-
-struct NameInfoHash : public std::unary_function<NameInfo, std::size_t>
+struct SessionNameHash
 {
   std::size_t
-  operator() (NameInfoConstPtr prefix) const
+  operator()(const Name& prefix) const
   {
-    return prefix->getHashId ();
+    ndn::ConstBufferPtr buffer =
+      ndn::crypto::sha256(prefix.wireEncode().wire(), prefix.wireEncode().size());
+
+    BOOST_ASSERT(buffer->size() > sizeof(std::size_t));
+
+    return *reinterpret_cast<const std::size_t*>(buffer->buf());
   }
 };
 
-struct NameInfoEqual : public std::unary_function<NameInfo, std::size_t>
+struct SessionNameEqual
 {
   bool
-  operator() (NameInfoConstPtr prefix1, NameInfoConstPtr prefix2) const
+  operator()(const Name& prefix1, const Name& prefix2) const
   {
-    return *prefix1 == *prefix2;
+    return prefix1 == prefix2;
   }
 };
 
-struct NameInfoCompare : public std::unary_function<NameInfo, std::size_t>
+struct SessionNameCompare : public std::less<Name>
 {
   bool
-  operator() (NameInfoConstPtr prefix1, NameInfoConstPtr prefix2) const
+  operator()(const Name& prefix1, const Name& prefix2) const
   {
-    return *prefix1 < *prefix2;
+    return prefix1 < prefix2;
   }
 };
-
-/// @cond include_hidden
-struct hashed { };
-struct ordered { };
-/// @endcond
 
 /**
- * \ingroup sync
- * @brief Container for SYNC leaves
+ * @brief Container for chronosync leaves
  */
 struct LeafContainer : public mi::multi_index_container<
   LeafPtr,
   mi::indexed_by<
-    // For fast access to elements using NameInfo
+    // For fast access to elements using SessionName
     mi::hashed_unique<
       mi::tag<hashed>,
-      mi::const_mem_fun<Leaf, NameInfoConstPtr, &Leaf::getInfo>,
-      NameInfoHash,
-      NameInfoEqual
+      mi::const_mem_fun<Leaf, const Name&, &Leaf::getSessionName>,
+      SessionNameHash,
+      SessionNameEqual
       >,
 
     mi::ordered_unique<
       mi::tag<ordered>,
-      mi::const_mem_fun<Leaf, NameInfoConstPtr, &Leaf::getInfo>,
-      NameInfoCompare
+      mi::const_mem_fun<Leaf, const Name&, &Leaf::getSessionName>,
+      SessionNameCompare
       >
     >
   >
 {
 };
 
-} // Sync
+} // namespace chronosync
 
-#endif // SYNC_STATE_LEAF_CONTAINER
+#endif // CHRONOSYNC_LEAF_CONTAINER_HPP
