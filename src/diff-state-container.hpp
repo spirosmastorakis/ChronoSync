@@ -19,35 +19,47 @@
  * @author Zhenkai Zhu <http://irl.cs.ucla.edu/~zhenkai/>
  * @author Chaoyi Bian <bcy@pku.edu.cn>
  * @author Alexander Afanasyev <http://lasr.cs.ucla.edu/afanasyev/index.html>
+ * @author Yingdi Yu <yingdi@cs.ucla.edu>
  */
 
-#ifndef SYNC_DIFF_STATE_CONTAINER_H
-#define SYNC_DIFF_STATE_CONTAINER_H
+#ifndef CHRONOSYNC_DIFF_STATE_CONTAINER_HPP
+#define CHRONOSYNC_DIFF_STATE_CONTAINER_HPP
 
-#include "sync-diff-state.h"
-#include "sync-digest.h"
+#include "mi-tag.hpp"
+#include "diff-state.hpp"
 
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/tag.hpp>
-// #include <boost/multi_index/ordered_index.hpp>
-// #include <boost/multi_index/composite_key.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
-// #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/mem_fun.hpp>
 
+namespace chronosync {
+
 namespace mi = boost::multi_index;
 
-namespace Sync {
+struct DigestPtrHash
+{
+  std::size_t
+  operator()(ndn::ConstBufferPtr digest) const
+  {
+    BOOST_ASSERT(digest->size() > sizeof(std::size_t));
 
-/// @cond include_hidden
-struct sequenced { };
-struct timed { };
-/// @endcond
+    return *reinterpret_cast<const std::size_t*>(digest->buf());
+  }
+};
+
+struct DigestPtrEqual
+{
+  bool
+  operator()(ndn::ConstBufferPtr digest1, ndn::ConstBufferPtr digest2) const
+  {
+    return *digest1 == *digest2;
+  }
+};
 
 /**
- * \ingroup sync
  * @brief Container for differential states
  */
 struct DiffStateContainer : public mi::multi_index_container<
@@ -56,11 +68,11 @@ struct DiffStateContainer : public mi::multi_index_container<
     // For fast access to elements using DiffState hashes
     mi::hashed_unique<
       mi::tag<hashed>,
-      mi::const_mem_fun<DiffState, DigestConstPtr, &DiffState::getDigest>,
+      mi::const_mem_fun<DiffState, ndn::ConstBufferPtr, &DiffState::getRootDigest>,
       DigestPtrHash,
       DigestPtrEqual
-      >
-    ,
+      >,
+
     // sequenced index to access older/newer element (like in list)
     mi::sequenced<mi::tag<sequenced> >
     >
@@ -68,6 +80,6 @@ struct DiffStateContainer : public mi::multi_index_container<
 {
 };
 
-} // Sync
+} // namespace chronosync
 
-#endif // SYNC_DIFF_STATE_CONTAINER_H
+#endif // CHRONOSYNC_DIFF_STATE_CONTAINER_HPP
