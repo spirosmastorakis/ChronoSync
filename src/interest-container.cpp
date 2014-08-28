@@ -15,28 +15,24 @@
  *
  * You should have received a copy of the GNU General Public License along with
  * ChronoSync, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @author Zhenkai Zhu <http://irl.cs.ucla.edu/~zhenkai/>
+ * @author Chaoyi Bian <bcy@pku.edu.cn>
+ * @author Alexander Afanasyev <http://lasr.cs.ucla.edu/afanasyev/index.html>
+ * @author Yingdi Yu <yingdi@cs.ucla.edu>
  */
 
-#include <boost/test/unit_test.hpp>
-#include <boost/test/output_test_stream.hpp>
-#include <map>
-using boost::test_tools::output_test_stream;
+#include "interest-container.hpp"
 
-#include <boost/make_shared.hpp>
+namespace chronosync {
 
-#include "sync-interest-table.h"
-
-using namespace Sync;
-using namespace std;
-using namespace boost;
-
-BOOST_AUTO_TEST_CASE (InterestTableTest)
+UnsatisfiedInterest::UnsatisfiedInterest(shared_ptr<const Interest> interest,
+                                         ndn::ConstBufferPtr digest,
+                                         bool isUnknown)
+  : interest(interest)
+  , digest(digest)
+  , isUnknown(isUnknown)
 {
-  // Alex: test is broken due to changes in SyncInterestTable
-  // cerr << "InterestTableTest is broken" << endl;
-
-  // SyncInterestTable *table = 0;
-  // BOOST_CHECK_NO_THROW (table = new SyncInterestTable ());
-
-  // BOOST_CHECK_NO_THROW (delete table);
 }
+
+} // namespace chronosync

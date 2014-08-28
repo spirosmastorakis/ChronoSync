@@ -19,82 +19,64 @@
  * @author Zhenkai Zhu <http://irl.cs.ucla.edu/~zhenkai/>
  * @author Chaoyi Bian <bcy@pku.edu.cn>
  * @author Alexander Afanasyev <http://lasr.cs.ucla.edu/afanasyev/index.html>
+ * @author Yingdi Yu <yingdi@cs.ucla.edu>
  */
 
-#ifndef SYNC_INTEREST_CONTAINER_H
-#define SYNC_INTEREST_CONTAINER_H
+#ifndef CHRONOSYNC_INTEREST_CONTAINER_HPP
+#define CHRONOSYNC_INTEREST_CONTAINER_HPP
+
+#include "common.hpp"
+#include "mi-tag.hpp"
+#include "diff-state-container.hpp"
 
 #include <ndn-cxx/util/time.hpp>
-
-#include "sync-digest.h"
+#include <ndn-cxx/util/scheduler.hpp>
 
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/tag.hpp>
-// #include <boost/multi_index/ordered_index.hpp>
-// #include <boost/multi_index/composite_key.hpp>
 #include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index/ordered_index.hpp>
-// #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index/member.hpp>
-#include <boost/multi_index/mem_fun.hpp>
+
+namespace chronosync {
 
 namespace mi = boost::multi_index;
 
-namespace Sync {
-
-struct Interest
+/// @brief Entry to record unsatisfied Sync Interest
+class UnsatisfiedInterest : noncopyable
 {
-  Interest (DigestConstPtr digest, const std::string &name, bool unknown=false)
-  : m_digest (digest)
-  , m_name (name)
-  , m_time (ndn::time::system_clock::now())
-  , m_unknown (unknown)
-  {
-  }
+public:
+  UnsatisfiedInterest(shared_ptr<const Interest> interest,
+                      ndn::ConstBufferPtr digest,
+                      bool isUnknown = false);
 
-  DigestConstPtr   m_digest;
-  std::string      m_name;
-  ndn::time::system_clock::TimePoint m_time;
-  bool             m_unknown;
+public:
+  shared_ptr<const Interest> interest;
+  ndn::ConstBufferPtr        digest;
+  bool                       isUnknown;
+  ndn::EventId               expirationEvent;
 };
 
-/// @cond include_hidden
-struct named { };
-struct hashed;
-struct timed;
-/// @endcond
+typedef boost::shared_ptr<UnsatisfiedInterest> UnsatisfiedInterestPtr;
+typedef boost::shared_ptr<const UnsatisfiedInterest> ConstUnsatisfiedInterestPtr;
 
 /**
- * \ingroup sync
- * @brief Container for interests (application PIT)
+ * @brief Container for unsatisfied Sync Interests
  */
 struct InterestContainer : public mi::multi_index_container<
-  Interest,
+  UnsatisfiedInterestPtr,
   mi::indexed_by<
     mi::hashed_unique<
-      mi::tag<named>,
-      BOOST_MULTI_INDEX_MEMBER(Interest, std::string, m_name)
-    >
-    ,
-
-    mi::hashed_non_unique<
       mi::tag<hashed>,
-      BOOST_MULTI_INDEX_MEMBER(Interest, DigestConstPtr, m_digest),
+      mi::member<UnsatisfiedInterest, ndn::ConstBufferPtr, &UnsatisfiedInterest::digest>,
       DigestPtrHash,
       DigestPtrEqual
-      >
-    ,
-
-    mi::ordered_non_unique<
-      mi::tag<timed>,
-      BOOST_MULTI_INDEX_MEMBER(Interest, ndn::time::system_clock::TimePoint, m_time)
       >
     >
   >
 {
 };
 
-} // Sync
+} // namespace chronosync
 
-#endif // SYNC_INTEREST_CONTAINER_H
+#endif // CHRONOSYNC_INTEREST_CONTAINER_HPP
