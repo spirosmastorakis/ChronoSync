@@ -64,7 +64,7 @@
 
 #define _LOG_DEBUG(x) \
   std::clog << boost::get_system_time() << " " << boost::this_thread::get_id() << \
-               " " << x << std::endl;
+               " " << x << std::endl
 
 #else // _DEBUG
 

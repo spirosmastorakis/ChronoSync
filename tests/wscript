@@ -4,9 +4,9 @@ from waflib import Utils
 top = '..'
 
 def build(bld):
-    unit_test_main = bld(
-        target='unit-tests-main',
-        name='unit-tests-main',
+    test_main = bld(
+        target='tests-main',
+        name='tests-main',
         features='cxx',
         source=bld.path.ant_glob(['main.cpp']),
         use='ChronoSync',
@@ -16,7 +16,16 @@ def build(bld):
         target="../unit-tests",
         source=bld.path.ant_glob(['unit-tests/**/*.cpp']),
         features=['cxx', 'cxxprogram'],
-        use='ChronoSync, unit-tests-main',
+        use='ChronoSync tests-main LOG4CXX',
+        includes=['.'],
+        install_path=None,
+        )
+
+    integrated_test = bld.program(
+        target="../integrated-tests",
+        source=bld.path.ant_glob(['integrated-tests/**/*.cpp']),
+        features=['cxx', 'cxxprogram'],
+        use='ChronoSync tests-main',
         includes=['.'],
         install_path=None,
         )
