@@ -21,35 +21,32 @@
  * @author Alexander Afanasyev <http://lasr.cs.ucla.edu/afanasyev/index.html>
  */
 
-#ifndef SYNC_LOG_H
-#define SYNC_LOG_H
+#ifndef CHRONOSYNC_LOGGER_HPP
+#define CHRONOSYNC_LOGGER_HPP
 
 #ifdef HAVE_LOG4CXX
 
 #include <log4cxx/logger.h>
 
 #define INIT_LOGGER(name) \
-  static log4cxx::LoggerPtr staticModuleLogger = log4cxx::Logger::getLogger (name);
+  static log4cxx::LoggerPtr staticModuleLogger = log4cxx::Logger::getLogger(name)
 
 #define _LOG_DEBUG(x) \
-  LOG4CXX_DEBUG(staticModuleLogger, x);
+  LOG4CXX_DEBUG(staticModuleLogger, x)
 
 #define _LOG_TRACE(x) \
-  LOG4CXX_TRACE(staticModuleLogger, x);
+  LOG4CXX_TRACE(staticModuleLogger, x)
 
 #define _LOG_FUNCTION(x) \
-  LOG4CXX_TRACE(staticModuleLogger, __FUNCTION__ << "(" << x << ")");
+  LOG4CXX_TRACE(staticModuleLogger, __FUNCTION__ << "(" << x << ")")
 
 #define _LOG_FUNCTION_NOARGS \
-  LOG4CXX_TRACE(staticModuleLogger, __FUNCTION__ << "()");
+  LOG4CXX_TRACE(staticModuleLogger, __FUNCTION__ << "()")
 
 #define _LOG_ERROR(x) \
-  LOG4CXX_ERROR(staticModuleLogger, x);
+  LOG4CXX_ERROR(staticModuleLogger, x)
 
-void
-INIT_LOGGERS ();
-
-#else
+#else // HAVE_LOG4CXX
 
 #define INIT_LOGGER(name)
 #define _LOG_FUNCTION(x)
@@ -66,12 +63,15 @@ INIT_LOGGERS ();
 #include <iostream>
 
 #define _LOG_DEBUG(x) \
-  std::clog << boost::get_system_time () << " " << boost::this_thread::get_id () << " " << x << std::endl;
+  std::clog << boost::get_system_time() << " " << boost::this_thread::get_id() << \
+               " " << x << std::endl;
 
-#else
+#else // _DEBUG
+
 #define _LOG_DEBUG(x)
-#endif
+
+#endif // _DEBUG
 
 #endif // HAVE_LOG4CXX
 
-#endif // SYNC_LOG_H
+#endif // CHRONOSYNC_LOGGER_HPP
