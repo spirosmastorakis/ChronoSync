@@ -57,13 +57,12 @@
 
 #ifdef _DEBUG
 
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/thread/thread_time.hpp>
-#include <boost/thread/thread.hpp>
+#include <thread>
 #include <iostream>
+#include <ndn-cxx/util/time.hpp>
 
 #define _LOG_DEBUG(x) \
-  std::clog << boost::get_system_time() << " " << boost::this_thread::get_id() << \
+  std::clog << ndn::time::system_clock::now() << " " << std::this_thread::get_id() << \
                " " << x << std::endl
 
 #else // _DEBUG

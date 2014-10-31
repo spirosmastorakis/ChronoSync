@@ -94,9 +94,9 @@ BOOST_AUTO_TEST_CASE(Container)
 {
   InterestContainer container;
 
-  container.insert(boost::make_shared<UnsatisfiedInterest>(interest1, digest1));
-  container.insert(boost::make_shared<UnsatisfiedInterest>(interest2, digest2));
-  container.insert(boost::make_shared<UnsatisfiedInterest>(interest3, digest3));
+  container.insert(make_shared<UnsatisfiedInterest>(interest1, digest1));
+  container.insert(make_shared<UnsatisfiedInterest>(interest2, digest2));
+  container.insert(make_shared<UnsatisfiedInterest>(interest3, digest3));
 
   BOOST_CHECK_EQUAL(container.size(), 3);
   BOOST_CHECK(container.find(digest3) != container.end());
@@ -139,31 +139,31 @@ BOOST_AUTO_TEST_CASE(Expire)
 
   scheduler.scheduleEvent(ndn::time::milliseconds(50),
                           ndn::bind(&InterestTableFixture::insert, this,
-                                    boost::ref(table), interest1, digest1));
+                                    ndn::ref(table), interest1, digest1));
 
   scheduler.scheduleEvent(ndn::time::milliseconds(150),
                           ndn::bind(&InterestTableFixture::insert, this,
-                                    boost::ref(table), interest2, digest2));
+                                    ndn::ref(table), interest2, digest2));
 
   scheduler.scheduleEvent(ndn::time::milliseconds(150),
                           ndn::bind(&InterestTableFixture::insert, this,
-                                    boost::ref(table), interest3, digest3));
+                                    ndn::ref(table), interest3, digest3));
 
   scheduler.scheduleEvent(ndn::time::milliseconds(200),
                           ndn::bind(&InterestTableFixture::insert, this,
-                                    boost::ref(table), interest2, digest2));
+                                    ndn::ref(table), interest2, digest2));
 
   scheduler.scheduleEvent(ndn::time::milliseconds(220),
                           ndn::bind(&InterestTableFixture::check, this,
-                                    boost::ref(table), 2));
+                                    ndn::ref(table), 2));
 
   scheduler.scheduleEvent(ndn::time::milliseconds(270),
                           ndn::bind(&InterestTableFixture::check, this,
-                                    boost::ref(table), 1));
+                                    ndn::ref(table), 1));
 
   scheduler.scheduleEvent(ndn::time::milliseconds(420),
                           ndn::bind(&InterestTableFixture::check, this,
-                                    boost::ref(table), 0));
+                                    ndn::ref(table), 0));
 
   scheduler.scheduleEvent(ndn::time::milliseconds(500),
                           ndn::bind(&InterestTableFixture::terminate, this));

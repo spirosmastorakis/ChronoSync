@@ -44,18 +44,25 @@ InterestTable::insert(shared_ptr<const Interest> interest,
   bool doesExist = erase(digest);
 
   UnsatisfiedInterestPtr request =
-    boost::make_shared<UnsatisfiedInterest>(interest, digest, isKnown);
+    make_shared<UnsatisfiedInterest>(interest, digest, isKnown);
 
   time::milliseconds entryLifetime = interest->getInterestLifetime();
   if (entryLifetime < time::milliseconds::zero())
     entryLifetime = ndn::DEFAULT_INTEREST_LIFETIME;
 
   request->expirationEvent =
-    m_scheduler.scheduleEvent(entryLifetime, ndn::bind(&InterestTable::erase, this, digest));
+    m_scheduler.scheduleEvent(entryLifetime,
+                              [=] () { quiteErase(digest); });
 
   m_table.insert(request);
 
   return doesExist;
+}
+
+void
+InterestTable::quiteErase(ndn::ConstBufferPtr digest)
+{
+  erase(digest);
 }
 
 bool

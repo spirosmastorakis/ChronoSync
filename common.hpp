@@ -26,15 +26,15 @@
 #include "config.hpp"
 
 #ifdef _TESTS
-#define VIRTUAL_WITH_TESTS virtual
-#define PUBLIC_WITH_TESTS_ELSE_PROTECTED public
-#define PUBLIC_WITH_TESTS_ELSE_PRIVATE public
-#define PROTECTED_WITH_TESTS_ELSE_PRIVATE protected
+#define CHRONOSYNC_VIRTUAL_WITH_TESTS virtual
+#define CHRONOSYNC_PUBLIC_WITH_TESTS_ELSE_PROTECTED public
+#define CHRONOSYNC_PUBLIC_WITH_TESTS_ELSE_PRIVATE public
+#define CHRONOSYNC_PROTECTED_WITH_TESTS_ELSE_PRIVATE protected
 #else
-#define VIRTUAL_WITH_TESTS
-#define PUBLIC_WITH_TESTS_ELSE_PROTECTED protected
-#define PUBLIC_WITH_TESTS_ELSE_PRIVATE private
-#define PROTECTED_WITH_TESTS_ELSE_PRIVATE private
+#define CHRONOSYNC_VIRTUAL_WITH_TESTS
+#define CHRONOSYNC_PUBLIC_WITH_TESTS_ELSE_PROTECTED protected
+#define CHRONOSYNC_PUBLIC_WITH_TESTS_ELSE_PRIVATE private
+#define CHRONOSYNC_PROTECTED_WITH_TESTS_ELSE_PRIVATE private
 #endif
 
 #include <cstddef>
@@ -83,7 +83,7 @@ using ndn::Exclude;
 using ndn::Block;
 
 namespace tlv {
-using namespace ndn::Tlv;
+using namespace ndn::tlv;
 }
 
 namespace name = ndn::name;

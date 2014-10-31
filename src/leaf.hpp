@@ -82,8 +82,8 @@ private:
   mutable ndn::util::Sha256 m_digest;
 };
 
-typedef boost::shared_ptr<Leaf> LeafPtr;
-typedef boost::shared_ptr<const Leaf> ConstLeafPtr;
+typedef shared_ptr<Leaf> LeafPtr;
+typedef shared_ptr<const Leaf> ConstLeafPtr;
 
 std::ostream&
 operator<<(std::ostream& os, const Leaf& leaf);

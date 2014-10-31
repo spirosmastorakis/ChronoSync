@@ -57,8 +57,8 @@ public:
   ndn::EventId               expirationEvent;
 };
 
-typedef boost::shared_ptr<UnsatisfiedInterest> UnsatisfiedInterestPtr;
-typedef boost::shared_ptr<const UnsatisfiedInterest> ConstUnsatisfiedInterestPtr;
+typedef shared_ptr<UnsatisfiedInterest> UnsatisfiedInterestPtr;
+typedef shared_ptr<const UnsatisfiedInterest> ConstUnsatisfiedInterestPtr;
 
 /**
  * @brief Container for unsatisfied Sync Interests

@@ -148,7 +148,7 @@ public:
   std::set<Name>
   getSessionNames() const;
 
-PUBLIC_WITH_TESTS_ELSE_PRIVATE:
+CHRONOSYNC_PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   void
   printState(std::ostream& os) const;
 

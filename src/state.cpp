@@ -57,7 +57,7 @@ State::update(const Name& info, const SeqNo& seq)
 
     SeqNo old = (*leaf)->getSeq();
     m_leaves.modify(leaf,
-                    bind(&Leaf::setSeq, _1, seq));
+                    [=] (LeafPtr& leaf) { leaf->setSeq(seq); } );
     return make_tuple(false, true, old);
   }
 }

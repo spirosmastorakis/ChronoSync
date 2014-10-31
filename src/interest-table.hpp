@@ -82,6 +82,9 @@ public:
   bool
   erase(ndn::ConstBufferPtr digest);
 
+  void
+  quiteErase(ndn::ConstBufferPtr digest);
+
   const_iterator
   begin() const
   {
