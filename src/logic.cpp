@@ -49,6 +49,8 @@ const uint8_t EMPTY_DIGEST_VALUE[] = {
 int Logic::m_instanceCounter = 0;
 #endif
 
+const ndn::Name Logic::DEFAULT_NAME;
+const ndn::shared_ptr<ndn::Validator> Logic::DEFAULT_VALIDATOR;
 const time::steady_clock::Duration Logic::DEFAULT_RESET_TIMER = time::seconds(0);
 const time::steady_clock::Duration Logic::DEFAULT_CANCEL_RESET_TIMER = time::milliseconds(500);
 const time::milliseconds Logic::DEFAULT_RESET_INTEREST_LIFETIME(1000);
@@ -62,6 +64,8 @@ Logic::Logic(ndn::Face& face,
              const Name& syncPrefix,
              const Name& userPrefix,
              const UpdateCallback& onUpdate,
+             const Name& signingId,
+             ndn::shared_ptr<ndn::Validator> validator,
              const time::steady_clock::Duration& resetTimer,
              const time::steady_clock::Duration& cancelResetTimer,
              const time::milliseconds& resetInterestLifetime,
@@ -84,6 +88,8 @@ Logic::Logic(ndn::Face& face,
   , m_resetInterestLifetime(resetInterestLifetime)
   , m_syncInterestLifetime(syncInterestLifetime)
   , m_syncReplyFreshness(syncReplyFreshness)
+  , m_signingId(signingId)
+  , m_validator(validator)
 {
 #ifdef _DEBUG
   m_instanceId = m_instanceCounter++;
@@ -250,8 +256,12 @@ void
 Logic::onSyncData(const Interest& interest, Data& data)
 {
   _LOG_DEBUG_ID(">> Logic::onSyncData");
-  // Place holder for validator.
-  onSyncDataValidated(data.shared_from_this());
+  if (static_cast<bool>(m_validator))
+    m_validator->validate(data,
+                          bind(&Logic::onSyncDataValidated, this, _1),
+                          bind(&Logic::onSyncDataValidationFailed, this, _1));
+  else
+    onSyncDataValidated(data.shared_from_this());
   _LOG_DEBUG_ID("<< Logic::onSyncData");
 }
 
@@ -544,7 +554,11 @@ Logic::sendSyncData(const Name& name, const State& state)
   shared_ptr<Data> syncReply = make_shared<Data>(name);
   syncReply->setContent(state.wireEncode());
   syncReply->setFreshnessPeriod(m_syncReplyFreshness);
-  m_keyChain.sign(*syncReply);
+
+  if (m_signingId.empty())
+    m_keyChain.sign(*syncReply);
+  else
+    m_keyChain.signByIdentity(*syncReply, m_signingId);
 
   m_face.put(*syncReply);
 

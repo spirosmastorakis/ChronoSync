@@ -32,6 +32,7 @@
 #include <ndn-cxx/face.hpp>
 #include <ndn-cxx/util/scheduler.hpp>
 #include <ndn-cxx/security/key-chain.hpp>
+#include <ndn-cxx/security/validator.hpp>
 
 #include "interest-table.hpp"
 #include "diff-state-container.hpp"
@@ -84,6 +85,7 @@ public:
    * @param syncPrefix The prefix of the sync group
    * @param userPrefix The prefix of the user who owns the session
    * @param onUpdate The callback function to handle state updates
+   * @param validator The validator for packet validation
    * @param resetTimer The timer to periodically send Reset Interest
    * @param syncReplyFreshness The FreshnessPeriod of sync reply
    * @param resetInterestLifetime The lifetime of sync interest
@@ -94,6 +96,8 @@ public:
         const Name& syncPrefix,
         const Name& userPrefix,
         const UpdateCallback& onUpdate,
+        const Name& signingId = DEFAULT_NAME,
+        ndn::shared_ptr<ndn::Validator> validator = DEFAULT_VALIDATOR,
         const time::steady_clock::Duration& resetTimer = DEFAULT_RESET_TIMER,
         const time::steady_clock::Duration& cancelResetTimer = DEFAULT_CANCEL_RESET_TIMER,
         const time::milliseconds& resetInterestLifetime = DEFAULT_RESET_INTEREST_LIFETIME,
@@ -326,6 +330,10 @@ private:
   void
   printDigest(ndn::ConstBufferPtr digest);
 
+public:
+  static const ndn::Name DEFAULT_NAME;
+  static const ndn::shared_ptr<ndn::Validator> DEFAULT_VALIDATOR;
+
 private:
 
   static const ndn::ConstBufferPtr EMPTY_DIGEST;
@@ -373,8 +381,10 @@ private:
   /// @brief FreshnessPeriod of SyncReply
   time::milliseconds m_syncReplyFreshness;
 
-  // Others
+  // Security
+  ndn::Name m_signingId;
   ndn::KeyChain m_keyChain;
+  ndn::shared_ptr<ndn::Validator> m_validator;
 
 #ifdef _DEBUG
   int m_instanceId;

@@ -30,16 +30,20 @@ INIT_LOGGER("Socket");
 
 namespace chronosync {
 
+const ndn::Name Socket::DEFAULT_NAME;
+const ndn::shared_ptr<ndn::Validator> Socket::DEFAULT_VALIDATOR;
+
 Socket::Socket(const Name& syncPrefix,
                const Name& userPrefix,
                ndn::Face& face,
-               const UpdateCallback& updateCallback)
+               const UpdateCallback& updateCallback,
+               const Name& signingId,
+               ndn::shared_ptr<ndn::Validator> validator)
   : m_userPrefix(userPrefix)
   , m_face(face)
-  , m_logic(face,
-            syncPrefix,
-            userPrefix,
-            updateCallback)
+  , m_logic(face, syncPrefix, userPrefix, updateCallback)
+  , m_signingId(signingId)
+  , m_validator(validator)
 {
 }
 
@@ -62,7 +66,10 @@ Socket::publishData(const Block& content, const ndn::time::milliseconds& freshne
   dataName.append(m_logic.getSessionName()).appendNumber(newSeq);
   data->setName(dataName);
 
-  m_keyChain.sign(*data);
+  if (m_signingId.empty())
+    m_keyChain.sign(*data);
+  else
+    m_keyChain.signByIdentity(*data, m_signingId);
 
   m_face.put(*data);
 
@@ -116,8 +123,11 @@ Socket::onData(const Interest& interest, Data& data,
                const ndn::OnDataValidationFailed& onFailed)
 {
   _LOG_DEBUG("Socket::onData");
-  // Placeholder for validator
-  onValidated(data.shared_from_this());
+
+  if (static_cast<bool>(m_validator))
+    m_validator->validate(data, onValidated, onFailed);
+  else
+    onValidated(data.shared_from_this());
 }
 
 void

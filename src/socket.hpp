@@ -26,7 +26,6 @@
 #define CHRONOSYNC_SOCKET_HPP
 
 #include <ndn-cxx/face.hpp>
-#include <ndn-cxx/security/validation-request.hpp>
 
 #include "logic.hpp"
 
@@ -61,7 +60,9 @@ public:
   Socket(const Name& syncPrefix,
          const Name& userPrefix,
          ndn::Face& face,
-         const UpdateCallback& updateCallback);
+         const UpdateCallback& updateCallback,
+         const Name& signingId = DEFAULT_NAME,
+         ndn::shared_ptr<ndn::Validator> validator = DEFAULT_VALIDATOR);
 
   /**
    * @brief Publish a data packet in the session and trigger synchronization updates
@@ -143,6 +144,10 @@ private:
   onDataValidationFailed(const shared_ptr<const Data>& data,
                          const std::string& failureInfo);
 
+public:
+  static const ndn::Name DEFAULT_NAME;
+  static const ndn::shared_ptr<ndn::Validator> DEFAULT_VALIDATOR;
+
 private:
 
   Name m_userPrefix;
@@ -150,7 +155,9 @@ private:
 
   Logic m_logic;
 
+  ndn::Name m_signingId;
   ndn::KeyChain m_keyChain;
+  ndn::shared_ptr<ndn::Validator> m_validator;
 };
 
 } // namespace chronosync
