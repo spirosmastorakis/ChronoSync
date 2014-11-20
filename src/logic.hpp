@@ -27,7 +27,7 @@
 
 #include "boost-header.h"
 #include <memory>
-#include <map>
+#include <unordered_map>
 
 #include <ndn-cxx/face.hpp>
 #include <ndn-cxx/util/scheduler.hpp>
@@ -48,6 +48,14 @@ namespace chronosync {
  * Instances of this class is usually used as elements of some containers
  * such as std::vector, thus it is copyable.
  */
+class NodeInfo {
+public:
+  Name userPrefix;
+  Name signingId;
+  Name sessionName;
+  SeqNo seqNo;
+};
+
 class MissingDataInfo
 {
 public:
@@ -73,6 +81,17 @@ typedef function<void(const std::vector<MissingDataInfo>&)> UpdateCallback;
 class Logic : noncopyable
 {
 public:
+  class Error : public std::runtime_error
+  {
+  public:
+    explicit
+    Error(const std::string& what)
+      : std::runtime_error(what)
+    {
+    }
+  };
+
+public:
   static const time::steady_clock::Duration DEFAULT_RESET_TIMER;
   static const time::steady_clock::Duration DEFAULT_CANCEL_RESET_TIMER;
   static const time::milliseconds DEFAULT_RESET_INTEREST_LIFETIME;
@@ -83,8 +102,9 @@ public:
    * @brief Constructor
    *
    * @param syncPrefix The prefix of the sync group
-   * @param userPrefix The prefix of the user who owns the session
+   * @param defaultUserPrefix The prefix of the first user added to this session
    * @param onUpdate The callback function to handle state updates
+   * @param defaultSigningId The signing Id of the default user
    * @param validator The validator for packet validation
    * @param resetTimer The timer to periodically send Reset Interest
    * @param syncReplyFreshness The FreshnessPeriod of sync reply
@@ -94,9 +114,9 @@ public:
    */
   Logic(ndn::Face& face,
         const Name& syncPrefix,
-        const Name& userPrefix,
+        const Name& defaultUserPrefix,
         const UpdateCallback& onUpdate,
-        const Name& signingId = DEFAULT_NAME,
+        const Name& defaultSigningId = DEFAULT_NAME,
         ndn::shared_ptr<ndn::Validator> validator = DEFAULT_VALIDATOR,
         const time::steady_clock::Duration& resetTimer = DEFAULT_RESET_TIMER,
         const time::steady_clock::Duration& cancelResetTimer = DEFAULT_CANCEL_RESET_TIMER,
@@ -113,36 +133,67 @@ public:
   /**
    * @brief Set user prefix
    *
-   * This method will also change the session name and trigger reset.
+   * This method will also change the default user and signing Id of that user.
    *
-   * @param userPrefix The prefix of user.
+   * @param defaultUserPrefix The prefix of user.
    */
   void
-  setUserPrefix(const Name& userPrefix);
+  setDefaultUserPrefix(const Name& defaultUserPrefix);
 
-  /// @brief Get the name of the local session.
+  /// @brief Get the name of default user.
   const Name&
-  getSessionName() const
+  getDefaultUserPrefix() const
   {
-    return m_sessionName;
+    return m_defaultUserPrefix;
   }
 
-  /// @brief Get current seqNo of the local session.
+  /**
+   * @brief Add user node into the local session.
+   *
+   * This method also reset after adding
+   *
+   * @param userPrefix prefix of the added node
+   * @param signingId signing Id of the added node
+   */
+  void
+  addUserNode(const Name& userPrefix, const Name& signingId = DEFAULT_NAME);
+
+  /// @brief remove the node from the local session
+  void
+  removeUserNode(const Name& userPrefix);
+
+  /**
+   * @brief Get the name of the local session.
+   *
+   * This method gets the session name according to prefix, if prefix is not specified,
+   * it returns the session name of default user.
+   *
+   * @param prefix prefix of the node
+   */
+  const Name&
+  getSessionName(Name prefix = EMPTY_NAME);
+
+  /**
+   * @brief Get current seqNo of the local session.
+   *
+   * This method gets the seqNo according to prefix, if prefix is not specified,
+   * it returns the seqNo of default user.
+   *
+   * @param prefix prefix of the node
+   */
   const SeqNo&
-  getSeqNo() const
-  {
-    return m_seqNo;
-  }
+  getSeqNo(Name prefix = EMPTY_NAME);
 
   /**
    * @brief Update the seqNo of the local session
    *
-   * The method updates the existing seqNo with the supplied seqNo.
+   * The method updates the existing seqNo with the supplied seqNo and prefix.
    *
    * @param seq The new seqNo.
+   * @param updatePrefix The prefix of node to update.
    */
   void
-  updateSeqNo(const SeqNo& seq);
+  updateSeqNo(const SeqNo& seq, const Name& updatePrefix = EMPTY_NAME);
 
   /// @brief Get root digest of current sync tree
   ndn::ConstBufferPtr
@@ -167,6 +218,7 @@ CHRONOSYNC_PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   {
     return m_state;
   }
+
 
 private:
   /**
@@ -304,7 +356,7 @@ private:
    * @param commit The diff.
    */
   void
-  satisfyPendingSyncInterests(ConstDiffStatePtr commit);
+  satisfyPendingSyncInterests(const Name& updatedPrefix, ConstDiffStatePtr commit);
 
   /// @brief Helper method to send normal Sync Interest
   void
@@ -316,7 +368,7 @@ private:
 
   /// @brief Helper method to send Sync Reply
   void
-  sendSyncData(const Name& name, const State& state);
+  sendSyncData(const Name& nodePrefix, const Name& name, const State& state);
 
   /**
    * @brief Unset reset status
@@ -332,9 +384,11 @@ private:
 
 public:
   static const ndn::Name DEFAULT_NAME;
+  static const ndn::Name EMPTY_NAME;
   static const ndn::shared_ptr<ndn::Validator> DEFAULT_VALIDATOR;
 
 private:
+  typedef std::unordered_map<ndn::Name, NodeInfo> NodeList;
 
   static const ndn::ConstBufferPtr EMPTY_DIGEST;
   static const ndn::name::Component RESET_COMPONENT;
@@ -344,11 +398,10 @@ private:
   Name m_syncPrefix;
   const ndn::RegisteredPrefixId* m_syncRegisteredPrefixId;
   Name m_syncReset;
-  Name m_userPrefix;
+  Name m_defaultUserPrefix;
 
   // State
-  Name m_sessionName;
-  SeqNo m_seqNo;
+  NodeList m_nodeList;
   State m_state;
   DiffStateContainer m_log;
   InterestTable m_interestTable;
@@ -382,9 +435,10 @@ private:
   time::milliseconds m_syncReplyFreshness;
 
   // Security
-  ndn::Name m_signingId;
+  ndn::Name m_defaultSigningId;
   ndn::KeyChain m_keyChain;
   ndn::shared_ptr<ndn::Validator> m_validator;
+
 
 #ifdef _DEBUG
   int m_instanceId;

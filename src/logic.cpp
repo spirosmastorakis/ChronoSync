@@ -50,6 +50,7 @@ int Logic::m_instanceCounter = 0;
 #endif
 
 const ndn::Name Logic::DEFAULT_NAME;
+const ndn::Name Logic::EMPTY_NAME;
 const ndn::shared_ptr<ndn::Validator> Logic::DEFAULT_VALIDATOR;
 const time::steady_clock::Duration Logic::DEFAULT_RESET_TIMER = time::seconds(0);
 const time::steady_clock::Duration Logic::DEFAULT_CANCEL_RESET_TIMER = time::milliseconds(500);
@@ -62,9 +63,9 @@ const ndn::name::Component Logic::RESET_COMPONENT("reset");
 
 Logic::Logic(ndn::Face& face,
              const Name& syncPrefix,
-             const Name& userPrefix,
+             const Name& defaultUserPrefix,
              const UpdateCallback& onUpdate,
-             const Name& signingId,
+             const Name& defaultSigningId,
              ndn::shared_ptr<ndn::Validator> validator,
              const time::steady_clock::Duration& resetTimer,
              const time::steady_clock::Duration& cancelResetTimer,
@@ -73,7 +74,7 @@ Logic::Logic(ndn::Face& face,
              const time::milliseconds& syncReplyFreshness)
   : m_face(face)
   , m_syncPrefix(syncPrefix)
-  , m_userPrefix(userPrefix)
+  , m_defaultUserPrefix(defaultUserPrefix)
   , m_interestTable(m_face.getIoService())
   , m_outstandingInterestId(0)
   , m_isInReset(false)
@@ -88,7 +89,7 @@ Logic::Logic(ndn::Face& face,
   , m_resetInterestLifetime(resetInterestLifetime)
   , m_syncInterestLifetime(syncInterestLifetime)
   , m_syncReplyFreshness(syncReplyFreshness)
-  , m_signingId(signingId)
+  , m_defaultSigningId(defaultSigningId)
   , m_validator(validator)
 {
 #ifdef _DEBUG
@@ -96,6 +97,9 @@ Logic::Logic(ndn::Face& face,
 #endif
 
   _LOG_DEBUG_ID(">> Logic::Logic");
+
+  addUserNode(m_defaultUserPrefix, m_defaultSigningId);
+
 
   m_syncReset = m_syncPrefix;
   m_syncReset.append("reset");
@@ -106,7 +110,6 @@ Logic::Logic(ndn::Face& face,
                              bind(&Logic::onSyncInterest, this, _1, _2),
                              bind(&Logic::onSyncRegisterFailed, this, _1, _2));
 
-  setUserPrefix(m_userPrefix);
 
   _LOG_DEBUG_ID("<< Logic::Logic");
 }
@@ -144,56 +147,132 @@ Logic::reset()
 }
 
 void
-Logic::setUserPrefix(const Name& userPrefix)
+Logic::setDefaultUserPrefix(const Name& defaultUserPrefix)
 {
-  m_userPrefix = userPrefix;
-
-  m_sessionName = m_userPrefix;
-  m_sessionName.appendNumber(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count());
-
-  m_seqNo = 0;
-
-  reset();
+  if (defaultUserPrefix != EMPTY_NAME) {
+    if (m_nodeList.find(defaultUserPrefix) != m_nodeList.end()) {
+      m_defaultUserPrefix = defaultUserPrefix;
+      m_defaultSigningId = m_nodeList[defaultUserPrefix].signingId;
+    }
+  }
 }
 
 void
-Logic::updateSeqNo(const SeqNo& seqNo)
+Logic::addUserNode(const Name& userPrefix, const Name& signingId)
 {
-  _LOG_DEBUG_ID(">> Logic::updateSeqNo");
-  _LOG_DEBUG_ID("seqNo: " << seqNo << " m_seqNo: " << m_seqNo);
-  if (seqNo < m_seqNo || seqNo == 0)
+  if (userPrefix == EMPTY_NAME)
     return;
+  if (m_defaultUserPrefix == EMPTY_NAME) {
+    m_defaultUserPrefix = userPrefix;
+    m_defaultSigningId = signingId;
+  }
+  if (m_nodeList.find(userPrefix) == m_nodeList.end()) {
+    m_nodeList[userPrefix].userPrefix = userPrefix;
+    m_nodeList[userPrefix].signingId = signingId;
+    Name sessionName = userPrefix;
+    sessionName.appendNumber(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count());
+    m_nodeList[userPrefix].sessionName = sessionName;
+    m_nodeList[userPrefix].seqNo = 0;
+    reset();
+  }
+}
 
-  m_seqNo = seqNo;
-
-  _LOG_DEBUG_ID("updateSeqNo: m_seqNo " << m_seqNo);
-
-  if (!m_isInReset) {
-    _LOG_DEBUG_ID("updateSeqNo: not in Reset ");
-    ndn::ConstBufferPtr previousRoot = m_state.getRootDigest();
-    {
-      using namespace CryptoPP;
-
-      std::string hash;
-      StringSource(previousRoot->buf(), previousRoot->size(), true,
-                   new HexEncoder(new StringSink(hash), false));
-      _LOG_DEBUG_ID("Hash: " << hash);
+void
+Logic::removeUserNode(const Name& userPrefix)
+{
+  auto userNode = m_nodeList.find(userPrefix);
+  if (userNode != m_nodeList.end()) {
+    m_nodeList.erase(userNode);
+    if (m_defaultUserPrefix == userPrefix) {
+      if (!m_nodeList.empty()) {
+        m_defaultUserPrefix = m_nodeList.begin()->second.userPrefix;
+        m_defaultSigningId = m_nodeList.begin()->second.signingId;
+      }
+      else {
+        m_defaultUserPrefix = EMPTY_NAME;
+        m_defaultSigningId = DEFAULT_NAME;
+      }
     }
+    reset();
+  }
+}
 
-    bool isInserted = false;
-    bool isUpdated = false;
-    SeqNo oldSeq;
-    boost::tie(isInserted, isUpdated, oldSeq) = m_state.update(m_sessionName, seqNo);
+const Name&
+Logic::getSessionName(Name prefix)
+{
+  if (prefix == EMPTY_NAME)
+    prefix = m_defaultUserPrefix;
+  auto node = m_nodeList.find(prefix);
+  if (node != m_nodeList.end())
+    return node->second.sessionName;
+  else
+    throw Error("Refer to non-existent node:" + prefix.toUri());
+}
 
-    _LOG_DEBUG_ID("Insert: " << std::boolalpha << isInserted);
-    _LOG_DEBUG_ID("Updated: " << std::boolalpha << isUpdated);
-    if (isInserted || isUpdated) {
-      DiffStatePtr commit = make_shared<DiffState>();
-      commit->update(m_sessionName, seqNo);
-      commit->setRootDigest(m_state.getRootDigest());
-      insertToDiffLog(commit, previousRoot);
+const SeqNo&
+Logic::getSeqNo(Name prefix)
+{
+  if (prefix == EMPTY_NAME)
+    prefix = m_defaultUserPrefix;
+  auto node = m_nodeList.find(prefix);
+  if (node != m_nodeList.end())
+    return node->second.seqNo;
+  else
+    throw Logic::Error("Refer to non-existent node:" + prefix.toUri());
 
-      satisfyPendingSyncInterests(commit);
+}
+
+void
+Logic::updateSeqNo(const SeqNo& seqNo, const Name &updatePrefix)
+{
+  Name prefix;
+  if (updatePrefix == EMPTY_NAME) {
+    if (m_defaultUserPrefix == EMPTY_NAME)
+      return;
+    prefix = m_defaultUserPrefix;
+  }
+  else
+    prefix = updatePrefix;
+
+  auto it = m_nodeList.find(prefix);
+  if (it != m_nodeList.end()) {
+    NodeInfo& node = it->second;
+    _LOG_DEBUG_ID(">> Logic::updateSeqNo");
+    _LOG_DEBUG_ID("seqNo: " << seqNo << " m_seqNo: " << node.seqNo);
+    if (seqNo < node.seqNo || seqNo == 0)
+      return;
+
+    node.seqNo = seqNo;
+    _LOG_DEBUG_ID("updateSeqNo: m_seqNo " << node.seqNo);
+
+    if (!m_isInReset) {
+      _LOG_DEBUG_ID("updateSeqNo: not in Reset ");
+      ndn::ConstBufferPtr previousRoot = m_state.getRootDigest();
+      {
+        using namespace CryptoPP;
+
+        std::string hash;
+        StringSource(previousRoot->buf(), previousRoot->size(), true,
+                     new HexEncoder(new StringSink(hash), false));
+        _LOG_DEBUG_ID("Hash: " << hash);
+      }
+
+      bool isInserted = false;
+      bool isUpdated = false;
+      SeqNo oldSeq;
+      boost::tie(isInserted, isUpdated, oldSeq) = m_state.update(node.sessionName,
+                                                                 node.seqNo);
+
+      _LOG_DEBUG_ID("Insert: " << std::boolalpha << isInserted);
+      _LOG_DEBUG_ID("Updated: " << std::boolalpha << isUpdated);
+      if (isInserted || isUpdated) {
+        DiffStatePtr commit = make_shared<DiffState>();
+        commit->update(node.sessionName, node.seqNo);
+        commit->setRootDigest(m_state.getRootDigest());
+        insertToDiffLog(commit, previousRoot);
+
+        satisfyPendingSyncInterests(prefix, commit);
+      }
     }
   }
 }
@@ -341,7 +420,7 @@ Logic::processSyncInterest(const shared_ptr<const Interest>& interest,
   // If the digest of incoming interest is an "empty" digest
   if (digest == EMPTY_DIGEST) {
     _LOG_DEBUG_ID("Poor guy, he knows nothing");
-    sendSyncData(name, m_state);
+    sendSyncData(m_defaultUserPrefix, name, m_state);
     return;
   }
 
@@ -349,7 +428,7 @@ Logic::processSyncInterest(const shared_ptr<const Interest>& interest,
   // If the digest of incoming interest can be found from the log
   if (stateIter != m_log.end()) {
     _LOG_DEBUG_ID("It is ok, you are so close");
-    sendSyncData(name, *(*stateIter)->diff());
+    sendSyncData(m_defaultUserPrefix, name, *(*stateIter)->diff());
     return;
   }
 
@@ -370,7 +449,7 @@ Logic::processSyncInterest(const shared_ptr<const Interest>& interest,
     // OK, nobody is helping us, just tell the truth.
     _LOG_DEBUG_ID("OK, nobody is helping us, just tell the truth");
     m_interestTable.erase(digest);
-    sendSyncData(name, m_state);
+    sendSyncData(m_defaultUserPrefix, name, m_state);
   }
 
   _LOG_DEBUG_ID("<< Logic::processSyncInterest");
@@ -389,7 +468,6 @@ Logic::processSyncData(const Name& name,
                        const Block& syncReplyBlock)
 {
   _LOG_DEBUG_ID(">> Logic::processSyncData");
-
   DiffStatePtr commit = make_shared<DiffState>();
   ndn::ConstBufferPtr previousRoot = m_state.getRootDigest();
 
@@ -411,7 +489,6 @@ Logic::processSyncData(const Name& name,
         bool isUpdated = false;
         SeqNo oldSeq;
         boost::tie(isInserted, isUpdated, oldSeq) = m_state.update(info, seq);
-
         if (isInserted || isUpdated) {
           commit->update(info, seq);
 
@@ -451,7 +528,7 @@ Logic::processSyncData(const Name& name,
 }
 
 void
-Logic::satisfyPendingSyncInterests(ConstDiffStatePtr commit)
+Logic::satisfyPendingSyncInterests(const Name& updatedPrefix, ConstDiffStatePtr commit)
 {
   _LOG_DEBUG_ID(">> Logic::satisfyPendingSyncInterests");
   try {
@@ -459,11 +536,10 @@ Logic::satisfyPendingSyncInterests(ConstDiffStatePtr commit)
     for (InterestTable::const_iterator it = m_interestTable.begin();
          it != m_interestTable.end(); it++) {
       ConstUnsatisfiedInterestPtr request = *it;
-
       if (request->isUnknown)
-        sendSyncData(request->interest->getName(), m_state);
+        sendSyncData(updatedPrefix, request->interest->getName(), m_state);
       else
-        sendSyncData(request->interest->getName(), *commit);
+        sendSyncData(updatedPrefix, request->interest->getName(), *commit);
     }
     m_interestTable.clear();
   }
@@ -548,17 +624,18 @@ Logic::sendSyncInterest()
 }
 
 void
-Logic::sendSyncData(const Name& name, const State& state)
+Logic::sendSyncData(const Name& nodePrefix, const Name& name, const State& state)
 {
   _LOG_DEBUG_ID(">> Logic::sendSyncData");
   shared_ptr<Data> syncReply = make_shared<Data>(name);
   syncReply->setContent(state.wireEncode());
   syncReply->setFreshnessPeriod(m_syncReplyFreshness);
-
-  if (m_signingId.empty())
+  if (m_nodeList.find(nodePrefix) == m_nodeList.end())
+    return;
+  if (m_nodeList[nodePrefix].signingId.empty())
     m_keyChain.sign(*syncReply);
   else
-    m_keyChain.signByIdentity(*syncReply, m_signingId);
+    m_keyChain.signByIdentity(*syncReply, m_nodeList[nodePrefix].signingId);
 
   m_face.put(*syncReply);
 
@@ -589,7 +666,9 @@ Logic::cancelReset()
     return;
 
   m_isInReset = false;
-  updateSeqNo(m_seqNo);
+  for (const auto& node : m_nodeList) {
+    updateSeqNo(node.second.seqNo, node.first);
+  }
   _LOG_DEBUG_ID("<< Logic::cancelReset");
 }
 

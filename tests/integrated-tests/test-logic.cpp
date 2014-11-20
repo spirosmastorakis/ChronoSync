@@ -59,12 +59,6 @@ public:
     logic.updateSeqNo(seqNo);
   }
 
-  void
-  check(const Name& sessionName, const SeqNo& seqNo)
-  {
-    BOOST_CHECK_EQUAL(map[sessionName], seqNo);
-  }
-
   Logic logic;
   std::map<Name, SeqNo> map;
 };
@@ -84,30 +78,6 @@ public:
     faces[0] = make_shared<ndn::Face>(ref(io));
     faces[1] = make_shared<ndn::Face>(ref(io));
     faces[2] = make_shared<ndn::Face>(ref(io));
-  }
-
-  void
-  createHandler(size_t idx)
-  {
-    handler[idx] = make_shared<Handler>(ref(*faces[idx]), syncPrefix, userPrefix[idx]);
-  }
-
-  void
-  updateSeqNo(size_t idx, const SeqNo& seqNo)
-  {
-    handler[idx]->updateSeqNo(seqNo);
-  }
-
-  void
-  checkSeqNo(size_t sIdx, size_t dIdx, const SeqNo& seqNo)
-  {
-    handler[sIdx]->check(handler[dIdx]->logic.getSessionName(), seqNo);
-  }
-
-  void
-  terminate()
-  {
-    io.stop();
   }
 
   Name syncPrefix;
@@ -138,31 +108,27 @@ BOOST_AUTO_TEST_CASE(Constructor)
 BOOST_AUTO_TEST_CASE(TwoBasic)
 {
   scheduler.scheduleEvent(ndn::time::milliseconds(100),
-                          bind(&LogicFixture::createHandler, this, 0));
+    [this] { handler[0] = make_shared<Handler>(ref(*faces[0]), syncPrefix, userPrefix[0]); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(200),
-                          bind(&LogicFixture::createHandler, this, 1));
+    [this] { handler[1] = make_shared<Handler>(ref(*faces[1]), syncPrefix, userPrefix[1]); });
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(300),
-                          bind(&LogicFixture::updateSeqNo, this, 0, 1));
+  scheduler.scheduleEvent(ndn::time::milliseconds(300), [this] { handler[0]->updateSeqNo(1); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(1000),
-                          bind(&LogicFixture::checkSeqNo, this, 1, 0, 1));
+    [this] { BOOST_CHECK_EQUAL(handler[1]->map[handler[0]->logic.getSessionName()], 1); });
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(1100),
-                          bind(&LogicFixture::updateSeqNo, this, 0, 2));
+  scheduler.scheduleEvent(ndn::time::milliseconds(1100), [this] { handler[0]->updateSeqNo(2); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(1800),
-                          bind(&LogicFixture::checkSeqNo, this, 1, 0, 2));
+    [this] { BOOST_CHECK_EQUAL(handler[1]->map[handler[0]->logic.getSessionName()], 2); });
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(1900),
-                          bind(&LogicFixture::updateSeqNo, this, 1, 2));
+  scheduler.scheduleEvent(ndn::time::milliseconds(1900), [this] { handler[1]->updateSeqNo(2); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(2600),
-                          bind(&LogicFixture::checkSeqNo, this, 0, 1, 2));
+    [this] { BOOST_CHECK_EQUAL(handler[0]->map[handler[1]->logic.getSessionName()], 2); });
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(2800),
-                          bind(&LogicFixture::terminate, this));
+  scheduler.scheduleEvent(ndn::time::milliseconds(2800), [this] { io.stop(); });
 
   io.run();
 }
@@ -170,43 +136,39 @@ BOOST_AUTO_TEST_CASE(TwoBasic)
 BOOST_AUTO_TEST_CASE(ThreeBasic)
 {
   scheduler.scheduleEvent(ndn::time::milliseconds(100),
-                          bind(&LogicFixture::createHandler, this, 0));
+    [this] { handler[0] = make_shared<Handler>(ref(*faces[0]), syncPrefix, userPrefix[0]); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(200),
-                          bind(&LogicFixture::createHandler, this, 1));
+    [this] { handler[1] = make_shared<Handler>(ref(*faces[1]), syncPrefix, userPrefix[1]); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(300),
-                          bind(&LogicFixture::createHandler, this, 2));
+    [this] { handler[2] = make_shared<Handler>(ref(*faces[2]), syncPrefix, userPrefix[2]); });
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(500),
-                          bind(&LogicFixture::updateSeqNo, this, 0, 1));
+  scheduler.scheduleEvent(ndn::time::milliseconds(500), [this] { handler[0]->updateSeqNo(1); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(1400),
-                          bind(&LogicFixture::checkSeqNo, this, 1, 0, 1));
+    [this] { BOOST_CHECK_EQUAL(handler[1]->map[handler[0]->logic.getSessionName()], 1); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(1450),
-                          bind(&LogicFixture::checkSeqNo, this, 2, 0, 1));
+    [this] { BOOST_CHECK_EQUAL(handler[2]->map[handler[0]->logic.getSessionName()], 1); });
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(1500),
-                          bind(&LogicFixture::updateSeqNo, this, 1, 2));
+  scheduler.scheduleEvent(ndn::time::milliseconds(1500), [this] { handler[1]->updateSeqNo(2); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(2400),
-                          bind(&LogicFixture::checkSeqNo, this, 0, 1, 2));
+    [this] { BOOST_CHECK_EQUAL(handler[0]->map[handler[1]->logic.getSessionName()], 2); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(2450),
-                          bind(&LogicFixture::checkSeqNo, this, 2, 1, 2));
+    [this] { BOOST_CHECK_EQUAL(handler[2]->map[handler[1]->logic.getSessionName()], 2); });
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(2500),
-                          bind(&LogicFixture::updateSeqNo, this, 2, 4));
+  scheduler.scheduleEvent(ndn::time::milliseconds(2500), [this] { handler[2]->updateSeqNo(4); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(4400),
-                          bind(&LogicFixture::checkSeqNo, this, 0, 2, 4));
+    [this] { BOOST_CHECK_EQUAL(handler[0]->map[handler[2]->logic.getSessionName()], 4); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(4450),
-                          bind(&LogicFixture::checkSeqNo, this, 1, 2, 4));
+    [this] { BOOST_CHECK_EQUAL(handler[1]->map[handler[2]->logic.getSessionName()], 4); });
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(4500),
-                          bind(&LogicFixture::terminate, this));
+  scheduler.scheduleEvent(ndn::time::milliseconds(4500), [this] { io.stop(); });
 
   io.run();
 }
@@ -214,44 +176,40 @@ BOOST_AUTO_TEST_CASE(ThreeBasic)
 BOOST_AUTO_TEST_CASE(ResetRecover)
 {
   scheduler.scheduleEvent(ndn::time::milliseconds(100),
-                          bind(&LogicFixture::createHandler, this, 0));
+    [this] { handler[0] = make_shared<Handler>(ref(*faces[0]), syncPrefix, userPrefix[0]); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(200),
-                          bind(&LogicFixture::createHandler, this, 1));
+    [this] { handler[1] = make_shared<Handler>(ref(*faces[1]), syncPrefix, userPrefix[1]); });
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(500),
-                          bind(&LogicFixture::updateSeqNo, this, 0, 1));
+  scheduler.scheduleEvent(ndn::time::milliseconds(500), [this] { handler[0]->updateSeqNo(1); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(1400),
-                          bind(&LogicFixture::checkSeqNo, this, 1, 0, 1));
+    [this] { BOOST_CHECK_EQUAL(handler[1]->map[handler[0]->logic.getSessionName()], 1); });
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(1500),
-                          bind(&LogicFixture::updateSeqNo, this, 1, 2));
+  scheduler.scheduleEvent(ndn::time::milliseconds(1500), [this] { handler[1]->updateSeqNo(2); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(2400),
-                          bind(&LogicFixture::checkSeqNo, this, 0, 1, 2));
+    [this] { BOOST_CHECK_EQUAL(handler[0]->map[handler[1]->logic.getSessionName()], 2); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(2500),
-                          bind(&LogicFixture::createHandler, this, 2));
+    [this] { handler[2] = make_shared<Handler>(ref(*faces[2]), syncPrefix, userPrefix[2]); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(3000),
-                          bind(&LogicFixture::checkSeqNo, this, 1, 0, 1));
+    [this] { BOOST_CHECK_EQUAL(handler[1]->map[handler[0]->logic.getSessionName()], 1); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(3050),
-                          bind(&LogicFixture::checkSeqNo, this, 0, 1, 2));
+    [this] { BOOST_CHECK_EQUAL(handler[0]->map[handler[1]->logic.getSessionName()], 2); });
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(3100),
-                          bind(&LogicFixture::updateSeqNo, this, 2, 4));
+  scheduler.scheduleEvent(ndn::time::milliseconds(3100), [this] { handler[2]->updateSeqNo(4); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(4000),
-                          bind(&LogicFixture::checkSeqNo, this, 1, 2, 4));
+    [this] { BOOST_CHECK_EQUAL(handler[1]->map[handler[2]->logic.getSessionName()], 4); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(4050),
-                          bind(&LogicFixture::checkSeqNo, this, 0, 2, 4));
+    [this] { BOOST_CHECK_EQUAL(handler[0]->map[handler[2]->logic.getSessionName()], 4); });
 
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(4500),
-                          bind(&LogicFixture::terminate, this));
+  scheduler.scheduleEvent(ndn::time::milliseconds(4500), [this] { io.stop(); });
 
   io.run();
 }
@@ -259,47 +217,83 @@ BOOST_AUTO_TEST_CASE(ResetRecover)
 BOOST_AUTO_TEST_CASE(RecoverConflict)
 {
   scheduler.scheduleEvent(ndn::time::milliseconds(0),
-                          bind(&LogicFixture::createHandler, this, 0));
+    [this] { handler[0] = make_shared<Handler>(ref(*faces[0]), syncPrefix, userPrefix[0]); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(50),
-                          bind(&LogicFixture::createHandler, this, 1));
+    [this] { handler[1] = make_shared<Handler>(ref(*faces[1]), syncPrefix, userPrefix[1]); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(100),
-                          bind(&LogicFixture::createHandler, this, 2));
+    [this] { handler[2] = make_shared<Handler>(ref(*faces[2]), syncPrefix, userPrefix[2]); });
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(500),
-                          bind(&LogicFixture::updateSeqNo, this, 0, 1));
-
-  scheduler.scheduleEvent(ndn::time::milliseconds(1400),
-                          bind(&LogicFixture::checkSeqNo, this, 1, 0, 1));
+  scheduler.scheduleEvent(ndn::time::milliseconds(500), [this] { handler[0]->updateSeqNo(1); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(1400),
-                          bind(&LogicFixture::checkSeqNo, this, 2, 0, 1));
+    [this] { BOOST_CHECK_EQUAL(handler[1]->map[handler[0]->logic.getSessionName()], 1); });
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(1500),
-                          bind(&LogicFixture::updateSeqNo, this, 1, 2));
+  scheduler.scheduleEvent(ndn::time::milliseconds(1400),
+    [this] { BOOST_CHECK_EQUAL(handler[2]->map[handler[0]->logic.getSessionName()], 1); });
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(1500),
-                          bind(&LogicFixture::updateSeqNo, this, 2, 4));
+  scheduler.scheduleEvent(ndn::time::milliseconds(1500), [this] { handler[1]->updateSeqNo(2); });
+
+  scheduler.scheduleEvent(ndn::time::milliseconds(1500), [this] { handler[2]->updateSeqNo(4); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(2400),
-                          bind(&LogicFixture::checkSeqNo, this, 0, 1, 2));
+    [this] { BOOST_CHECK_EQUAL(handler[0]->map[handler[1]->logic.getSessionName()], 2); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(2450),
-                          bind(&LogicFixture::checkSeqNo, this, 0, 2, 4));
+    [this] { BOOST_CHECK_EQUAL(handler[0]->map[handler[2]->logic.getSessionName()], 4); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(2500),
-                          bind(&LogicFixture::checkSeqNo, this, 1, 2, 4));
+    [this] { BOOST_CHECK_EQUAL(handler[1]->map[handler[2]->logic.getSessionName()], 4); });
 
   scheduler.scheduleEvent(ndn::time::milliseconds(2550),
-                          bind(&LogicFixture::checkSeqNo, this, 2, 1, 2));
+    [this] { BOOST_CHECK_EQUAL(handler[2]->map[handler[1]->logic.getSessionName()], 2); });
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(4500),
-                          bind(&LogicFixture::terminate, this));
+  scheduler.scheduleEvent(ndn::time::milliseconds(4500), [this] { io.stop(); });
 
   io.run();
 }
 
+BOOST_AUTO_TEST_CASE(MultipleUserUnderOneLogic)
+{
+  scheduler.scheduleEvent(ndn::time::milliseconds(0),
+    [this] { handler[0] = make_shared<Handler>(ref(*faces[0]), syncPrefix, userPrefix[0]); });
+
+  scheduler.scheduleEvent(ndn::time::milliseconds(50),
+    [this] { handler[1] = make_shared<Handler>(ref(*faces[1]), syncPrefix, userPrefix[2]); });
+
+  scheduler.scheduleEvent(ndn::time::milliseconds(100),
+    [this] { handler[0]->logic.addUserNode(userPrefix[1]); });
+
+  scheduler.scheduleEvent(ndn::time::milliseconds(500), [this] { handler[0]->updateSeqNo(1); });
+
+  scheduler.scheduleEvent(ndn::time::milliseconds(1400),
+    [this] { BOOST_CHECK_EQUAL(handler[1]->map[handler[0]->logic.getSessionName()], 1); });
+
+  scheduler.scheduleEvent(ndn::time::milliseconds(1500),
+    [this] { handler[0]->logic.updateSeqNo(2, userPrefix[1]); });
+
+  scheduler.scheduleEvent(ndn::time::milliseconds(2400),
+    [this] {
+             Name sessionName = handler[0]->logic.getSessionName(userPrefix[1]);
+             BOOST_CHECK_EQUAL(handler[1]->map[sessionName], 2);
+           });
+
+  scheduler.scheduleEvent(ndn::time::milliseconds(2500), [this] { handler[1]->updateSeqNo(4); });
+
+  scheduler.scheduleEvent(ndn::time::milliseconds(3200),
+    [this] { BOOST_CHECK_EQUAL(handler[0]->map[handler[1]->logic.getSessionName()], 4); });
+
+  scheduler.scheduleEvent(ndn::time::milliseconds(3300),
+    [this] { handler[0]->logic.removeUserNode(userPrefix[0]); });
+
+  scheduler.scheduleEvent(ndn::time::milliseconds(4500),
+    [this] { BOOST_CHECK_EQUAL(handler[1]->logic.getSessionNames().size(), 2); });
+
+  scheduler.scheduleEvent(ndn::time::milliseconds(5000), [this] { io.stop(); });
+
+  io.run();
+}
 
 BOOST_AUTO_TEST_SUITE_END()
 
