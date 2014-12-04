@@ -30,6 +30,7 @@ INIT_LOGGER("Socket");
 
 namespace chronosync {
 
+const ndn::Name Socket::DEFAULT_PREFIX;
 const ndn::Name Socket::DEFAULT_NAME;
 const ndn::shared_ptr<ndn::Validator> Socket::DEFAULT_VALIDATOR;
 
@@ -47,23 +48,30 @@ Socket::Socket(const Name& syncPrefix,
 {
 }
 
-
 void
-Socket::publishData(const uint8_t* buf, size_t len, const ndn::time::milliseconds& freshness)
+Socket::addSyncNode(const Name& prefix, const Name& signingId)
 {
-  publishData(ndn::dataBlock(ndn::tlv::Content, buf, len), freshness);
+  m_logic.addUserNode(prefix, signingId);
 }
 
 void
-Socket::publishData(const Block& content, const ndn::time::milliseconds& freshness)
+Socket::publishData(const uint8_t* buf, size_t len, const ndn::time::milliseconds& freshness,
+                    const Name& prefix)
+{
+  publishData(ndn::dataBlock(ndn::tlv::Content, buf, len), freshness, prefix);
+}
+
+void
+Socket::publishData(const Block& content, const ndn::time::milliseconds& freshness,
+                    const Name& prefix)
 {
   shared_ptr<Data> data = make_shared<Data>();
   data->setContent(content);
   data->setFreshnessPeriod(freshness);
 
-  SeqNo newSeq = m_logic.getSeqNo() + 1;
+  SeqNo newSeq = m_logic.getSeqNo(prefix) + 1;
   Name dataName;
-  dataName.append(m_logic.getSessionName()).appendNumber(newSeq);
+  dataName.append(m_logic.getSessionName(prefix)).appendNumber(newSeq);
   data->setName(dataName);
 
   if (m_signingId.empty())
@@ -73,7 +81,7 @@ Socket::publishData(const Block& content, const ndn::time::milliseconds& freshne
 
   m_face.put(*data);
 
-  m_logic.updateSeqNo(newSeq);
+  m_logic.updateSeqNo(newSeq, prefix);
 }
 
 void

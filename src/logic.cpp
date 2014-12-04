@@ -110,7 +110,7 @@ Logic::Logic(ndn::Face& face,
                              bind(&Logic::onSyncInterest, this, _1, _2),
                              bind(&Logic::onSyncRegisterFailed, this, _1, _2));
 
-
+  sendSyncInterest();
   _LOG_DEBUG_ID("<< Logic::Logic");
 }
 
