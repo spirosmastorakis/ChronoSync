@@ -19,19 +19,18 @@
 
 #include "interest-table.hpp"
 
-#include <ndn-cxx/util/scheduler.hpp>
 #include <unistd.h>
 
+#include "../unit-test-time-fixture.hpp"
 #include "boost-test.hpp"
 
 namespace chronosync {
 namespace test {
 
-class InterestTableFixture
+class InterestTableFixture : public ndn::tests::UnitTestTimeFixture
 {
 public:
   InterestTableFixture()
-    : scheduler(io)
   {
     uint8_t origin[4] = {0x01, 0x02, 0x03, 0x04};
     Name prefix("/test/prefix");
@@ -63,18 +62,6 @@ public:
     table.insert(interest, digest);
   }
 
-  void
-  check(InterestTable& table, size_t size)
-  {
-    BOOST_CHECK_EQUAL(table.size(), size);
-  }
-
-  void
-  terminate()
-  {
-    io.stop();
-  }
-
   shared_ptr<Interest> interest1;
   ndn::ConstBufferPtr digest1;
 
@@ -83,9 +70,6 @@ public:
 
   shared_ptr<Interest> interest3;
   ndn::ConstBufferPtr digest3;
-
-  boost::asio::io_service io;
-  ndn::Scheduler scheduler;
 };
 
 BOOST_FIXTURE_TEST_SUITE(InterestTableTest, InterestTableFixture)
@@ -137,38 +121,25 @@ BOOST_AUTO_TEST_CASE(Expire)
 {
   InterestTable table(io);
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(50),
-                          ndn::bind(&InterestTableFixture::insert, this,
-                                    ndn::ref(table), interest1, digest1));
+  insert(ndn::ref(table), interest1, digest1);
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(150),
-                          ndn::bind(&InterestTableFixture::insert, this,
-                                    ndn::ref(table), interest2, digest2));
+  advanceClocks(ndn::time::milliseconds(10), 10);
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(150),
-                          ndn::bind(&InterestTableFixture::insert, this,
-                                    ndn::ref(table), interest3, digest3));
+  insert(ndn::ref(table), interest2, digest2);
+  insert(ndn::ref(table), interest3, digest3);
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(200),
-                          ndn::bind(&InterestTableFixture::insert, this,
-                                    ndn::ref(table), interest2, digest2));
+  advanceClocks(ndn::time::milliseconds(10), 5);
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(220),
-                          ndn::bind(&InterestTableFixture::check, this,
-                                    ndn::ref(table), 2));
+  insert(ndn::ref(table), interest2, digest2);
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(270),
-                          ndn::bind(&InterestTableFixture::check, this,
-                                    ndn::ref(table), 1));
+  advanceClocks(ndn::time::milliseconds(10), 2);
+  BOOST_CHECK_EQUAL(table.size(), 2);
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(420),
-                          ndn::bind(&InterestTableFixture::check, this,
-                                    ndn::ref(table), 0));
+  advanceClocks(ndn::time::milliseconds(10), 5);
+  BOOST_CHECK_EQUAL(table.size(), 1);
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(500),
-                          ndn::bind(&InterestTableFixture::terminate, this));
-
-  io.run();
+  advanceClocks(ndn::time::milliseconds(10), 15);
+  BOOST_CHECK_EQUAL(table.size(), 0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
