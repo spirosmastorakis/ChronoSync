@@ -53,6 +53,15 @@ Socket::Socket(const Name& syncPrefix,
                                [] (const Name& prefix, const std::string& msg) {});
 }
 
+Socket::~Socket()
+{
+  for(const auto& itr : m_registeredPrefixList) {
+    if (static_cast<bool>(itr.second))
+      m_face.unsetInterestFilter(itr.second);
+  }
+  m_ims.erase("/");
+}
+
 void
 Socket::addSyncNode(const Name& prefix, const Name& signingId)
 {
@@ -70,6 +79,24 @@ Socket::addSyncNode(const Name& prefix, const Name& signingId)
     m_face.setInterestFilter(prefix,
                              bind(&Socket::onInterest, this, _1, _2),
                              [] (const Name& prefix, const std::string& msg) {});
+}
+
+void
+Socket::removeSyncNode(const Name& prefix)
+{
+  if (prefix == DEFAULT_NAME)
+    return;
+
+  auto itr = m_registeredPrefixList.find(prefix);
+  if (itr != m_registeredPrefixList.end()) {
+    if (static_cast<bool>(itr->second))
+      m_face.unsetInterestFilter(itr->second);
+    m_registeredPrefixList.erase(itr);
+  }
+
+  m_ims.erase(prefix);
+  m_logic.removeUserNode(prefix);
+
 }
 
 void

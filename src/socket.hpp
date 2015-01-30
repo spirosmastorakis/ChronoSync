@@ -66,8 +66,32 @@ public:
          const Name& signingId = DEFAULT_NAME,
          ndn::shared_ptr<ndn::Validator> validator = DEFAULT_VALIDATOR);
 
+  ~Socket();
+
+  /**
+   * @brief Add a sync node under same logic
+   *
+   * This method will add a new sync node in logic and then register this prefix.
+   * If pass an empty prefix, it will return directly without doing anything
+   * If the prefix is already registered, return directly
+   *
+   * @param prefix Prefix of the new node
+   * @param signingId Signing ID for the packet sent out by the new node
+   */
   void
   addSyncNode(const Name& prefix, const Name& signingId = DEFAULT_NAME);
+
+  /**
+   * @brief Remove a sync node under same logic
+   *
+   * This method will remove a sync node in logic, unregister this prefix
+   * and then clear the in memory storage about this prefix.
+   * logic will be reset after removal of this node
+   *
+   * @param prefix Prefix of the node to remove
+   */
+  void
+  removeSyncNode(const Name& prefix);
 
   /**
    * @brief Publish a data packet in the session and trigger synchronization updates
