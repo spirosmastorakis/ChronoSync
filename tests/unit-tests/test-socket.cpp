@@ -18,7 +18,8 @@
  */
 
 #include "socket.hpp"
-
+#include "../unit-test-time-fixture.hpp"
+#include <ndn-cxx/util/dummy-client-face.hpp>
 #include "boost-test.hpp"
 
 namespace chronosync {
@@ -27,6 +28,9 @@ namespace test {
 using std::string;
 using std::vector;
 using std::map;
+using ndn::util::DummyClientFace;
+using ndn::util::makeDummyClientFace;
+
 
 /**
  * @brief Emulate an app that use the Socket class
@@ -39,7 +43,7 @@ class SocketTestApp : noncopyable
 public:
   SocketTestApp(const Name& syncPrefix,
                 const Name& userPrefix,
-                ndn::Face& face,
+                DummyClientFace& face,
                 bool isNum)
     : sum(0)
     , socket(syncPrefix,
@@ -137,21 +141,51 @@ public:
   Socket socket;
 };
 
-class SocketFixture
+class SocketFixture : public ndn::tests::UnitTestTimeFixture
 {
 public:
   SocketFixture()
     : syncPrefix("/ndn/broadcast/sync")
-    , scheduler(io)
   {
     syncPrefix.appendVersion();
     userPrefix[0] = Name("/user0");
     userPrefix[1] = Name("/user1");
     userPrefix[2] = Name("/user2");
 
-    faces[0] = make_shared<ndn::Face>(ref(io));
-    faces[1] = make_shared<ndn::Face>(ref(io));
-    faces[2] = make_shared<ndn::Face>(ref(io));
+    faces[0] = makeDummyClientFace(ref(io), {true, true});
+    faces[1] = makeDummyClientFace(ref(io), {true, true});
+    faces[2] = makeDummyClientFace(ref(io), {true, true});
+
+    for (int i = 0; i < 3; i++) {
+      readInterestOffset[i] = 0;
+      readDataOffset[i] = 0;
+    }
+  }
+
+  void
+  passPacket()
+  {
+    for (int i = 0; i < 3; i++)
+      checkFace(i);
+  }
+
+  void
+  checkFace(int sender)
+  {
+    while (faces[sender]->sentInterests.size() > readInterestOffset[sender]) {
+      for (int i = 0; i < 3; i++) {
+        if (sender != i)
+          faces[i]->receive(faces[sender]->sentInterests[readInterestOffset[sender]]);
+      }
+      readInterestOffset[sender]++;
+    }
+    while (faces[sender]->sentDatas.size() > readDataOffset[sender]) {
+      for (int i = 0; i < 3; i++) {
+        if (sender != i)
+          faces[i]->receive(faces[sender]->sentDatas[readDataOffset[sender]]);
+      }
+      readDataOffset[sender]++;
+    }
   }
 
   void
@@ -190,34 +224,15 @@ public:
     app[idx]->setNum(dataName, buf, size);
   }
 
-  void
-  check(int round)
-  {
-    BOOST_CHECK_EQUAL(app[0]->toString(), app[1]->toString());
-    BOOST_CHECK_EQUAL(app[0]->toString(), app[2]->toString());
-  }
-
-  void
-  check2Num(int num)
-  {
-    BOOST_CHECK_EQUAL(app[0]->sum, app[1]->sum);
-    BOOST_CHECK_EQUAL(app[1]->sum, num);
-  }
-
-  void
-  terminate()
-  {
-    io.stop();
-  }
-
   Name syncPrefix;
   Name userPrefix[3];
   Name sessionName[3];
 
-  boost::asio::io_service io;
-  shared_ptr<ndn::Face> faces[3];
-  ndn::Scheduler scheduler;
+  shared_ptr<DummyClientFace> faces[3];
   shared_ptr<SocketTestApp> app[3];
+
+  size_t readInterestOffset[3];
+  size_t readDataOffset[3];
 };
 
 
@@ -226,105 +241,116 @@ BOOST_FIXTURE_TEST_SUITE(SocketTests, SocketFixture)
 
 BOOST_AUTO_TEST_CASE(BasicData)
 {
-  scheduler.scheduleEvent(ndn::time::milliseconds(0),
-                          bind(&SocketFixture::createSocket, this, 0, false));
-
-  scheduler.scheduleEvent(ndn::time::milliseconds(50),
-                          bind(&SocketFixture::createSocket, this, 1, false));
-
-  scheduler.scheduleEvent(ndn::time::milliseconds(100),
-                          bind(&SocketFixture::createSocket, this, 2, false));
+  createSocket(0, false);
+  advanceClocks(ndn::time::milliseconds(10), 5);
+  createSocket(1, false);
+  advanceClocks(ndn::time::milliseconds(10), 5);
+  createSocket(2, false);
+  advanceClocks(ndn::time::milliseconds(10), 5);
 
   string data0 = "Very funny Scotty, now beam down my clothes";
-  scheduler.scheduleEvent(ndn::time::milliseconds(150),
-                          bind(&SocketFixture::publishAppData, this, 0, data0));
-  scheduler.scheduleEvent(ndn::time::milliseconds(1150),
-                          bind(&SocketFixture::setAppData, this, 0, 1, data0));
-  scheduler.scheduleEvent(ndn::time::milliseconds(1160),
-                          bind(&SocketFixture::check, this, 1));
+  publishAppData(0, data0);
+
+  for (int i = 0; i < 50; i++) {
+    advanceClocks(ndn::time::milliseconds(2), 10);
+    passPacket();
+  }
+  setAppData(0, 1, data0);
+
+  advanceClocks(ndn::time::milliseconds(10), 1);
+  BOOST_CHECK_EQUAL(app[0]->toString(), app[1]->toString());
+  BOOST_CHECK_EQUAL(app[0]->toString(), app[2]->toString());
 
   string data1 = "Yes, give me that ketchup";
   string data2 = "Don't look conspicuous, it draws fire";
-  scheduler.scheduleEvent(ndn::time::milliseconds(1170),
-                          bind(&SocketFixture::publishAppData, this, 0, data1));
-  scheduler.scheduleEvent(ndn::time::milliseconds(1180),
-                          bind(&SocketFixture::publishAppData, this, 0, data2));
-  scheduler.scheduleEvent(ndn::time::milliseconds(2150),
-                          bind(&SocketFixture::setAppData, this, 0, 2, data1));
-  scheduler.scheduleEvent(ndn::time::milliseconds(2160),
-                          bind(&SocketFixture::setAppData, this, 0, 3, data2));
-  scheduler.scheduleEvent(ndn::time::milliseconds(2170),
-                          bind(&SocketFixture::check, this, 2));
+  publishAppData(0, data1);
+  advanceClocks(ndn::time::milliseconds(10), 1);
+  publishAppData(0, data2);
+
+  for (int i = 0; i < 50; i++) {
+    advanceClocks(ndn::time::milliseconds(2), 10);
+    passPacket();
+  }
+  setAppData(0, 2, data1);
+  advanceClocks(ndn::time::milliseconds(10), 1);
+  setAppData(0, 3, data2);
+
+  advanceClocks(ndn::time::milliseconds(10), 1);
+  BOOST_CHECK_EQUAL(app[0]->toString(), app[1]->toString());
+  BOOST_CHECK_EQUAL(app[0]->toString(), app[2]->toString());
 
   string data3 = "You surf the Internet, I surf the real world";
   string data4 = "I got a fortune cookie once that said 'You like Chinese food'";
   string data5 = "Real men wear pink. Why? Because their wives make them";
-  scheduler.scheduleEvent(ndn::time::milliseconds(3180),
-                          bind(&SocketFixture::publishAppData, this, 2, data3));
-  scheduler.scheduleEvent(ndn::time::milliseconds(3200),
-                          bind(&SocketFixture::publishAppData, this, 1, data4));
-  scheduler.scheduleEvent(ndn::time::milliseconds(3210),
-                          bind(&SocketFixture::publishAppData, this, 1, data5));
-  scheduler.scheduleEvent(ndn::time::milliseconds(4710),
-                          bind(&SocketFixture::setAppData, this, 2, 1, data3));
-  scheduler.scheduleEvent(ndn::time::milliseconds(4720),
-                          bind(&SocketFixture::setAppData, this, 1, 1, data4));
-  scheduler.scheduleEvent(ndn::time::milliseconds(4730),
-                          bind(&SocketFixture::setAppData, this, 1, 2, data5));
-  scheduler.scheduleEvent(ndn::time::milliseconds(4800),
-                          bind(&SocketFixture::check, this, 3));
+  publishAppData(2, data3);
+  advanceClocks(ndn::time::milliseconds(10), 2);
+  publishAppData(1, data4);
+  advanceClocks(ndn::time::milliseconds(10), 1);
+  publishAppData(1, data5);
 
-  // not sure weither this is simultanous data generation from multiple sources
+  for (int i = 0; i < 100; i++) {
+    advanceClocks(ndn::time::milliseconds(2), 10);
+    passPacket();
+  }
+  setAppData(2, 1, data3);
+  advanceClocks(ndn::time::milliseconds(10), 1);
+  setAppData(1, 1, data4);
+  advanceClocks(ndn::time::milliseconds(10), 1);
+  setAppData(1, 2, data5);
+
+  advanceClocks(ndn::time::milliseconds(10), 7);
+  BOOST_CHECK_EQUAL(app[0]->toString(), app[1]->toString());
+  BOOST_CHECK_EQUAL(app[0]->toString(), app[2]->toString());
+
   string data6 = "Shakespeare says: 'Prose before hos.'";
   string data7 = "Pick good people, talent never wears out";
-  scheduler.scheduleEvent(ndn::time::milliseconds(5500),
-                          bind(&SocketFixture::publishAppData, this, 0, data6));
-  scheduler.scheduleEvent(ndn::time::milliseconds(5500),
-                          bind(&SocketFixture::publishAppData, this, 1, data7));
-  scheduler.scheduleEvent(ndn::time::milliseconds(6800),
-                          bind(&SocketFixture::setAppData, this, 0, 4, data6));
-  scheduler.scheduleEvent(ndn::time::milliseconds(6800),
-                          bind(&SocketFixture::setAppData, this, 1, 3, data7));
-  scheduler.scheduleEvent(ndn::time::milliseconds(6900),
-                          bind(&SocketFixture::check, this, 4));
+  publishAppData(0, data6);
+  publishAppData(1, data7);
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(7000),
-                          bind(&SocketFixture::terminate, this));
+  for (int i = 0; i < 100; i++) {
+    advanceClocks(ndn::time::milliseconds(2), 10);
+    passPacket();
+  }
+  setAppData(0, 4, data6);
+  setAppData(1, 3, data7);
 
-  io.run();
+  BOOST_CHECK_EQUAL(app[0]->toString(), app[1]->toString());
+  BOOST_CHECK_EQUAL(app[0]->toString(), app[2]->toString());
 }
 
 BOOST_AUTO_TEST_CASE(BasicNumber)
 {
-  scheduler.scheduleEvent(ndn::time::milliseconds(0),
-                          bind(&SocketFixture::createSocket, this, 0, true));
-  scheduler.scheduleEvent(ndn::time::milliseconds(50),
-                          bind(&SocketFixture::createSocket, this, 1, true));
+  createSocket(0, true);
+  advanceClocks(ndn::time::milliseconds(10), 5);
+  createSocket(1, true);
+  advanceClocks(ndn::time::milliseconds(10), 5);
 
   uint32_t num1[5] = {0, 1, 2, 3, 4};
   uint8_t* buf1 = reinterpret_cast<uint8_t*>(num1);
   size_t size1 = sizeof(num1);
-  scheduler.scheduleEvent(ndn::time::milliseconds(100),
-                          bind(&SocketFixture::publishAppNum, this, 0, buf1, size1));
-  scheduler.scheduleEvent(ndn::time::milliseconds(150),
-                          bind(&SocketFixture::setAppNum, this, 0, 0, buf1, size1));
-  scheduler.scheduleEvent(ndn::time::milliseconds(1000),
-                          bind(&SocketFixture::check2Num, this, 10));
+  publishAppNum(0, buf1, size1);
+  advanceClocks(ndn::time::milliseconds(10), 5);
+  setAppNum(0, 0, buf1, size1);
+
+  for (int i = 0; i < 100; i++) {
+    advanceClocks(ndn::time::milliseconds(2), 10);
+    passPacket();
+  }
+  BOOST_CHECK_EQUAL(app[0]->sum, app[1]->sum);
+  BOOST_CHECK_EQUAL(app[1]->sum, 10);
 
   uint32_t num2[5] = {9, 7, 2, 1, 1};
   uint8_t* buf2 = reinterpret_cast<uint8_t*>(num2);
   size_t size2 = sizeof(num2);
-  scheduler.scheduleEvent(ndn::time::milliseconds(1100),
-                          bind(&SocketFixture::publishAppNum, this, 1, buf2, size2));
-  scheduler.scheduleEvent(ndn::time::milliseconds(1150),
-                          bind(&SocketFixture::setAppNum, this, 1, 0, buf2, size2));
-  scheduler.scheduleEvent(ndn::time::milliseconds(2000),
-                          bind(&SocketFixture::check2Num, this, 30));
+  publishAppNum(1, buf2, size2);
+  setAppNum(1, 0, buf2, size2);
 
-  scheduler.scheduleEvent(ndn::time::milliseconds(7000),
-                          bind(&SocketFixture::terminate, this));
-
-  io.run();
+  for (int i = 0; i < 50; i++) {
+    advanceClocks(ndn::time::milliseconds(2), 10);
+    passPacket();
+  }
+  BOOST_CHECK_EQUAL(app[0]->sum, app[1]->sum);
+  BOOST_CHECK_EQUAL(app[1]->sum, 30);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

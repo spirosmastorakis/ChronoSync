@@ -26,6 +26,8 @@
 #define CHRONOSYNC_SOCKET_HPP
 
 #include <ndn-cxx/face.hpp>
+#include <ndn-cxx/util/in-memory-storage-persistent.hpp>
+#include <unordered_map>
 
 #include "logic.hpp"
 
@@ -140,6 +142,9 @@ public:
 
 private:
   void
+  onInterest(const Name& prefix, const Interest& interest);
+
+  void
   onData(const Interest& interest, Data& data,
          const ndn::OnDataValidated& dataCallback,
          const ndn::OnDataValidationFailed& failCallback);
@@ -159,6 +164,7 @@ public:
   static const ndn::shared_ptr<ndn::Validator> DEFAULT_VALIDATOR;
 
 private:
+  typedef std::unordered_map<ndn::Name, const ndn::RegisteredPrefixId*> RegisteredPrefixList;
 
   Name m_userPrefix;
   ndn::Face& m_face;
@@ -168,6 +174,9 @@ private:
   ndn::Name m_signingId;
   ndn::KeyChain m_keyChain;
   ndn::shared_ptr<ndn::Validator> m_validator;
+
+  RegisteredPrefixList m_registeredPrefixList;
+  ndn::util::InMemoryStoragePersistent m_ims;
 };
 
 } // namespace chronosync

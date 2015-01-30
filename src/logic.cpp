@@ -121,14 +121,15 @@ Logic::~Logic()
 }
 
 void
-Logic::reset()
+Logic::reset(bool isOnInterest)
 {
   m_isInReset = true;
 
   m_state.reset();
   m_log.clear();
 
-  sendResetInterest();
+  if (!isOnInterest)
+    sendResetInterest();
 
   // reset outstanding interest name, so that data for previous interest will be dropped.
   if (m_outstandingInterestId != 0) {
@@ -173,7 +174,7 @@ Logic::addUserNode(const Name& userPrefix, const Name& signingId)
     sessionName.appendNumber(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count());
     m_nodeList[userPrefix].sessionName = sessionName;
     m_nodeList[userPrefix].seqNo = 0;
-    reset();
+    reset(false);
   }
 }
 
@@ -193,7 +194,7 @@ Logic::removeUserNode(const Name& userPrefix)
         m_defaultSigningId = DEFAULT_NAME;
       }
     }
-    reset();
+    reset(false);
   }
 }
 
@@ -459,7 +460,7 @@ void
 Logic::processResetInterest(const Interest& interest)
 {
   _LOG_DEBUG_ID(">> Logic::processResetInterest");
-  reset();
+  reset(true);
 }
 
 void

@@ -126,9 +126,13 @@ public:
 
   ~Logic();
 
-  /// @brief Reset the sync tree (and restart synchronization again)
+  /**
+   * @brief Reset the sync tree (and restart synchronization again)
+   *
+   * @param isOnInterest a flag that tells whether the reset is called by reset interest.
+   */
   void
-  reset();
+  reset(bool isOnInterest = false);
 
   /**
    * @brief Set user prefix

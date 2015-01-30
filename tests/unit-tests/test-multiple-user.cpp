@@ -50,11 +50,11 @@ public:
   std::map<Name, SeqNo> map;
 };
 
-class LogicFixture
+class MultiUserFixture
 {
 public:
 
-  LogicFixture()
+  MultiUserFixture()
     : syncPrefix("/ndn/broadcast/sync")
     , scheduler(io)
   {
@@ -75,7 +75,7 @@ public:
   shared_ptr<Handler> handler;
 };
 
-BOOST_FIXTURE_TEST_SUITE(LogicTests, LogicFixture)
+BOOST_FIXTURE_TEST_SUITE(MultiUserTests, MultiUserFixture)
 
 BOOST_AUTO_TEST_CASE(ThreeUserNode)
 {

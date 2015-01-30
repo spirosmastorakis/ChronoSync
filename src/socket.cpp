@@ -30,8 +30,8 @@ INIT_LOGGER("Socket");
 
 namespace chronosync {
 
-const ndn::Name Socket::DEFAULT_PREFIX;
 const ndn::Name Socket::DEFAULT_NAME;
+const ndn::Name Socket::DEFAULT_PREFIX;
 const ndn::shared_ptr<ndn::Validator> Socket::DEFAULT_VALIDATOR;
 
 Socket::Socket(const Name& syncPrefix,
@@ -46,12 +46,30 @@ Socket::Socket(const Name& syncPrefix,
   , m_signingId(signingId)
   , m_validator(validator)
 {
+  if (m_userPrefix != DEFAULT_NAME)
+    m_registeredPrefixList[m_userPrefix] =
+      m_face.setInterestFilter(m_userPrefix,
+                               bind(&Socket::onInterest, this, _1, _2),
+                               [] (const Name& prefix, const std::string& msg) {});
 }
 
 void
 Socket::addSyncNode(const Name& prefix, const Name& signingId)
 {
+  if (prefix == DEFAULT_NAME)
+    return;
+
+  auto itr = m_registeredPrefixList.find(prefix);
+  if (itr != m_registeredPrefixList.end())
+    return;
+
+  if (m_userPrefix == DEFAULT_NAME)
+    m_userPrefix = prefix;
   m_logic.addUserNode(prefix, signingId);
+  m_registeredPrefixList[prefix] =
+    m_face.setInterestFilter(prefix,
+                             bind(&Socket::onInterest, this, _1, _2),
+                             [] (const Name& prefix, const std::string& msg) {});
 }
 
 void
@@ -79,7 +97,7 @@ Socket::publishData(const Block& content, const ndn::time::milliseconds& freshne
   else
     m_keyChain.signByIdentity(*data, m_signingId);
 
-  m_face.put(*data);
+  m_ims.insert(*data);
 
   m_logic.updateSeqNo(newSeq, prefix);
 }
@@ -123,6 +141,15 @@ Socket::fetchData(const Name& sessionName, const SeqNo& seqNo,
                          onTimeout);
 
   _LOG_DEBUG("<< Socket::fetchData");
+}
+
+void
+Socket::onInterest(const Name& prefix, const Interest& interest)
+{
+  shared_ptr<const Data>data = m_ims.find(interest);
+  if (static_cast<bool>(data)) {
+    m_face.put(*data);
+  }
 }
 
 void
