@@ -436,7 +436,8 @@ Logic::processSyncInterest(const shared_ptr<const Interest>& interest,
   if (!isTimedProcessing) {
     _LOG_DEBUG_ID("Let's wait, just wait for a while");
     // Do not hurry, some incoming SyncReplies may help us to recognize the digest
-    bool doesExist = m_interestTable.insert(interest, digest, true);
+    bool doesExist = m_interestTable.has(digest);
+    m_interestTable.insert(interest, digest, true);
     if (doesExist)
       // Original comment (not sure): somebody else replied, so restart random-game timer
       // YY: Get the same SyncInterest again, refresh the timer

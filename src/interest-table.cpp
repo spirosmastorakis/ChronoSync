@@ -36,12 +36,12 @@ InterestTable::~InterestTable()
   clear();
 }
 
-bool
+void
 InterestTable::insert(shared_ptr<const Interest> interest,
                       ndn::ConstBufferPtr digest,
                       bool isKnown/*=false*/)
 {
-  bool doesExist = erase(digest);
+  erase(digest);
 
   UnsatisfiedInterestPtr request =
     make_shared<UnsatisfiedInterest>(interest, digest, isKnown);
@@ -52,29 +52,28 @@ InterestTable::insert(shared_ptr<const Interest> interest,
 
   request->expirationEvent =
     m_scheduler.scheduleEvent(entryLifetime,
-                              [=] () { quiteErase(digest); });
+                              [=] () { erase(digest); });
 
   m_table.insert(request);
-
-  return doesExist;
 }
 
 void
-InterestTable::quiteErase(ndn::ConstBufferPtr digest)
-{
-  erase(digest);
-}
-
-bool
 InterestTable::erase(ndn::ConstBufferPtr digest)
 {
   InterestContainer::index<hashed>::type::iterator it = m_table.get<hashed>().find(digest);
   if (it != m_table.get<hashed>().end()) {
     m_scheduler.cancelEvent((*it)->expirationEvent);
     m_table.erase(it);
-    return true;
   }
-  return false;
+}
+
+bool
+InterestTable::has(ndn::ConstBufferPtr digest)
+{
+  if (m_table.get<hashed>().find(digest) != m_table.get<hashed>().end())
+    return true;
+  else
+    return false;
 }
 
 size_t

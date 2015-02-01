@@ -67,23 +67,19 @@ public:
    * @param interest Interest to insert.
    * @param digest   The value of the last digest component.
    * @param isKnown  false if the digest is an unknown digest.
-   * @return true if the same interest exists in the table before insertion.
    */
-  bool
+  void
   insert(shared_ptr<const Interest> interest,
          ndn::ConstBufferPtr digest,
          bool isKnown = false);
 
-  /**
-   * @brief Delete interest by digest (e.g., when it was satisfied)
-   *
-   * @return true if an interest with the digest exists in the table before deletion
-   */
+  /// @brief check if an interest with the digest exists in the table
   bool
-  erase(ndn::ConstBufferPtr digest);
+  has(ndn::ConstBufferPtr digest);
 
+  /// @brief Delete interest by digest (e.g., when it was satisfied)
   void
-  quiteErase(ndn::ConstBufferPtr digest);
+  erase(ndn::ConstBufferPtr digest);
 
   const_iterator
   begin() const
