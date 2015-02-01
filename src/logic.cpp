@@ -116,8 +116,9 @@ Logic::Logic(ndn::Face& face,
 
 Logic::~Logic()
 {
-  m_face.unsetInterestFilter(m_syncRegisteredPrefixId);
   m_scheduler.cancelAllEvents();
+  m_interestTable.clear();
+  m_face.shutdown();
 }
 
 void

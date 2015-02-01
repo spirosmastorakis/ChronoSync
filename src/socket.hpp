@@ -192,7 +192,6 @@ private:
 
   Name m_userPrefix;
   ndn::Face& m_face;
-
   Logic m_logic;
 
   ndn::Name m_signingId;

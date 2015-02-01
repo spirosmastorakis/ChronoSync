@@ -30,8 +30,8 @@ def configure(conf):
 
     boost_libs = 'system iostreams'
     if conf.options._tests:
-        conf.env['_TESTS'] = 1
-        conf.define('_TESTS', 1);
+        conf.env['CHRONOSYNC_HAVE_TESTS'] = 1
+        conf.define('CHRONOSYNC_HAVE_TESTS', 1);
         boost_libs += ' unit_test_framework'
 
     conf.check_boost(lib=boost_libs)
@@ -54,7 +54,7 @@ def build(bld):
         )
 
     # Unit tests
-    if bld.env["_TESTS"]:
+    if bld.env["CHRONOSYNC_HAVE_TESTS"]:
         bld.recurse('tests')
 
     bld.install_files(

@@ -101,6 +101,7 @@ public:
   /**
    * @brief Constructor
    *
+   * @param face The face used to communication, will be shutdown in destructor
    * @param syncPrefix The prefix of the sync group
    * @param defaultUserPrefix The prefix of the first user added to this session
    * @param onUpdate The callback function to handle state updates
