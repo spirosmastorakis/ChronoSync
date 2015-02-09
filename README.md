@@ -46,5 +46,8 @@ To build ChronoSync from the source:
     ./waf
     sudo ./waf install
 
+To build on memory constrained platform, please use `./waf -j1` instead of `./waf`. The
+command will disable parallel compilation.
+
 If configured with tests: `./waf configure --with-tests`), the above commands will also
 generate unit tests in `./build/unit-tests`
