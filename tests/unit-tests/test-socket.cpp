@@ -98,7 +98,7 @@ public:
   fetchAll(const vector<MissingDataInfo>& v)
   {
     // std::cerr << "fetchAll" << std::endl;
-    for (int i = 0; i < v.size(); i++) {
+    for (size_t i = 0; i < v.size(); i++) {
       for(SeqNo s = v[i].low; s <= v[i].high; ++s) {
         socket.fetchData(v[i].session, s, [this] (const shared_ptr<const Data>& dataPacket) {
             this->set(dataPacket);
@@ -111,7 +111,7 @@ public:
   fetchNumbers(const vector<MissingDataInfo> &v)
   {
     // std::cerr << "fetchNumbers" << std::endl;
-    for (int i = 0; i < v.size(); i++) {
+    for (size_t i = 0; i < v.size(); i++) {
       for(SeqNo s = v[i].low; s <= v[i].high; ++s) {
         socket.fetchData(v[i].session, s, [this] (const shared_ptr<const Data>& dataPacket) {
             this->setNum(dataPacket);

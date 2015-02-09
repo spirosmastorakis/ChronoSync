@@ -37,8 +37,6 @@ Required:
 
 * [ndn-cxx and its dependencies](http://named-data.net/doc/ndn-cxx/)
 * Boost libraries
-* `protobuf` library
-* log4cxx (optional, if enabled with `--with-log4cxx` configure option)
 
 ### Build
 

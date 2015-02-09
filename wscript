@@ -9,7 +9,7 @@ APPNAME = 'ChronoSync'
 def options(opt):
     opt.load(['compiler_c', 'compiler_cxx', 'gnu_dirs'])
     opt.load(['boost', 'doxygen', 'sphinx_build', 'default-compiler-flags',
-              'pch', 'protoc'],
+              'pch'],
              tooldir=['.waf-tools'])
 
     syncopt = opt.add_option_group ("ChronoSync Options")
@@ -23,7 +23,7 @@ def options(opt):
 
 def configure(conf):
     conf.load(['compiler_c', 'compiler_cxx', 'gnu_dirs', 'boost', 'pch',
-               'doxygen', 'sphinx_build', 'default-compiler-flags', 'protoc'])
+               'doxygen', 'sphinx_build', 'default-compiler-flags'])
 
     conf.check_cfg(package='libndn-cxx', args=['--cflags', '--libs'],
                    uselib_store='NDN_CXX', mandatory=True)
