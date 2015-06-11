@@ -34,6 +34,6 @@ if [ "$BUILD" = "yes" ]; then
     sudo ./waf distclean -j1 --color=yes
 fi
 
-./waf configure -j1 --color=yes --without-osx-keychain
+./waf configure -j1 --color=yes --enable-shared --disable-static --without-osx-keychain
 ./waf -j1 --color=yes
 sudo ./waf install -j1 --color=yes
