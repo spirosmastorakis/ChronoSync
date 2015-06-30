@@ -104,7 +104,7 @@ State::wireEncode(ndn::EncodingImpl<T>& block) const
   BOOST_REVERSE_FOREACH (ConstLeafPtr leaf, m_leaves.get<ordered>())
     {
       size_t entryLength = 0;
-      entryLength += ndn::prependNonNegativeIntegerBlock(block, tlv::SeqNo, leaf->getSeq());
+      entryLength += prependNonNegativeIntegerBlock(block, tlv::SeqNo, leaf->getSeq());
       entryLength += leaf->getSessionName().wireEncode(block);
       entryLength += block.prependVarNumber(entryLength);
       entryLength += block.prependVarNumber(tlv::StateLeaf);
