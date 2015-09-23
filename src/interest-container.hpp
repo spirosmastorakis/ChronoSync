@@ -25,7 +25,7 @@
 #ifndef CHRONOSYNC_INTEREST_CONTAINER_HPP
 #define CHRONOSYNC_INTEREST_CONTAINER_HPP
 
-#include "common.hpp"
+#include "common-chronosync.hpp"
 #include "mi-tag.hpp"
 #include "diff-state-container.hpp"
 
