@@ -25,9 +25,8 @@
 #ifndef CHRONOSYNC_LEAF_HPP
 #define CHRONOSYNC_LEAF_HPP
 
-#include "common.hpp"
-
 #include <ndn-cxx/util/sha256.hpp>
+#include "common-chronosync.hpp"
 
 namespace chronosync {
 
