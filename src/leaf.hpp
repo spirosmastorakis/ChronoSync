@@ -25,7 +25,7 @@
 #ifndef CHRONOSYNC_LEAF_HPP
 #define CHRONOSYNC_LEAF_HPP
 
-#include "common.hpp"
+#include "common-chronosync.hpp"
 #include <ndn-cxx/util/digest.hpp>
 
 namespace chronosync {
