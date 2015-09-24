@@ -44,6 +44,7 @@ Socket::Socket(const Name& syncPrefix,
   , m_face(face)
   , m_logic(face, syncPrefix, userPrefix, updateCallback)
   , m_signingId(signingId)
+  , m_keyChain(ns3::ndn::StackHelper::getKeyChain())
   , m_validator(validator)
 {
   if (m_userPrefix != DEFAULT_NAME)

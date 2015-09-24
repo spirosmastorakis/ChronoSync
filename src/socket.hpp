@@ -31,6 +31,8 @@
 
 #include "logic.hpp"
 
+#include "ns3/ndnSIM-module.h"
+
 namespace chronosync {
 
 /**
@@ -195,7 +197,7 @@ private:
   Logic m_logic;
 
   ndn::Name m_signingId;
-  ndn::KeyChain m_keyChain;
+  ndn::KeyChain& m_keyChain;
   ndn::shared_ptr<ndn::Validator> m_validator;
 
   RegisteredPrefixList m_registeredPrefixList;

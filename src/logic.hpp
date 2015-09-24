@@ -37,6 +37,8 @@
 #include "interest-table.hpp"
 #include "diff-state-container.hpp"
 
+#include "ns3/ndnSIM-module.h"
+
 namespace chronosync {
 
 /**
@@ -441,7 +443,7 @@ private:
 
   // Security
   ndn::Name m_defaultSigningId;
-  ndn::KeyChain m_keyChain;
+  ndn::KeyChain& m_keyChain;
   ndn::shared_ptr<ndn::Validator> m_validator;
 
 

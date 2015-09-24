@@ -90,6 +90,7 @@ Logic::Logic(ndn::Face& face,
   , m_syncInterestLifetime(syncInterestLifetime)
   , m_syncReplyFreshness(syncReplyFreshness)
   , m_defaultSigningId(defaultSigningId)
+  , m_keyChain(ns3::ndn::StackHelper::getKeyChain())
   , m_validator(validator)
 {
 #ifdef _DEBUG
