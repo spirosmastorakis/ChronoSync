@@ -48,6 +48,7 @@ Socket::Socket(const Name& syncPrefix,
             syncInterestLifetime, Logic::DEFAULT_SYNC_REPLY_FRESHNESS, Logic::DEFAULT_RECOVERY_INTEREST_LIFETIME,
             session)
   , m_signingId(signingId)
+  , m_keyChain(ns3::ndn::StackHelper::getKeyChain())
   , m_validator(validator)
 {
   NDN_LOG_DEBUG(">> Socket::Socket");

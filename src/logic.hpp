@@ -39,6 +39,8 @@
 #include <random>
 #include <unordered_map>
 
+#include "ns3/ndnSIM-module.h"
+
 namespace chronosync {
 
 /**
