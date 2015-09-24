@@ -31,6 +31,8 @@
 
 #include <ndn-cxx/ims/in-memory-storage-persistent.hpp>
 
+#include "ns3/ndnSIM-module.h"
+
 namespace chronosync {
 
 /**

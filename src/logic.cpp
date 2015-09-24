@@ -130,6 +130,7 @@ Logic::Logic(ndn::Face& face,
   , m_syncInterestLifetime(syncInterestLifetime)
   , m_syncReplyFreshness(syncReplyFreshness)
   , m_recoveryInterestLifetime(recoveryInterestLifetime)
+  , m_keyChain(ns3::ndn::StackHelper::getKeyChain())
   , m_validator(validator)
   , m_instanceId(s_instanceCounter++)
 {
