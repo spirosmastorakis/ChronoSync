@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2016 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -27,7 +27,6 @@ namespace test {
 
 using std::vector;
 using ndn::util::DummyClientFace;
-using ndn::util::makeDummyClientFace;
 
 class Handler
 {
@@ -62,6 +61,7 @@ public:
     logic.updateSeqNo(seqNo);
   }
 
+public:
   Logic logic;
   std::map<Name, SeqNo> map;
 };
@@ -77,9 +77,9 @@ public:
     userPrefix[1] = Name("/user1");
     userPrefix[2] = Name("/user2");
 
-    faces[0] = makeDummyClientFace(ref(io), {true, true});
-    faces[1] = makeDummyClientFace(ref(io), {true, true});
-    faces[2] = makeDummyClientFace(ref(io), {true, true});
+    faces[0].reset(new DummyClientFace(io, {true, true}));
+    faces[1].reset(new DummyClientFace(io, {true, true}));
+    faces[2].reset(new DummyClientFace(io, {true, true}));
 
     for (int i = 0; i < 3; i++) {
       readInterestOffset[i] = 0;
@@ -104,19 +104,20 @@ public:
       }
       readInterestOffset[sender]++;
     }
-    while (faces[sender]->sentDatas.size() > readDataOffset[sender]) {
+    while (faces[sender]->sentData.size() > readDataOffset[sender]) {
       for (int i = 0; i < 3; i++) {
         if (sender != i)
-          faces[i]->receive(faces[sender]->sentDatas[readDataOffset[sender]]);
+          faces[i]->receive(faces[sender]->sentData[readDataOffset[sender]]);
       }
       readDataOffset[sender]++;
     }
   }
 
+public:
   Name syncPrefix;
   Name userPrefix[3];
 
-  shared_ptr<DummyClientFace> faces[3];
+  std::unique_ptr<DummyClientFace> faces[3];
   shared_ptr<Handler> handler[3];
 
   size_t readInterestOffset[3];
@@ -134,8 +135,8 @@ BOOST_AUTO_TEST_CASE(Constructor)
 {
   Name syncPrefix("/ndn/broadcast/sync");
   Name userPrefix("/user");
-  shared_ptr<DummyClientFace> face = makeDummyClientFace(ref(io), {true, true});
-  BOOST_REQUIRE_NO_THROW(Logic(ref(*face), syncPrefix, userPrefix,
+  DummyClientFace face(io, {true, true});
+  BOOST_REQUIRE_NO_THROW(Logic(face, syncPrefix, userPrefix,
                                bind(onUpdate, _1)));
 }
 
