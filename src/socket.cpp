@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2016 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -103,7 +103,7 @@ void
 Socket::publishData(const uint8_t* buf, size_t len, const ndn::time::milliseconds& freshness,
                     const Name& prefix)
 {
-  publishData(ndn::dataBlock(ndn::tlv::Content, buf, len), freshness, prefix);
+  publishData(ndn::encoding::makeBinaryBlock(ndn::tlv::Content, buf, len), freshness, prefix);
 }
 
 void
