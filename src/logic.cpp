@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -20,6 +20,7 @@
  * @author Chaoyi Bian <bcy@pku.edu.cn>
  * @author Alexander Afanasyev <http://lasr.cs.ucla.edu/afanasyev/index.html>
  * @author Yingdi Yu <yingdi@cs.ucla.edu>
+ * @author Sonu Mishra <https://www.linkedin.com/in/mishrasonu>
  */
 
 #include "logic.hpp"
@@ -608,7 +609,7 @@ Logic::sendSyncInterest()
 #endif
 
   EventId eventId =
-    m_scheduler.scheduleEvent(m_syncInterestLifetime +
+    m_scheduler.scheduleEvent(m_syncInterestLifetime / 2 +
                               ndn::time::milliseconds(m_reexpressionJitter()),
                               bind(&Logic::sendSyncInterest, this));
   m_scheduler.cancelEvent(m_reexpressingInterestId);
