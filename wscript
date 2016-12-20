@@ -3,13 +3,13 @@
 from waflib import Logs, Utils, Context
 import os
 
-VERSION = '0.2'
+VERSION = '0.3.0'
 APPNAME = 'ChronoSync'
 
 def options(opt):
     opt.load(['compiler_c', 'compiler_cxx', 'gnu_dirs'])
-    opt.load(['boost', 'doxygen', 'sphinx_build', 'default-compiler-flags',
-              'pch'],
+    opt.load(['default-compiler-flags', 'boost', 'doxygen', 'sphinx_build',
+              'sanitizers', 'coverage', 'pch'],
              tooldir=['.waf-tools'])
 
     syncopt = opt.add_option_group ("ChronoSync Options")
@@ -22,8 +22,9 @@ def options(opt):
                        help='''build unit tests''')
 
 def configure(conf):
-    conf.load(['compiler_c', 'compiler_cxx', 'gnu_dirs', 'boost', 'pch',
-               'doxygen', 'sphinx_build', 'default-compiler-flags'])
+    conf.load(['compiler_c', 'compiler_cxx', 'gnu_dirs',
+               'default-compiler-flags', 'boost', 'pch', 'sanitizers', 'coverage',
+               'doxygen', 'sphinx_build'])
 
     conf.check_cfg(package='libndn-cxx', args=['--cflags', '--libs'],
                    uselib_store='NDN_CXX', mandatory=True)
@@ -40,12 +41,18 @@ def configure(conf):
         conf.check_cfg(package='liblog4cxx', args=['--cflags', '--libs'], uselib_store='LOG4CXX',
                        mandatory=True)
 
+    # If there happens to be a static library, waf will put the corresponding -L flags
+    # before dynamic library flags.  This can result in compilation failure when the
+    # system has a different version of the ChronoSync library installed.
+    conf.env['STLIBPATH'] = ['.'] + conf.env['STLIBPATH']
+
     conf.write_config_header('config.hpp')
 
 def build(bld):
     libsync = bld(
         target="ChronoSync",
-        # vnum = "1.0.0",
+        vnum = VERSION,
+        cnum = VERSION,
         features=['cxx', 'cxxshlib'],
         source =  bld.path.ant_glob(['src/**/*.cpp', 'src/**/*.proto']),
         use = 'BOOST NDN_CXX LOG4CXX',

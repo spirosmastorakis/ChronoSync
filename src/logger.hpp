@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -48,12 +48,12 @@
 
 #else // HAVE_LOG4CXX
 
-#define INIT_LOGGER(name)
-#define _LOG_FUNCTION(x)
-#define _LOG_FUNCTION_NOARGS
-#define _LOG_TRACE(x)
-#define INIT_LOGGERS(x)
-#define _LOG_ERROR(x)
+#define INIT_LOGGER(name)    struct chronosync__allow_trailing_semicolon
+#define _LOG_FUNCTION(x)     struct chronosync__allow_trailing_semicolon
+#define _LOG_FUNCTION_NOARGS struct chronosync__allow_trailing_semicolon
+#define _LOG_TRACE(x)        struct chronosync__allow_trailing_semicolon
+#define INIT_LOGGERS(x)      struct chronosync__allow_trailing_semicolon
+#define _LOG_ERROR(x)        struct chronosync__allow_trailing_semicolon
 
 #ifdef _DEBUG
 
@@ -67,7 +67,7 @@
 
 #else // _DEBUG
 
-#define _LOG_DEBUG(x)
+#define _LOG_DEBUG(x) struct chronosync__allow_trailing_semicolon
 
 #endif // _DEBUG
 

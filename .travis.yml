@@ -1,15 +1,28 @@
-# For Ubuntu platform only
-language: cpp
-os:
-  - linux
-compiler:
-  - gcc
+sudo: required
+language: generic
+env:
+  global:
+    - JOB_NAME=limited-build
+matrix:
+  include:
+    - os: linux
+      dist: trusty
+      env:
+        - CXX=g++
+        - NODE_LABELS="Linux Ubuntu Ubuntu-14.04"
+    - os: linux
+      dist: trusty
+      env:
+        - CXX=clang++
+        - NODE_LABELS="Linux Ubuntu Ubuntu-14.04"
+    - os: osx
+      osx_image: xcode8.2
+      env:
+        - CXX=clang++
+        - NODE_LABELS="OSX OSX-10.12"
 notifications:
   email:
     on_success: always
     on_failure: always
-before_install:
-  - travis_retry sudo apt-get update
-  - travis_retry sudo apt-get install -qq libssl-dev libprotobuf-dev protobuf-compiler libboost1.48-all-dev libcrypto++-dev libsqlite3-dev
 script:
   - ./.jenkins

@@ -8,8 +8,9 @@ def build(bld):
         target='tests-main',
         name='tests-main',
         features='cxx',
-        source=bld.path.ant_glob(['main.cpp']),
+        source='main.cpp',
         use='ChronoSync',
+        defines=['BOOST_TEST_MODULE=ChronoSync']
         )
 
     unit_test = bld.program(
@@ -21,11 +22,12 @@ def build(bld):
         install_path=None,
         )
 
-    integrated_test = bld.program(
-        target="../integrated-tests",
-        source=bld.path.ant_glob(['integrated-tests/**/*.cpp']),
-        features=['cxx', 'cxxprogram'],
-        use='ChronoSync tests-main',
-        includes=['.'],
-        install_path=None,
-        )
+    # TODO: Re-enable when there integration tests are implemented
+    # integrated_test = bld.program(
+    #     target="../integrated-tests",
+    #     source=bld.path.ant_glob(['integrated-tests/**/*.cpp']),
+    #     features=['cxx', 'cxxprogram'],
+    #     use='ChronoSync tests-main',
+    #     includes=['.'],
+    #     install_path=None,
+    #     )
