@@ -14,8 +14,8 @@ be inferred from the digests and disseminated efficiently to all parties.  With 
 complete and up-to-date knowledge of the dataset changes, applications can decide whether
 or when to fetch which pieces of the data.
 
-ChronoSync uses [ndn-cxx](https://github.com/named-data/ndn-cxx) library as NDN
-  development library.
+ChronoSync uses [ndn-cxx](https://github.com/named-data/ndn-cxx) library as NDN development
+library.
 
 ChronoSync is an open source project licensed under GPL 3.0 (see `COPYING.md` for more
 detail).  We highly welcome all contributions to the ChronoSync code base, provided that

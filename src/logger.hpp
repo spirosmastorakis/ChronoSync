@@ -24,53 +24,17 @@
 #ifndef CHRONOSYNC_LOGGER_HPP
 #define CHRONOSYNC_LOGGER_HPP
 
-#ifdef HAVE_LOG4CXX
+#include <ndn-cxx/util/logger.hpp>
 
-#include <log4cxx/logger.h>
+#define INIT_LOGGER(name) NDN_LOG_INIT(sync.name)
 
-#define INIT_LOGGER(name) \
-  static log4cxx::LoggerPtr staticModuleLogger = log4cxx::Logger::getLogger(name)
+#define _LOG_ERROR(x) NDN_LOG_ERROR(x)
+#define _LOG_WARN(x)  NDN_LOG_WARN(x)
+#define _LOG_INFO(x)  NDN_LOG_INFO(x)
+#define _LOG_DEBUG(x) NDN_LOG_DEBUG(x)
+#define _LOG_TRACE(x) NDN_LOG_TRACE(x)
 
-#define _LOG_DEBUG(x) \
-  LOG4CXX_DEBUG(staticModuleLogger, x)
-
-#define _LOG_TRACE(x) \
-  LOG4CXX_TRACE(staticModuleLogger, x)
-
-#define _LOG_FUNCTION(x) \
-  LOG4CXX_TRACE(staticModuleLogger, __FUNCTION__ << "(" << x << ")")
-
-#define _LOG_FUNCTION_NOARGS \
-  LOG4CXX_TRACE(staticModuleLogger, __FUNCTION__ << "()")
-
-#define _LOG_ERROR(x) \
-  LOG4CXX_ERROR(staticModuleLogger, x)
-
-#else // HAVE_LOG4CXX
-
-#define INIT_LOGGER(name)    struct chronosync__allow_trailing_semicolon
-#define _LOG_FUNCTION(x)     struct chronosync__allow_trailing_semicolon
-#define _LOG_FUNCTION_NOARGS struct chronosync__allow_trailing_semicolon
-#define _LOG_TRACE(x)        struct chronosync__allow_trailing_semicolon
-#define INIT_LOGGERS(x)      struct chronosync__allow_trailing_semicolon
-#define _LOG_ERROR(x)        struct chronosync__allow_trailing_semicolon
-
-#ifdef _DEBUG
-
-#include <thread>
-#include <iostream>
-#include <ndn-cxx/util/time.hpp>
-
-#define _LOG_DEBUG(x) \
-  std::clog << ndn::time::system_clock::now() << " " << std::this_thread::get_id() << \
-               " " << x << std::endl
-
-#else // _DEBUG
-
-#define _LOG_DEBUG(x) struct chronosync__allow_trailing_semicolon
-
-#endif // _DEBUG
-
-#endif // HAVE_LOG4CXX
+#define _LOG_FUNCTION(x)     NDN_LOG_TRACE(__FUNCTION__ << "(" << x << ")")
+#define _LOG_FUNCTION_NOARGS NDN_LOG_TRACE(__FUNCTION__ << "()")
 
 #endif // CHRONOSYNC_LOGGER_HPP

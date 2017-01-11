@@ -16,8 +16,6 @@ def options(opt):
 
     syncopt.add_option('--debug', action='store_true', default=False, dest='debug',
                        help='''debugging mode''')
-    syncopt.add_option('--with-log4cxx', action='store_true', default=False, dest='log4cxx',
-                       help='''Compile with log4cxx''')
     syncopt.add_option('--with-tests', action='store_true', default=False, dest='_tests',
                        help='''build unit tests''')
 
@@ -29,17 +27,13 @@ def configure(conf):
     conf.check_cfg(package='libndn-cxx', args=['--cflags', '--libs'],
                    uselib_store='NDN_CXX', mandatory=True)
 
-    boost_libs = 'system iostreams'
+    boost_libs = 'system iostreams thread log log_setup'
     if conf.options._tests:
         conf.env['CHRONOSYNC_HAVE_TESTS'] = 1
         conf.define('CHRONOSYNC_HAVE_TESTS', 1);
         boost_libs += ' unit_test_framework'
 
-    conf.check_boost(lib=boost_libs)
-
-    if conf.options.log4cxx:
-        conf.check_cfg(package='liblog4cxx', args=['--cflags', '--libs'], uselib_store='LOG4CXX',
-                       mandatory=True)
+    conf.check_boost(lib=boost_libs, mt=True)
 
     # If there happens to be a static library, waf will put the corresponding -L flags
     # before dynamic library flags.  This can result in compilation failure when the
@@ -55,7 +49,7 @@ def build(bld):
         cnum = VERSION,
         features=['cxx', 'cxxshlib'],
         source =  bld.path.ant_glob(['src/**/*.cpp', 'src/**/*.proto']),
-        use = 'BOOST NDN_CXX LOG4CXX',
+        use = 'BOOST NDN_CXX',
         includes = ['src', '.'],
         export_includes=['src', '.'],
         )

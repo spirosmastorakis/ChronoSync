@@ -17,7 +17,7 @@ def build(bld):
         target="../unit-tests",
         source=bld.path.ant_glob(['unit-tests/**/*.cpp']),
         features=['cxx', 'cxxprogram'],
-        use='ChronoSync tests-main LOG4CXX',
+        use='ChronoSync tests-main',
         includes=['.'],
         install_path=None,
         )

@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2016 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -25,7 +25,7 @@
 #include "socket.hpp"
 #include "logger.hpp"
 
-INIT_LOGGER("Socket");
+INIT_LOGGER(Socket);
 
 
 namespace chronosync {

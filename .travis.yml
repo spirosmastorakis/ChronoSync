@@ -3,6 +3,8 @@ language: generic
 env:
   global:
     - JOB_NAME=limited-build
+    - NDN_LOG=*=DEBUG
+    - BOOST_TEST_COLOR_OUTPUT=true
 matrix:
   include:
     - os: linux

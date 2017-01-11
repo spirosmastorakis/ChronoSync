@@ -25,7 +25,7 @@
 #include "logic.hpp"
 #include "logger.hpp"
 
-INIT_LOGGER("Logic");
+INIT_LOGGER(Logic);
 
 #ifdef _DEBUG
 #define _LOG_DEBUG_ID(v) _LOG_DEBUG("Instance" << m_instanceId << ": " << v)
