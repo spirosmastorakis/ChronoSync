@@ -421,7 +421,7 @@ Logic::processSyncInterest(const shared_ptr<const Interest>& interest,
   }
 
   // If the digest of incoming interest is an "empty" digest
-  if (digest == EMPTY_DIGEST) {
+  if (*digest == *EMPTY_DIGEST) {
     _LOG_DEBUG_ID("Poor guy, he knows nothing");
     sendSyncData(m_defaultUserPrefix, name, m_state);
     return;
