@@ -58,9 +58,11 @@ const time::steady_clock::Duration Logic::DEFAULT_CANCEL_RESET_TIMER = time::mil
 const time::milliseconds Logic::DEFAULT_RESET_INTEREST_LIFETIME(1000);
 const time::milliseconds Logic::DEFAULT_SYNC_INTEREST_LIFETIME(1000);
 const time::milliseconds Logic::DEFAULT_SYNC_REPLY_FRESHNESS(1000);
+const time::milliseconds Logic::DEFAULT_RECOVERY_INTEREST_LIFETIME(1000);
 
 const ndn::ConstBufferPtr Logic::EMPTY_DIGEST(new ndn::Buffer(EMPTY_DIGEST_VALUE, 32));
 const ndn::name::Component Logic::RESET_COMPONENT("reset");
+const ndn::name::Component Logic::RECOVERY_COMPONENT("recovery");
 
 Logic::Logic(ndn::Face& face,
              const Name& syncPrefix,
@@ -72,7 +74,8 @@ Logic::Logic(ndn::Face& face,
              const time::steady_clock::Duration& cancelResetTimer,
              const time::milliseconds& resetInterestLifetime,
              const time::milliseconds& syncInterestLifetime,
-             const time::milliseconds& syncReplyFreshness)
+             const time::milliseconds& syncReplyFreshness,
+             const time::milliseconds& recoveryInterestLifetime)
   : m_face(face)
   , m_syncPrefix(syncPrefix)
   , m_defaultUserPrefix(defaultUserPrefix)
@@ -90,6 +93,7 @@ Logic::Logic(ndn::Face& face,
   , m_resetInterestLifetime(resetInterestLifetime)
   , m_syncInterestLifetime(syncInterestLifetime)
   , m_syncReplyFreshness(syncReplyFreshness)
+  , m_recoveryInterestLifetime(recoveryInterestLifetime)
   , m_defaultSigningId(defaultSigningId)
   , m_validator(validator)
 {
@@ -316,13 +320,15 @@ Logic::onSyncInterest(const Name& prefix, const Interest& interest)
 
   _LOG_DEBUG_ID("InterestName: " << name);
 
-  if (RESET_COMPONENT != name.get(-1)) {
-    // normal sync interest
+  if (name.size() >= 1 && RESET_COMPONENT == name.get(-1)) {
+    processResetInterest(interest);
+  }
+  else if (name.size() >= 2 && RECOVERY_COMPONENT == name.get(-2)) {
+    processRecoveryInterest(interest);
+  }
+  else {
     processSyncInterest(interest.shared_from_this());
   }
-  else
-    // reset interest
-    processResetInterest(interest);
 
   _LOG_DEBUG_ID("<< Logic::onSyncInterest");
 }
@@ -451,9 +457,9 @@ Logic::processSyncInterest(const shared_ptr<const Interest>& interest,
   }
   else {
     // OK, nobody is helping us, just tell the truth.
-    _LOG_DEBUG_ID("OK, nobody is helping us, just tell the truth");
+    _LOG_DEBUG_ID("OK, nobody is helping us, let us try to recover");
     m_interestTable.erase(digest);
-    sendSyncData(m_defaultUserPrefix, name, m_state);
+    sendRecoveryInterest(digest);
   }
 
   _LOG_DEBUG_ID("<< Logic::processSyncInterest");
@@ -685,6 +691,63 @@ Logic::printDigest(ndn::ConstBufferPtr digest)
   StringSource(digest->buf(), digest->size(), true,
                new HexEncoder(new StringSink(hash), false));
   _LOG_DEBUG_ID("Hash: " << hash);
+}
+
+void
+Logic::sendRecoveryInterest(ndn::ConstBufferPtr digest)
+{
+  _LOG_DEBUG_ID(">> Logic::sendRecoveryInterest");
+
+  Name interestName;
+  interestName.append(m_syncPrefix)
+              .append(RECOVERY_COMPONENT)
+              .append(ndn::name::Component(*digest));
+
+  Interest interest(interestName);
+  interest.setMustBeFresh(true);
+  interest.setInterestLifetime(m_recoveryInterestLifetime);
+
+  m_face.expressInterest(interest, bind(&Logic::onRecoveryData, this, _1, _2),
+                                   bind(&Logic::onRecoveryTimeout, this, _1));
+
+  _LOG_DEBUG_ID("interest: " << interest.getName());
+  _LOG_DEBUG_ID("<< Logic::sendRecoveryInterest");
+}
+
+void
+Logic::processRecoveryInterest(const Interest& interest)
+{
+  _LOG_DEBUG_ID(">> Logic::processRecoveryInterest");
+
+  const Name& name = interest.getName();
+  ConstBufferPtr digest = make_shared<ndn::Buffer>(name.get(-1).value(), name.get(-1).value_size());
+
+  ConstBufferPtr rootDigest = m_state.getRootDigest();
+
+  DiffStateContainer::iterator stateIter = m_log.find(digest);
+
+  if (stateIter != m_log.end() || *digest == *EMPTY_DIGEST || *rootDigest == *digest) {
+    _LOG_DEBUG_ID("I can help you recover");
+    sendSyncData(m_defaultUserPrefix, name, m_state);
+    return;
+  }
+  _LOG_DEBUG_ID("<< Logic::processRecoveryInterest");
+}
+
+void
+Logic::onRecoveryData(const Interest& interest, Data& data)
+{
+  _LOG_DEBUG_ID(">> Logic::onRecoveryData");
+  onSyncDataValidated(data.shared_from_this());
+  _LOG_DEBUG_ID("<< Logic::onRecoveryData");
+}
+
+void
+Logic::onRecoveryTimeout(const Interest& interest)
+{
+  _LOG_DEBUG_ID(">> Logic::onRecoveryTimeout");
+  _LOG_DEBUG_ID("Interest: " << interest.getName());
+  _LOG_DEBUG_ID("<< Logic::onRecoveryTimeout");
 }
 
 } // namespace chronosync

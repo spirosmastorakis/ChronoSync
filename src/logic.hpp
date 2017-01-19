@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -20,6 +20,7 @@
  * @author Chaoyi Bian <bcy@pku.edu.cn>
  * @author Alexander Afanasyev <http://lasr.cs.ucla.edu/afanasyev/index.html>
  * @author Yingdi Yu <yingdi@cs.ucla.edu>
+ * @author Sonu Mishra <https://www.linkedin.com/in/mishrasonu>
  */
 
 #ifndef CHRONOSYNC_LOGIC_HPP
@@ -48,7 +49,8 @@ namespace chronosync {
  * Instances of this class is usually used as elements of some containers
  * such as std::vector, thus it is copyable.
  */
-class NodeInfo {
+class NodeInfo
+{
 public:
   Name userPrefix;
   Name signingId;
@@ -97,6 +99,7 @@ public:
   static const time::milliseconds DEFAULT_RESET_INTEREST_LIFETIME;
   static const time::milliseconds DEFAULT_SYNC_INTEREST_LIFETIME;
   static const time::milliseconds DEFAULT_SYNC_REPLY_FRESHNESS;
+  static const time::milliseconds DEFAULT_RECOVERY_INTEREST_LIFETIME;
 
   /**
    * @brief Constructor
@@ -123,7 +126,8 @@ public:
         const time::steady_clock::Duration& cancelResetTimer = DEFAULT_CANCEL_RESET_TIMER,
         const time::milliseconds& resetInterestLifetime = DEFAULT_RESET_INTEREST_LIFETIME,
         const time::milliseconds& syncInterestLifetime = DEFAULT_SYNC_INTEREST_LIFETIME,
-        const time::milliseconds& syncReplyFreshness = DEFAULT_SYNC_REPLY_FRESHNESS);
+        const time::milliseconds& syncReplyFreshness = DEFAULT_SYNC_REPLY_FRESHNESS,
+        const time::milliseconds& recoveryInterestLifetime = DEFAULT_RECOVERY_INTEREST_LIFETIME);
 
   ~Logic();
 
@@ -387,6 +391,47 @@ private:
   void
   printDigest(ndn::ConstBufferPtr digest);
 
+  /**
+   * @brief Helper method to send Recovery Interest
+   *
+   * @param digest    The digest to be included in the recovery interest
+   */
+  void
+  sendRecoveryInterest(ndn::ConstBufferPtr digest);
+
+  /**
+   * @brief Process Recovery Interest
+   *
+   * This method extracts the digest from the incoming Recovery Interest.
+   * If it recognizes this incoming digest, then it sends its full state
+   * as reply.
+   *
+   * @param interest    The incoming interest
+   */
+  void
+  processRecoveryInterest(const Interest& interest);
+
+  /**
+   * @brief Callback to handle Recovery Reply
+   *
+   * This method calls Logic::onSyncDataValidated directly.
+   *
+   * @param interest The Recovery Interest
+   * @param data     The reply to the Recovery Interest
+   */
+  void
+  onRecoveryData(const Interest& interest, Data& data);
+
+  /**
+   * @brief Callback to handle Recovery Interest timeout.
+   *
+   * This method does nothing.
+   *
+   * @param interest The Recovery Interest
+   */
+  void
+  onRecoveryTimeout(const Interest& interest);
+
 public:
   static const ndn::Name DEFAULT_NAME;
   static const ndn::Name EMPTY_NAME;
@@ -397,6 +442,7 @@ private:
 
   static const ndn::ConstBufferPtr EMPTY_DIGEST;
   static const ndn::name::Component RESET_COMPONENT;
+  static const ndn::name::Component RECOVERY_COMPONENT;
 
   // Communication
   ndn::Face& m_face;
@@ -438,6 +484,8 @@ private:
   time::milliseconds m_syncInterestLifetime;
   /// @brief FreshnessPeriod of SyncReply
   time::milliseconds m_syncReplyFreshness;
+  /// @brief Lifetime of recovery interest
+  time::milliseconds m_recoveryInterestLifetime;
 
   // Security
   ndn::Name m_defaultSigningId;
