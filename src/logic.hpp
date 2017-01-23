@@ -303,9 +303,10 @@ private:
    * This method simply passes the valid reply to processSyncData.
    *
    * @param data The valid Sync Reply.
+   * @param firstData Whether the data is new or that obtained using exclude filter
    */
   void
-  onSyncDataValidated(const shared_ptr<const Data>& data);
+  onSyncDataValidated(const shared_ptr<const Data>& data, bool firstData = true);
 
   /**
    * @brief Process normal Sync Interest
@@ -343,11 +344,13 @@ private:
    * @param name           The data name of the Sync Reply.
    * @param digest         The digest in the data name.
    * @param syncReplyBlock The content of the Sync Reply.
+   * @param firstData      Whether the data is new or obtained using exclude filter
    */
   void
   processSyncData(const Name& name,
                   ndn::ConstBufferPtr digest,
-                  const Block& syncReplyBlock);
+                  const Block& syncReplyBlock,
+                  bool firstData);
 
   /**
    * @brief Insert state diff into log
@@ -431,6 +434,29 @@ private:
    */
   void
   onRecoveryTimeout(const Interest& interest);
+
+  /**
+   * @brief Helper method to send Exclude Interest
+   *
+   * @param interest    The interest whose exclude filter will be augmented
+   * @param data        The data whose implicit digest will be inserted into exclude filter
+   */
+  void
+  sendExcludeInterest(const Interest& interest, const Data& data);
+
+  /**
+   * @brief Helper method to form the exclude Interest and calls sendExcludeInterest
+   *
+   * @param interest       The interest whose exclude filter will be augmented
+   * @param nodePrefix     The prefix of the sender node
+   * @param commit         The commit whose contents will be used to obtain the implicit
+                           digest to be excluded
+   * @param previousRoot   The digest to be included in the interest
+   */
+  void
+  formAndSendExcludeInterest(const Name& nodePrefix,
+                             const State& commit,
+                             ndn::ConstBufferPtr previousRoot);
 
 public:
   static const ndn::Name DEFAULT_NAME;

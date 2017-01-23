@@ -279,6 +279,7 @@ Logic::updateSeqNo(const SeqNo& seqNo, const Name &updatePrefix)
         insertToDiffLog(commit, previousRoot);
 
         satisfyPendingSyncInterests(prefix, commit);
+        formAndSendExcludeInterest(prefix, *commit, previousRoot);
       }
     }
   }
@@ -344,12 +345,23 @@ void
 Logic::onSyncData(const Interest& interest, Data& data)
 {
   _LOG_DEBUG_ID(">> Logic::onSyncData");
-  if (static_cast<bool>(m_validator))
-    m_validator->validate(data,
-                          bind(&Logic::onSyncDataValidated, this, _1),
-                          bind(&Logic::onSyncDataValidationFailed, this, _1));
-  else
+  // if (static_cast<bool>(m_validator))
+  //   m_validator->validate(data,
+  //                         bind(&Logic::onSyncDataValidated, this, _1),
+  //                         bind(&Logic::onSyncDataValidationFailed, this, _1));
+  // else
+  //   onSyncDataValidated(data.shared_from_this());
+
+  if (interest.getExclude().empty()) {
+    _LOG_DEBUG_ID("First data");
     onSyncDataValidated(data.shared_from_this());
+  }
+  else {
+    _LOG_DEBUG_ID("Data obtained using exclude filter");
+    onSyncDataValidated(data.shared_from_this(), false);
+  }
+  sendExcludeInterest(interest, data);
+
   _LOG_DEBUG_ID("<< Logic::onSyncData");
 }
 
@@ -375,12 +387,12 @@ Logic::onSyncDataValidationFailed(const shared_ptr<const Data>& data)
 }
 
 void
-Logic::onSyncDataValidated(const shared_ptr<const Data>& data)
+Logic::onSyncDataValidated(const shared_ptr<const Data>& data, bool firstData)
 {
   Name name = data->getName();
   ConstBufferPtr digest = make_shared<ndn::Buffer>(name.get(-1).value(), name.get(-1).value_size());
 
-  processSyncData(name, digest, data->getContent().blockFromValue());
+  processSyncData(name, digest, data->getContent().blockFromValue(), firstData);
 }
 
 void
@@ -475,7 +487,8 @@ Logic::processResetInterest(const Interest& interest)
 void
 Logic::processSyncData(const Name& name,
                        ndn::ConstBufferPtr digest,
-                       const Block& syncReplyBlock)
+                       const Block& syncReplyBlock,
+                       bool firstData)
 {
   _LOG_DEBUG_ID(">> Logic::processSyncData");
   DiffStatePtr commit = make_shared<DiffState>();
@@ -525,7 +538,7 @@ Logic::processSyncData(const Name& name,
     return;
   }
 
-  if (static_cast<bool>(commit) && !commit->getLeaves().empty()) {
+  if (static_cast<bool>(commit) && !commit->getLeaves().empty() && firstData) {
     // state changed and it is safe to express a new interest
     time::steady_clock::Duration after = time::milliseconds(m_reexpressionJitter());
     _LOG_DEBUG_ID("Reschedule sync interest after: " << after);
@@ -748,6 +761,51 @@ Logic::onRecoveryTimeout(const Interest& interest)
   _LOG_DEBUG_ID(">> Logic::onRecoveryTimeout");
   _LOG_DEBUG_ID("Interest: " << interest.getName());
   _LOG_DEBUG_ID("<< Logic::onRecoveryTimeout");
+}
+
+void
+Logic::sendExcludeInterest(const Interest& interest, const Data& data)
+{
+  _LOG_DEBUG_ID(">> Logic::sendExcludeInterest");
+
+  Name interestName = interest.getName();
+  Interest excludeInterest(interestName);
+
+  Exclude exclude = interest.getExclude();
+  exclude.excludeOne(data.getFullName().get(-1));
+  excludeInterest.setExclude(exclude);
+
+  excludeInterest.setInterestLifetime(m_syncInterestLifetime);
+
+  m_face.expressInterest(excludeInterest, bind(&Logic::onSyncData, this, _1, _2),
+                                          bind(&Logic::onSyncTimeout, this, _1));
+
+  _LOG_DEBUG_ID("Send interest: " << excludeInterest.getName());
+  _LOG_DEBUG_ID("<< Logic::sendExcludeInterest");
+}
+
+void
+Logic::formAndSendExcludeInterest(const Name& nodePrefix, const State& commit, ndn::ConstBufferPtr previousRoot)
+{
+  _LOG_DEBUG_ID(">> Logic::formAndSendExcludeInterest");
+  Name interestName;
+  interestName.append(m_syncPrefix)
+              .append(ndn::name::Component(*previousRoot));
+  Interest interest(interestName);
+
+  shared_ptr<Data> data = make_shared<Data>(interestName);
+  data->setContent(commit.wireEncode());
+  data->setFreshnessPeriod(m_syncReplyFreshness);
+  if (m_nodeList.find(nodePrefix) == m_nodeList.end())
+    return;
+  if (m_nodeList[nodePrefix].signingId.empty())
+    m_keyChain.sign(*data);
+  else
+    m_keyChain.signByIdentity(*data, m_nodeList[nodePrefix].signingId);
+
+  sendExcludeInterest(interest, *data);
+
+  _LOG_DEBUG_ID("<< Logic::formAndSendExcludeInterest");
 }
 
 } // namespace chronosync
