@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -143,11 +143,11 @@ void
 State::wireDecode(const Block& wire)
 {
   if (!wire.hasWire())
-    throw Error("The supplied block does not contain wire format");
+    BOOST_THROW_EXCEPTION(Error("The supplied block does not contain wire format"));
 
   if (wire.type() != tlv::SyncReply)
-    throw Error("Unexpected TLV type when decoding SyncReply: " +
-                boost::lexical_cast<std::string>(m_wire.type()));
+    BOOST_THROW_EXCEPTION(Error("Unexpected TLV type when decoding SyncReply: " +
+                                boost::lexical_cast<std::string>(m_wire.type())));
 
   wire.parse();
   m_wire = wire;
@@ -164,7 +164,7 @@ State::wireDecode(const Block& wire)
       if (val != it->elements_end())
         update(info, readNonNegativeInteger(*val));
       else
-        throw Error("No seqNo when decoding SyncReply");
+        BOOST_THROW_EXCEPTION(Error("No seqNo when decoding SyncReply"));
     }
   }
 }

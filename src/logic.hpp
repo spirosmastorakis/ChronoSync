@@ -121,7 +121,7 @@ public:
         const Name& defaultUserPrefix,
         const UpdateCallback& onUpdate,
         const Name& defaultSigningId = DEFAULT_NAME,
-        ndn::shared_ptr<ndn::Validator> validator = DEFAULT_VALIDATOR,
+        std::shared_ptr<ndn::Validator> validator = DEFAULT_VALIDATOR,
         const time::steady_clock::Duration& resetTimer = DEFAULT_RESET_TIMER,
         const time::steady_clock::Duration& cancelResetTimer = DEFAULT_CANCEL_RESET_TIMER,
         const time::milliseconds& resetInterestLifetime = DEFAULT_RESET_INTEREST_LIFETIME,
@@ -264,7 +264,7 @@ private:
    * @param data     The reply to the Sync Interest
    */
   void
-  onSyncData(const Interest& interest, Data& data);
+  onSyncData(const Interest& interest, const Data& data);
 
   /**
    * @brief Callback to handle reply to Reset Interest.
@@ -275,7 +275,7 @@ private:
    * @param data     The reply to the Reset Interest
    */
   void
-  onResetData(const Interest& interest, Data& data);
+  onResetData(const Interest& interest, const Data& data);
 
   /**
    * @brief Callback to handle Sync Interest timeout.
@@ -423,7 +423,7 @@ private:
    * @param data     The reply to the Recovery Interest
    */
   void
-  onRecoveryData(const Interest& interest, Data& data);
+  onRecoveryData(const Interest& interest, const Data& data);
 
   /**
    * @brief Callback to handle Recovery Interest timeout.
@@ -461,7 +461,7 @@ private:
 public:
   static const ndn::Name DEFAULT_NAME;
   static const ndn::Name EMPTY_NAME;
-  static const ndn::shared_ptr<ndn::Validator> DEFAULT_VALIDATOR;
+  static const std::shared_ptr<ndn::Validator> DEFAULT_VALIDATOR;
 
 private:
   typedef std::unordered_map<ndn::Name, NodeInfo> NodeList;
@@ -516,7 +516,7 @@ private:
   // Security
   ndn::Name m_defaultSigningId;
   ndn::KeyChain m_keyChain;
-  ndn::shared_ptr<ndn::Validator> m_validator;
+  std::shared_ptr<ndn::Validator> m_validator;
 
 
 #ifdef _DEBUG

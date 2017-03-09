@@ -52,7 +52,7 @@ int Logic::m_instanceCounter = 0;
 
 const ndn::Name Logic::DEFAULT_NAME;
 const ndn::Name Logic::EMPTY_NAME;
-const ndn::shared_ptr<ndn::Validator> Logic::DEFAULT_VALIDATOR;
+const std::shared_ptr<ndn::Validator> Logic::DEFAULT_VALIDATOR;
 const time::steady_clock::Duration Logic::DEFAULT_RESET_TIMER = time::seconds(0);
 const time::steady_clock::Duration Logic::DEFAULT_CANCEL_RESET_TIMER = time::milliseconds(500);
 const time::milliseconds Logic::DEFAULT_RESET_INTEREST_LIFETIME(1000);
@@ -69,7 +69,7 @@ Logic::Logic(ndn::Face& face,
              const Name& defaultUserPrefix,
              const UpdateCallback& onUpdate,
              const Name& defaultSigningId,
-             ndn::shared_ptr<ndn::Validator> validator,
+             std::shared_ptr<ndn::Validator> validator,
              const time::steady_clock::Duration& resetTimer,
              const time::steady_clock::Duration& cancelResetTimer,
              const time::milliseconds& resetInterestLifetime,
@@ -213,7 +213,7 @@ Logic::getSessionName(Name prefix)
   if (node != m_nodeList.end())
     return node->second.sessionName;
   else
-    throw Error("Refer to non-existent node:" + prefix.toUri());
+    BOOST_THROW_EXCEPTION(Error("Refer to non-existent node:" + prefix.toUri()));
 }
 
 const SeqNo&
@@ -225,12 +225,12 @@ Logic::getSeqNo(Name prefix)
   if (node != m_nodeList.end())
     return node->second.seqNo;
   else
-    throw Logic::Error("Refer to non-existent node:" + prefix.toUri());
+    BOOST_THROW_EXCEPTION(Logic::Error("Refer to non-existent node:" + prefix.toUri()));
 
 }
 
 void
-Logic::updateSeqNo(const SeqNo& seqNo, const Name &updatePrefix)
+Logic::updateSeqNo(const SeqNo& seqNo, const Name& updatePrefix)
 {
   Name prefix;
   if (updatePrefix == EMPTY_NAME) {
@@ -342,7 +342,7 @@ Logic::onSyncRegisterFailed(const Name& prefix, const std::string& msg)
 }
 
 void
-Logic::onSyncData(const Interest& interest, Data& data)
+Logic::onSyncData(const Interest& interest, const Data& data)
 {
   _LOG_DEBUG_ID(">> Logic::onSyncData");
   // if (static_cast<bool>(m_validator))
@@ -366,7 +366,7 @@ Logic::onSyncData(const Interest& interest, Data& data)
 }
 
 void
-Logic::onResetData(const Interest& interest, Data& data)
+Logic::onResetData(const Interest& interest, const Data& data)
 {
   // This should not happened, drop the received data.
 }
@@ -531,7 +531,7 @@ Logic::processSyncData(const Name& name,
       _LOG_DEBUG_ID("What? nothing new");
     }
   }
-  catch (State::Error&) {
+  catch (const State::Error&) {
     _LOG_DEBUG_ID("Something really fishy happened during state decoding");
     // Something really fishy happened during state decoding;
     commit.reset();
@@ -566,7 +566,7 @@ Logic::satisfyPendingSyncInterests(const Name& updatedPrefix, ConstDiffStatePtr 
     }
     m_interestTable.clear();
   }
-  catch (InterestTable::Error&) {
+  catch (const InterestTable::Error&) {
     // ok. not really an error
   }
   _LOG_DEBUG_ID("<< Logic::satisfyPendingSyncInterests");
@@ -607,6 +607,7 @@ Logic::sendResetInterest()
   interest.setInterestLifetime(m_resetInterestLifetime);
   m_face.expressInterest(interest,
                          bind(&Logic::onResetData, this, _1, _2),
+                         bind(&Logic::onSyncTimeout, this, _1), // Nack
                          bind(&Logic::onSyncTimeout, this, _1));
 
   _LOG_DEBUG_ID("<< Logic::sendResetInterest");
@@ -640,6 +641,7 @@ Logic::sendSyncInterest()
 
   m_outstandingInterestId = m_face.expressInterest(interest,
                                                    bind(&Logic::onSyncData, this, _1, _2),
+                                                   bind(&Logic::onSyncTimeout, this, _1), // Nack
                                                    bind(&Logic::onSyncTimeout, this, _1));
 
   _LOG_DEBUG_ID("Send interest: " << interest.getName());
@@ -720,8 +722,10 @@ Logic::sendRecoveryInterest(ndn::ConstBufferPtr digest)
   interest.setMustBeFresh(true);
   interest.setInterestLifetime(m_recoveryInterestLifetime);
 
-  m_face.expressInterest(interest, bind(&Logic::onRecoveryData, this, _1, _2),
-                                   bind(&Logic::onRecoveryTimeout, this, _1));
+  m_face.expressInterest(interest,
+                         bind(&Logic::onRecoveryData, this, _1, _2),
+                         bind(&Logic::onRecoveryTimeout, this, _1), // Nack
+                         bind(&Logic::onRecoveryTimeout, this, _1));
 
   _LOG_DEBUG_ID("interest: " << interest.getName());
   _LOG_DEBUG_ID("<< Logic::sendRecoveryInterest");
@@ -748,7 +752,7 @@ Logic::processRecoveryInterest(const Interest& interest)
 }
 
 void
-Logic::onRecoveryData(const Interest& interest, Data& data)
+Logic::onRecoveryData(const Interest& interest, const Data& data)
 {
   _LOG_DEBUG_ID(">> Logic::onRecoveryData");
   onSyncDataValidated(data.shared_from_this());
@@ -777,8 +781,10 @@ Logic::sendExcludeInterest(const Interest& interest, const Data& data)
 
   excludeInterest.setInterestLifetime(m_syncInterestLifetime);
 
-  m_face.expressInterest(excludeInterest, bind(&Logic::onSyncData, this, _1, _2),
-                                          bind(&Logic::onSyncTimeout, this, _1));
+  m_face.expressInterest(excludeInterest,
+                         bind(&Logic::onSyncData, this, _1, _2),
+                         bind(&Logic::onSyncTimeout, this, _1), // Nack
+                         bind(&Logic::onSyncTimeout, this, _1));
 
   _LOG_DEBUG_ID("Send interest: " << excludeInterest.getName());
   _LOG_DEBUG_ID("<< Logic::sendExcludeInterest");

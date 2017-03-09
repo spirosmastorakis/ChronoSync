@@ -32,14 +32,14 @@ namespace chronosync {
 
 const ndn::Name Socket::DEFAULT_NAME;
 const ndn::Name Socket::DEFAULT_PREFIX;
-const ndn::shared_ptr<ndn::Validator> Socket::DEFAULT_VALIDATOR;
+const std::shared_ptr<ndn::Validator> Socket::DEFAULT_VALIDATOR;
 
 Socket::Socket(const Name& syncPrefix,
                const Name& userPrefix,
                ndn::Face& face,
                const UpdateCallback& updateCallback,
                const Name& signingId,
-               ndn::shared_ptr<ndn::Validator> validator)
+               std::shared_ptr<ndn::Validator> validator)
   : m_userPrefix(userPrefix)
   , m_face(face)
   , m_logic(face, syncPrefix, userPrefix, updateCallback)
@@ -146,6 +146,8 @@ Socket::fetchData(const Name& sessionName, const SeqNo& seqNo,
   m_face.expressInterest(interest,
                          bind(&Socket::onData, this, _1, _2, dataCallback, failureCallback),
                          bind(&Socket::onDataTimeout, this, _1, nRetries,
+                              dataCallback, failureCallback), // Nack
+                         bind(&Socket::onDataTimeout, this, _1, nRetries,
                               dataCallback, failureCallback));
 }
 
@@ -153,7 +155,7 @@ void
 Socket::fetchData(const Name& sessionName, const SeqNo& seqNo,
                   const ndn::OnDataValidated& dataCallback,
                   const ndn::OnDataValidationFailed& failureCallback,
-                  const ndn::OnTimeout& onTimeout,
+                  const ndn::TimeoutCallback& onTimeout,
                   int nRetries)
 {
   _LOG_DEBUG(">> Socket::fetchData");
@@ -165,6 +167,7 @@ Socket::fetchData(const Name& sessionName, const SeqNo& seqNo,
 
   m_face.expressInterest(interest,
                          bind(&Socket::onData, this, _1, _2, dataCallback, failureCallback),
+                         bind(onTimeout, _1), // Nack
                          onTimeout);
 
   _LOG_DEBUG("<< Socket::fetchData");
@@ -180,7 +183,7 @@ Socket::onInterest(const Name& prefix, const Interest& interest)
 }
 
 void
-Socket::onData(const Interest& interest, Data& data,
+Socket::onData(const Interest& interest, const Data& data,
                const ndn::OnDataValidated& onValidated,
                const ndn::OnDataValidationFailed& onFailed)
 {
@@ -203,6 +206,8 @@ Socket::onDataTimeout(const Interest& interest, int nRetries,
 
   m_face.expressInterest(interest,
                          bind(&Socket::onData, this, _1, _2, onValidated, onFailed),
+                         bind(&Socket::onDataTimeout, this, _1, nRetries - 1,
+                              onValidated, onFailed), // Nack
                          bind(&Socket::onDataTimeout, this, _1, nRetries - 1,
                               onValidated, onFailed));
 }

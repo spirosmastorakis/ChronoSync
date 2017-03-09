@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -36,19 +36,19 @@ public:
     Name prefix("/test/prefix");
 
     Name interestName1;
-    digest1 = ndn::crypto::sha256(origin, 1);
+    digest1 = ndn::crypto::computeSha256Digest(origin, 1);
     interestName1.append(prefix).append(name::Component(digest1));
     interest1 = make_shared<Interest>(interestName1);
     interest1->setInterestLifetime(time::milliseconds(100));
 
     Name interestName2;
-    digest2 = ndn::crypto::sha256(origin, 2);
+    digest2 = ndn::crypto::computeSha256Digest(origin, 2);
     interestName2.append(prefix).append(name::Component(digest2));
     interest2 = make_shared<Interest>(interestName2);
     interest2->setInterestLifetime(time::milliseconds(100));
 
     Name interestName3;
-    digest3 = ndn::crypto::sha256(origin, 3);
+    digest3 = ndn::crypto::computeSha256Digest(origin, 3);
     interestName3.append(prefix).append(name::Component(digest3));
     interest3 = make_shared<Interest>(interestName3);
     interest3->setInterestLifetime(time::milliseconds(100));
@@ -121,16 +121,16 @@ BOOST_AUTO_TEST_CASE(Expire)
 {
   InterestTable table(io);
 
-  insert(ndn::ref(table), interest1, digest1);
+  insert(table, interest1, digest1);
 
   advanceClocks(ndn::time::milliseconds(10), 10);
 
-  insert(ndn::ref(table), interest2, digest2);
-  insert(ndn::ref(table), interest3, digest3);
+  insert(table, interest2, digest2);
+  insert(table, interest3, digest3);
 
   advanceClocks(ndn::time::milliseconds(10), 5);
 
-  insert(ndn::ref(table), interest2, digest2);
+  insert(table, interest2, digest2);
 
   advanceClocks(ndn::time::milliseconds(10), 2);
   BOOST_CHECK_EQUAL(table.size(), 2);

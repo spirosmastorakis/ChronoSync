@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -64,7 +64,7 @@ public:
          ndn::Face& face,
          const UpdateCallback& updateCallback,
          const Name& signingId = DEFAULT_NAME,
-         ndn::shared_ptr<ndn::Validator> validator = DEFAULT_VALIDATOR);
+         std::shared_ptr<ndn::Validator> validator = DEFAULT_VALIDATOR);
 
   ~Socket();
 
@@ -151,7 +151,7 @@ public:
   fetchData(const Name& sessionName, const SeqNo& seq,
             const ndn::OnDataValidated& onValidated,
             const ndn::OnDataValidationFailed& onValidationFailed,
-            const ndn::OnTimeout& onTimeout,
+            const ndn::TimeoutCallback& onTimeout,
             int nRetries = 0);
 
   /// @brief Get the root digest of current sync tree
@@ -169,7 +169,7 @@ private:
   onInterest(const Name& prefix, const Interest& interest);
 
   void
-  onData(const Interest& interest, Data& data,
+  onData(const Interest& interest, const Data& data,
          const ndn::OnDataValidated& dataCallback,
          const ndn::OnDataValidationFailed& failCallback);
 
@@ -185,7 +185,7 @@ private:
 public:
   static const ndn::Name DEFAULT_NAME;
   static const ndn::Name DEFAULT_PREFIX;
-  static const ndn::shared_ptr<ndn::Validator> DEFAULT_VALIDATOR;
+  static const std::shared_ptr<ndn::Validator> DEFAULT_VALIDATOR;
 
 private:
   typedef std::unordered_map<ndn::Name, const ndn::RegisteredPrefixId*> RegisteredPrefixList;
@@ -196,7 +196,7 @@ private:
 
   ndn::Name m_signingId;
   ndn::KeyChain m_keyChain;
-  ndn::shared_ptr<ndn::Validator> m_validator;
+  std::shared_ptr<ndn::Validator> m_validator;
 
   RegisteredPrefixList m_registeredPrefixList;
   ndn::util::InMemoryStoragePersistent m_ims;

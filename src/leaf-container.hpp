@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -47,7 +47,7 @@ struct SessionNameHash
   operator()(const Name& prefix) const
   {
     ndn::ConstBufferPtr buffer =
-      ndn::crypto::sha256(prefix.wireEncode().wire(), prefix.wireEncode().size());
+      ndn::crypto::computeSha256Digest(prefix.wireEncode().wire(), prefix.wireEncode().size());
 
     BOOST_ASSERT(buffer->size() > sizeof(std::size_t));
 
