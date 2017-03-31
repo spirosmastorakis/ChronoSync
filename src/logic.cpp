@@ -781,6 +781,10 @@ Logic::sendExcludeInterest(const Interest& interest, const Data& data)
 
   excludeInterest.setInterestLifetime(m_syncInterestLifetime);
 
+  if (excludeInterest.wireEncode().size() > ndn::MAX_NDN_PACKET_SIZE) {
+    return;
+  }
+
   m_face.expressInterest(excludeInterest,
                          bind(&Logic::onSyncData, this, _1, _2),
                          bind(&Logic::onSyncTimeout, this, _1), // Nack
