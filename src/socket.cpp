@@ -107,6 +107,13 @@ Socket::publishData(const uint8_t* buf, size_t len, const ndn::time::millisecond
 }
 
 void
+Socket::publishData(const uint8_t* buf, size_t len, const ndn::time::milliseconds& freshness,
+                    const uint64_t& seqNo, const Name& prefix)
+{
+  publishData(ndn::encoding::makeBinaryBlock(ndn::tlv::Content, buf, len), freshness, seqNo, prefix);
+}
+
+void
 Socket::publishData(const Block& content, const ndn::time::milliseconds& freshness,
                     const Name& prefix)
 {
@@ -115,6 +122,29 @@ Socket::publishData(const Block& content, const ndn::time::milliseconds& freshne
   data->setFreshnessPeriod(freshness);
 
   SeqNo newSeq = m_logic.getSeqNo(prefix) + 1;
+  Name dataName;
+  dataName.append(m_logic.getSessionName(prefix)).appendNumber(newSeq);
+  data->setName(dataName);
+
+  if (m_signingId.empty())
+    m_keyChain.sign(*data);
+  else
+    m_keyChain.signByIdentity(*data, m_signingId);
+
+  m_ims.insert(*data);
+
+  m_logic.updateSeqNo(newSeq, prefix);
+}
+
+void
+Socket::publishData(const Block& content, const ndn::time::milliseconds& freshness,
+                    const uint64_t& seqNo, const Name& prefix)
+{
+  shared_ptr<Data> data = make_shared<Data>();
+  data->setContent(content);
+  data->setFreshnessPeriod(freshness);
+
+  SeqNo newSeq = seqNo;
   Name dataName;
   dataName.append(m_logic.getSessionName(prefix)).appendNumber(newSeq);
   data->setName(dataName);

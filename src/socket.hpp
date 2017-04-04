@@ -115,6 +115,24 @@ public:
    *
    * This method will create a data packet with the supplied content.
    * The packet name is the local session + seqNo.
+   * The seqNo is set by the application.
+   *
+   * @throws It will throw error, if the prefix does not exist in m_logic
+   *
+   * @param buf Pointer to the bytes in content
+   * @param len size of the bytes in content
+   * @param freshness FreshnessPeriod of the data packet.
+   * @param seqNo Sequence number of the data
+   */
+  void
+  publishData(const uint8_t* buf, size_t len, const ndn::time::milliseconds& freshness,
+              const uint64_t& seqNo, const Name& prefix = DEFAULT_PREFIX);
+
+  /**
+   * @brief Publish a data packet in the session and trigger synchronization updates
+   *
+   * This method will create a data packet with the supplied content.
+   * The packet name is the local session + seqNo.
    * The seqNo is automatically maintained by internal Logic.
    *
    * @throws It will throw error, if the prefix does not exist in m_logic
@@ -125,6 +143,23 @@ public:
   void
   publishData(const Block& content, const ndn::time::milliseconds& freshness,
               const Name& prefix = DEFAULT_PREFIX);
+
+  /**
+   * @brief Publish a data packet in the session and trigger synchronization updates
+   *
+   * This method will create a data packet with the supplied content.
+   * The packet name is the local session + seqNo.
+   * The seqNo is set by the application.
+   *
+   * @throws It will throw error, if the prefix does not exist in m_logic
+   *
+   * @param content Block that will be set as the content of the data packet.
+   * @param freshness FreshnessPeriod of the data packet.
+   * @param seqNo Sequence number of the data
+   */
+  void
+  publishData(const Block& content, const ndn::time::milliseconds& freshness,
+              const uint64_t& seqNo, const Name& prefix = DEFAULT_PREFIX);
 
   /**
    * @brief Retrive a data packet with a particular seqNo from a session

@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2016 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -107,7 +107,7 @@ public:
   }
 
   void
-  fetchNumbers(const vector<MissingDataInfo> &v)
+  fetchNumbers(const vector<MissingDataInfo>& v)
   {
     // std::cerr << "fetchNumbers" << std::endl;
     for (size_t i = 0; i < v.size(); i++) {
@@ -200,6 +200,13 @@ public:
   {
     app[idx]->socket.publishData(reinterpret_cast<const uint8_t*>(data.c_str()), data.size(),
                                  ndn::time::milliseconds(1000));
+  }
+
+  void
+  publishAppData(size_t idx, const string& data, SeqNo seqNo)
+  {
+    app[idx]->socket.publishData(reinterpret_cast<const uint8_t*>(data.c_str()), data.size(),
+                                 ndn::time::milliseconds(1000), seqNo);
   }
 
   void
@@ -352,6 +359,85 @@ BOOST_AUTO_TEST_CASE(BasicNumber)
   }
   BOOST_CHECK_EQUAL(app[0]->sum, app[1]->sum);
   BOOST_CHECK_EQUAL(app[1]->sum, 30);
+}
+
+BOOST_AUTO_TEST_CASE(BasicDataWithAppSeq)
+{
+  createSocket(0, false);
+  advanceClocks(ndn::time::milliseconds(10), 5);
+  createSocket(1, false);
+  advanceClocks(ndn::time::milliseconds(10), 5);
+  createSocket(2, false);
+  advanceClocks(ndn::time::milliseconds(10), 5);
+
+  string data0 = "Very funny Scotty, now beam down my clothes";
+  publishAppData(0, data0, 100);
+
+  for (int i = 0; i < 50; i++) {
+    advanceClocks(ndn::time::milliseconds(2), 10);
+    passPacket();
+  }
+  setAppData(0, 100, data0);
+
+  advanceClocks(ndn::time::milliseconds(10), 1);
+  BOOST_CHECK_EQUAL(app[0]->toString(), app[1]->toString());
+  BOOST_CHECK_EQUAL(app[0]->toString(), app[2]->toString());
+
+  string data1 = "Yes, give me that ketchup";
+  string data2 = "Don't look conspicuous, it draws fire";
+  publishAppData(0, data1, 200);
+  advanceClocks(ndn::time::milliseconds(10), 1);
+  publishAppData(0, data2, 300);
+
+  for (int i = 0; i < 50; i++) {
+    advanceClocks(ndn::time::milliseconds(2), 10);
+    passPacket();
+  }
+  setAppData(0, 200, data1);
+  advanceClocks(ndn::time::milliseconds(10), 1);
+  setAppData(0, 300, data2);
+
+  advanceClocks(ndn::time::milliseconds(10), 1);
+  BOOST_CHECK_EQUAL(app[0]->toString(), app[1]->toString());
+  BOOST_CHECK_EQUAL(app[0]->toString(), app[2]->toString());
+
+  string data3 = "You surf the Internet, I surf the real world";
+  string data4 = "I got a fortune cookie once that said 'You like Chinese food'";
+  string data5 = "Real men wear pink. Why? Because their wives make them";
+  publishAppData(2, data3, 100);
+  advanceClocks(ndn::time::milliseconds(10), 2);
+  publishAppData(1, data4, 100);
+  advanceClocks(ndn::time::milliseconds(10), 1);
+  publishAppData(1, data5, 200);
+
+  for (int i = 0; i < 100; i++) {
+    advanceClocks(ndn::time::milliseconds(2), 10);
+    passPacket();
+  }
+  setAppData(2, 100, data3);
+  advanceClocks(ndn::time::milliseconds(10), 1);
+  setAppData(1, 100, data4);
+  advanceClocks(ndn::time::milliseconds(10), 1);
+  setAppData(1, 200, data5);
+
+  advanceClocks(ndn::time::milliseconds(10), 7);
+  BOOST_CHECK_EQUAL(app[0]->toString(), app[1]->toString());
+  BOOST_CHECK_EQUAL(app[0]->toString(), app[2]->toString());
+
+  string data6 = "Shakespeare says: 'Prose before hos.'";
+  string data7 = "Pick good people, talent never wears out";
+  publishAppData(0, data6, 500);
+  publishAppData(1, data7, 300);
+
+  for (int i = 0; i < 100; i++) {
+    advanceClocks(ndn::time::milliseconds(2), 10);
+    passPacket();
+  }
+  setAppData(0, 500, data6);
+  setAppData(1, 300, data7);
+
+  BOOST_CHECK_EQUAL(app[0]->toString(), app[1]->toString());
+  BOOST_CHECK_EQUAL(app[0]->toString(), app[2]->toString());
 }
 
 BOOST_AUTO_TEST_SUITE_END()
