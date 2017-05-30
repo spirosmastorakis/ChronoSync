@@ -18,11 +18,10 @@
  */
 
 #include "interest-table.hpp"
+#include "boost-test.hpp"
+#include "../unit-test-time-fixture.hpp"
 
 #include <unistd.h>
-
-#include "../unit-test-time-fixture.hpp"
-#include "boost-test.hpp"
 
 namespace chronosync {
 namespace test {
@@ -36,19 +35,19 @@ public:
     Name prefix("/test/prefix");
 
     Name interestName1;
-    digest1 = ndn::crypto::computeSha256Digest(origin, 1);
+    digest1 = ndn::util::Sha256::computeDigest(origin, 1);
     interestName1.append(prefix).append(name::Component(digest1));
     interest1 = make_shared<Interest>(interestName1);
     interest1->setInterestLifetime(time::milliseconds(100));
 
     Name interestName2;
-    digest2 = ndn::crypto::computeSha256Digest(origin, 2);
+    digest2 = ndn::util::Sha256::computeDigest(origin, 2);
     interestName2.append(prefix).append(name::Component(digest2));
     interest2 = make_shared<Interest>(interestName2);
     interest2->setInterestLifetime(time::milliseconds(100));
 
     Name interestName3;
-    digest3 = ndn::crypto::computeSha256Digest(origin, 3);
+    digest3 = ndn::util::Sha256::computeDigest(origin, 3);
     interestName3.append(prefix).append(name::Component(digest3));
     interest3 = make_shared<Interest>(interestName3);
     interest3->setInterestLifetime(time::milliseconds(100));

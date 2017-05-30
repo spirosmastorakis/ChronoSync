@@ -25,11 +25,11 @@
 #ifndef CHRONOSYNC_SOCKET_HPP
 #define CHRONOSYNC_SOCKET_HPP
 
-#include <ndn-cxx/face.hpp>
-#include <ndn-cxx/util/in-memory-storage-persistent.hpp>
-#include <unordered_map>
-
 #include "logic.hpp"
+
+#include <ndn-cxx/face.hpp>
+#include <ndn-cxx/ims/in-memory-storage-persistent.hpp>
+#include <unordered_map>
 
 namespace chronosync {
 
@@ -235,12 +235,12 @@ private:
   ndn::Face& m_face;
   Logic m_logic;
 
-  ndn::Name m_signingId;
+  Name m_signingId;
   ndn::KeyChain m_keyChain;
   std::shared_ptr<ndn::Validator> m_validator;
 
   RegisteredPrefixList m_registeredPrefixList;
-  ndn::util::InMemoryStoragePersistent m_ims;
+  ndn::InMemoryStoragePersistent m_ims;
 };
 
 } // namespace chronosync

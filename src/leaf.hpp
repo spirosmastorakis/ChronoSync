@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -26,7 +26,7 @@
 #define CHRONOSYNC_LEAF_HPP
 
 #include "common.hpp"
-#include <ndn-cxx/util/digest.hpp>
+#include <ndn-cxx/util/sha256.hpp>
 
 namespace chronosync {
 

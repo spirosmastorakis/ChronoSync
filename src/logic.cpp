@@ -26,6 +26,8 @@
 #include "logic.hpp"
 #include "logger.hpp"
 
+#include <ndn-cxx/util/string-helper.hpp>
+
 INIT_LOGGER(Logic);
 
 #ifdef _DEBUG
@@ -94,7 +96,6 @@ Logic::Logic(ndn::Face& face,
   , m_syncInterestLifetime(syncInterestLifetime)
   , m_syncReplyFreshness(syncReplyFreshness)
   , m_recoveryInterestLifetime(recoveryInterestLifetime)
-  , m_defaultSigningId(defaultSigningId)
   , m_validator(validator)
 {
 #ifdef _DEBUG
@@ -103,7 +104,7 @@ Logic::Logic(ndn::Face& face,
 
   _LOG_DEBUG_ID(">> Logic::Logic");
 
-  addUserNode(m_defaultUserPrefix, m_defaultSigningId);
+  addUserNode(m_defaultUserPrefix, defaultSigningId);
 
 
   m_syncReset = m_syncPrefix;
@@ -159,7 +160,6 @@ Logic::setDefaultUserPrefix(const Name& defaultUserPrefix)
   if (defaultUserPrefix != EMPTY_NAME) {
     if (m_nodeList.find(defaultUserPrefix) != m_nodeList.end()) {
       m_defaultUserPrefix = defaultUserPrefix;
-      m_defaultSigningId = m_nodeList[defaultUserPrefix].signingId;
     }
   }
 }
@@ -171,7 +171,6 @@ Logic::addUserNode(const Name& userPrefix, const Name& signingId)
     return;
   if (m_defaultUserPrefix == EMPTY_NAME) {
     m_defaultUserPrefix = userPrefix;
-    m_defaultSigningId = signingId;
   }
   if (m_nodeList.find(userPrefix) == m_nodeList.end()) {
     m_nodeList[userPrefix].userPrefix = userPrefix;
@@ -193,11 +192,9 @@ Logic::removeUserNode(const Name& userPrefix)
     if (m_defaultUserPrefix == userPrefix) {
       if (!m_nodeList.empty()) {
         m_defaultUserPrefix = m_nodeList.begin()->second.userPrefix;
-        m_defaultSigningId = m_nodeList.begin()->second.signingId;
       }
       else {
         m_defaultUserPrefix = EMPTY_NAME;
-        m_defaultSigningId = DEFAULT_NAME;
       }
     }
     reset(false);
@@ -256,11 +253,7 @@ Logic::updateSeqNo(const SeqNo& seqNo, const Name& updatePrefix)
       _LOG_DEBUG_ID("updateSeqNo: not in Reset ");
       ndn::ConstBufferPtr previousRoot = m_state.getRootDigest();
       {
-        using namespace CryptoPP;
-
-        std::string hash;
-        StringSource(previousRoot->buf(), previousRoot->size(), true,
-                     new HexEncoder(new StringSink(hash), false));
+        std::string hash = ndn::toHex(previousRoot->buf(), previousRoot->size(), false);
         _LOG_DEBUG_ID("Hash: " << hash);
       }
 
@@ -660,7 +653,7 @@ Logic::sendSyncData(const Name& nodePrefix, const Name& name, const State& state
   if (m_nodeList[nodePrefix].signingId.empty())
     m_keyChain.sign(*syncReply);
   else
-    m_keyChain.signByIdentity(*syncReply, m_nodeList[nodePrefix].signingId);
+    m_keyChain.sign(*syncReply, security::signingByIdentity(m_nodeList[nodePrefix].signingId));
 
   m_face.put(*syncReply);
 
@@ -700,11 +693,7 @@ Logic::cancelReset()
 void
 Logic::printDigest(ndn::ConstBufferPtr digest)
 {
-  using namespace CryptoPP;
-
-  std::string hash;
-  StringSource(digest->buf(), digest->size(), true,
-               new HexEncoder(new StringSink(hash), false));
+  std::string hash = ndn::toHex(digest->buf(), digest->size(), false);
   _LOG_DEBUG_ID("Hash: " << hash);
 }
 
@@ -811,7 +800,7 @@ Logic::formAndSendExcludeInterest(const Name& nodePrefix, const State& commit, n
   if (m_nodeList[nodePrefix].signingId.empty())
     m_keyChain.sign(*data);
   else
-    m_keyChain.signByIdentity(*data, m_nodeList[nodePrefix].signingId);
+    m_keyChain.sign(*data, security::signingByIdentity(m_nodeList[nodePrefix].signingId));
 
   sendExcludeInterest(interest, *data);
 

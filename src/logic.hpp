@@ -27,16 +27,17 @@
 #define CHRONOSYNC_LOGIC_HPP
 
 #include "boost-header.h"
+#include "diff-state-container.hpp"
+#include "interest-table.hpp"
+
 #include <memory>
 #include <unordered_map>
 
 #include <ndn-cxx/face.hpp>
 #include <ndn-cxx/util/scheduler.hpp>
 #include <ndn-cxx/security/key-chain.hpp>
+#include <ndn-cxx/security/signing-helpers.hpp>
 #include <ndn-cxx/security/validator.hpp>
-
-#include "interest-table.hpp"
-#include "diff-state-container.hpp"
 
 namespace chronosync {
 
@@ -515,7 +516,6 @@ private:
   time::milliseconds m_recoveryInterestLifetime;
 
   // Security
-  ndn::Name m_defaultSigningId;
   ndn::KeyChain m_keyChain;
   std::shared_ptr<ndn::Validator> m_validator;
 

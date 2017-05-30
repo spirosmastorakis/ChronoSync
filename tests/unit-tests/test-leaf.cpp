@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -17,13 +17,12 @@
  * ChronoSync, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #include "leaf.hpp"
-#include "leaf-container.hpp"
-#include <ndn-cxx/encoding/buffer-stream.hpp>
-
 #include "boost-test.hpp"
+#include "leaf-container.hpp"
 
+#include <ndn-cxx/encoding/buffer-stream.hpp>
+#include <ndn-cxx/util/string-helper.hpp>
 
 namespace chronosync {
 namespace test {
@@ -49,12 +48,7 @@ BOOST_AUTO_TEST_CASE(LeafBasic)
 
 BOOST_AUTO_TEST_CASE(LeafDigest)
 {
-  using namespace CryptoPP;
-
-  std::string hexResult = "05fe7f728d3341e9eff82526277b02171044124d0a52e8c4610982261c20de2b";
-  ndn::OBufferStream os;
-  StringSource(hexResult, true, new HexDecoder(new FileSink(os)));
-  ndn::ConstBufferPtr result = os.buf();
+  std::string result = "05fe7f728d3341e9eff82526277b02171044124d0a52e8c4610982261c20de2b";
 
   Name userPrefix("/test/name");
   Leaf leaf(userPrefix, 1, 10);
@@ -62,7 +56,7 @@ BOOST_AUTO_TEST_CASE(LeafDigest)
   BOOST_CHECK_NO_THROW(leaf.getDigest());
 
   ndn::ConstBufferPtr digest = leaf.getDigest();
-  BOOST_CHECK(*result == *digest);
+  BOOST_CHECK_EQUAL(result, ndn::toHex(digest->buf(), digest->size(), false));
 }
 
 BOOST_AUTO_TEST_CASE(Container)

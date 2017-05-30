@@ -21,7 +21,7 @@ def options(opt):
 
 def configure(conf):
     conf.load(['compiler_c', 'compiler_cxx', 'gnu_dirs',
-               'default-compiler-flags', 'boost', 'pch', 'sanitizers', 'coverage',
+               'default-compiler-flags', 'boost', 'pch', 'coverage',
                'doxygen', 'sphinx_build'])
 
     conf.check_cfg(package='libndn-cxx', args=['--cflags', '--libs'],
@@ -34,6 +34,8 @@ def configure(conf):
         boost_libs += ' unit_test_framework'
 
     conf.check_boost(lib=boost_libs, mt=True)
+
+    conf.load('sanitizers')
 
     # If there happens to be a static library, waf will put the corresponding -L flags
     # before dynamic library flags.  This can result in compilation failure when the

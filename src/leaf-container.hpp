@@ -28,14 +28,12 @@
 #include "mi-tag.hpp"
 #include "leaf.hpp"
 
-#include <ndn-cxx/util/crypto.hpp>
-
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
 
-
+#include <ndn-cxx/util/sha256.hpp>
 
 namespace chronosync {
 
@@ -47,7 +45,7 @@ struct SessionNameHash
   operator()(const Name& prefix) const
   {
     ndn::ConstBufferPtr buffer =
-      ndn::crypto::computeSha256Digest(prefix.wireEncode().wire(), prefix.wireEncode().size());
+      ndn::util::Sha256::computeDigest(prefix.wireEncode().wire(), prefix.wireEncode().size());
 
     BOOST_ASSERT(buffer->size() > sizeof(std::size_t));
 

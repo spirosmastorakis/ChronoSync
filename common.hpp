@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -84,10 +84,11 @@ using ndn::Block;
 
 namespace tlv {
 using namespace ndn::tlv;
-}
+} // namespace tlv
 
 namespace name = ndn::name;
 namespace time = ndn::time;
+namespace security = ndn::security;
 
 } // namespace chronosync
 
