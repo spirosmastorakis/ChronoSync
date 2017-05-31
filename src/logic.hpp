@@ -111,10 +111,11 @@ public:
    * @param defaultSigningId The signing Id of the default user
    * @param validator The validator for packet validation
    * @param resetTimer The timer to periodically send Reset Interest
-   * @param syncReplyFreshness The FreshnessPeriod of sync reply
-   * @param resetInterestLifetime The lifetime of sync interest
-   * @param resetInterestLifetime The lifetime of Reset Interest
    * @param cancelResetTimer The timer to exit from Reset state
+   * @param resetInterestLifetime The lifetime of Reset Interest
+   * @param syncInterestLifetime The lifetime of sync interest
+   * @param syncReplyFreshness The FreshnessPeriod of sync reply
+   * @param recoveryInterestLifetime The lifetime of recovery interest
    */
   Logic(ndn::Face& face,
         const Name& syncPrefix,

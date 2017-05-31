@@ -105,6 +105,7 @@ public:
    * @param buf Pointer to the bytes in content
    * @param len size of the bytes in content
    * @param freshness FreshnessPeriod of the data packet.
+   * @param prefix The user prefix that will be used to publish the data.
    */
   void
   publishData(const uint8_t* buf, size_t len, const ndn::time::milliseconds& freshness,
@@ -123,6 +124,7 @@ public:
    * @param len size of the bytes in content
    * @param freshness FreshnessPeriod of the data packet.
    * @param seqNo Sequence number of the data
+   * @param prefix The user prefix that will be used to publish the data.
    */
   void
   publishData(const uint8_t* buf, size_t len, const ndn::time::milliseconds& freshness,
@@ -139,6 +141,7 @@ public:
    *
    * @param content Block that will be set as the content of the data packet.
    * @param freshness FreshnessPeriod of the data packet.
+   * @param prefix The user prefix that will be used to publish the data.
    */
   void
   publishData(const Block& content, const ndn::time::milliseconds& freshness,
@@ -156,6 +159,7 @@ public:
    * @param content Block that will be set as the content of the data packet.
    * @param freshness FreshnessPeriod of the data packet.
    * @param seqNo Sequence number of the data
+   * @param prefix The user prefix that will be used to publish the data.
    */
   void
   publishData(const Block& content, const ndn::time::milliseconds& freshness,
@@ -180,6 +184,8 @@ public:
    * @param sessionName The name of the target session.
    * @param seq The seqNo of the data packet.
    * @param onValidated The callback when the retrieved packet has been validated.
+   * @param onValidationFailed The callback when the retrieved packet failed validation.
+   * @param onTimeout The callback when data is not retrieved.
    * @param nRetries The number of retries.
    */
   void

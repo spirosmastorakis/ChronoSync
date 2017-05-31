@@ -117,9 +117,11 @@ State::wireEncode(ndn::EncodingImpl<T>& block) const
   return totalLength;
 }
 
+//! \relates State
 template size_t
 State::wireEncode<true>(ndn::EncodingImpl<true>& block) const;
 
+//! \relates State
 template size_t
 State::wireEncode<false>(ndn::EncodingImpl<false>& block) const;
 
