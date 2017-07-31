@@ -234,7 +234,10 @@ Socket::onDataTimeout(const Interest& interest, int nRetries,
   if (nRetries <= 0)
     return;
 
-  m_face.expressInterest(interest,
+  Interest newNonceInterest(interest);
+  newNonceInterest.refreshNonce();
+
+  m_face.expressInterest(newNonceInterest,
                          bind(&Socket::onData, this, _1, _2, onValidated, onFailed),
                          bind(&Socket::onDataTimeout, this, _1, nRetries - 1,
                               onValidated, onFailed), // Nack
