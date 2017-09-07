@@ -15,7 +15,7 @@ def build(bld):
 
     unit_test = bld.program(
         target="../unit-tests",
-        source=bld.path.ant_glob(['unit-tests/**/*.cpp']),
+        source=bld.path.ant_glob(['unit-tests/**/*.cpp', 'identity-management-fixture.cpp']),
         features=['cxx', 'cxxprogram'],
         use='ChronoSync tests-main',
         includes=['.'],

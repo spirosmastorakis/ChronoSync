@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -44,7 +44,7 @@ Leaf::~Leaf()
 {
 }
 
-ndn::ConstBufferPtr
+ConstBufferPtr
 Leaf::getDigest() const
 {
   return m_digest.computeDigest();

@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -37,38 +37,35 @@ InterestTable::~InterestTable()
 }
 
 void
-InterestTable::insert(shared_ptr<const Interest> interest,
-                      ndn::ConstBufferPtr digest,
-                      bool isKnown/*=false*/)
+InterestTable::insert(const Interest& interest, ConstBufferPtr digest, bool isKnown/*=false*/)
 {
   erase(digest);
 
-  UnsatisfiedInterestPtr request =
-    make_shared<UnsatisfiedInterest>(interest, digest, isKnown);
+  auto request = make_shared<UnsatisfiedInterest>(interest, digest, isKnown);
 
-  time::milliseconds entryLifetime = interest->getInterestLifetime();
+  time::milliseconds entryLifetime = interest.getInterestLifetime();
   if (entryLifetime < time::milliseconds::zero())
     entryLifetime = ndn::DEFAULT_INTEREST_LIFETIME;
 
-  request->expirationEvent =
-    m_scheduler.scheduleEvent(entryLifetime,
-                              [=] () { erase(digest); });
+  request->expirationEvent = m_scheduler.scheduleEvent(entryLifetime, [=] { erase(digest); });
 
   m_table.insert(request);
 }
 
 void
-InterestTable::erase(ndn::ConstBufferPtr digest)
+InterestTable::erase(ConstBufferPtr digest)
 {
-  InterestContainer::index<hashed>::type::iterator it = m_table.get<hashed>().find(digest);
-  if (it != m_table.get<hashed>().end()) {
+  auto it = m_table.get<hashed>().find(digest);
+  while (it != m_table.get<hashed>().end()) {
     m_scheduler.cancelEvent((*it)->expirationEvent);
     m_table.erase(it);
+
+    it = m_table.get<hashed>().find(digest);
   }
 }
 
 bool
-InterestTable::has(ndn::ConstBufferPtr digest)
+InterestTable::has(ConstBufferPtr digest)
 {
   if (m_table.get<hashed>().find(digest) != m_table.get<hashed>().end())
     return true;
@@ -85,12 +82,11 @@ InterestTable::size() const
 void
 InterestTable::clear()
 {
-  for (InterestContainer::iterator it = m_table.begin();
-       it != m_table.end(); it++) {
-    m_scheduler.cancelEvent((*it)->expirationEvent);
+  for (const auto& item : m_table) {
+    m_scheduler.cancelEvent(item->expirationEvent);
   }
 
   m_table.clear();
 }
 
-}
+} // namespace chronosync

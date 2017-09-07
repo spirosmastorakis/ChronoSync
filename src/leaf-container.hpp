@@ -44,7 +44,7 @@ struct SessionNameHash
   std::size_t
   operator()(const Name& prefix) const
   {
-    ndn::ConstBufferPtr buffer =
+    ConstBufferPtr buffer =
       ndn::util::Sha256::computeDigest(prefix.wireEncode().wire(), prefix.wireEncode().size());
 
     BOOST_ASSERT(buffer->size() > sizeof(std::size_t));

@@ -18,9 +18,11 @@
  */
 
 #include "socket.hpp"
-#include "../unit-test-time-fixture.hpp"
-#include <ndn-cxx/util/dummy-client-face.hpp>
+
 #include "boost-test.hpp"
+#include "../unit-test-time-fixture.hpp"
+
+#include <ndn-cxx/util/dummy-client-face.hpp>
 
 namespace chronosync {
 namespace test {
@@ -29,7 +31,6 @@ using std::string;
 using std::vector;
 using std::map;
 using ndn::util::DummyClientFace;
-
 
 /**
  * @brief Emulate an app that use the Socket class
@@ -54,12 +55,12 @@ public:
   }
 
   void
-  set(const shared_ptr<const Data>& dataPacket)
+  set(const Data& dataPacket)
   {
     // std::cerr << "set Data" << std::endl;
-    Name dataName(dataPacket->getName());
-    string str2(reinterpret_cast<const char*>(dataPacket->getContent().value()),
-                dataPacket->getContent().value_size());
+    Name dataName(dataPacket.getName());
+    string str2(reinterpret_cast<const char*>(dataPacket.getContent().value()),
+                dataPacket.getContent().value_size());
     data.insert(make_pair(dataName, str2));
   }
 
@@ -71,11 +72,11 @@ public:
   }
 
   void
-  setNum(const shared_ptr<const Data>& dataPacket)
+  setNum(const Data& dataPacket)
   {
     // std::cerr << "setNum Data" << std::endl;
-    size_t n = dataPacket->getContent().value_size() / 4;
-    const uint32_t* numbers = reinterpret_cast<const uint32_t*>(dataPacket->getContent().value());
+    size_t n = dataPacket.getContent().value_size() / 4;
+    const uint32_t* numbers = reinterpret_cast<const uint32_t*>(dataPacket.getContent().value());
     for (size_t i = 0; i < n; i++) {
       sum += numbers[i];
     }
@@ -99,7 +100,7 @@ public:
     // std::cerr << "fetchAll" << std::endl;
     for (size_t i = 0; i < v.size(); i++) {
       for(SeqNo s = v[i].low; s <= v[i].high; ++s) {
-        socket.fetchData(v[i].session, s, [this] (const shared_ptr<const Data>& dataPacket) {
+        socket.fetchData(v[i].session, s, [this] (const Data& dataPacket) {
             this->set(dataPacket);
           });
       }
@@ -112,7 +113,7 @@ public:
     // std::cerr << "fetchNumbers" << std::endl;
     for (size_t i = 0; i < v.size(); i++) {
       for(SeqNo s = v[i].low; s <= v[i].high; ++s) {
-        socket.fetchData(v[i].session, s, [this] (const shared_ptr<const Data>& dataPacket) {
+        socket.fetchData(v[i].session, s, [this] (const Data& dataPacket) {
             this->setNum(dataPacket);
           });
       }

@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -18,12 +18,13 @@
  */
 
 #include "state.hpp"
+
 #include "boost-test.hpp"
 
 namespace chronosync {
 namespace test {
 
-using boost::tuple;
+using std::tuple;
 
 BOOST_AUTO_TEST_SUITE(StateTests)
 
@@ -43,21 +44,21 @@ BOOST_AUTO_TEST_CASE(Basic)
 
   tuple<bool, bool, SeqNo> result;
   result = state.update(info, 12);
-  BOOST_CHECK_EQUAL(result.get<0>(), true);
-  BOOST_CHECK_EQUAL(result.get<1>(), false);
-  BOOST_CHECK_EQUAL(result.get<2>(), 0);
+  BOOST_CHECK_EQUAL(std::get<0>(result), true);
+  BOOST_CHECK_EQUAL(std::get<1>(result), false);
+  BOOST_CHECK_EQUAL(std::get<2>(result), 0);
 
   BOOST_CHECK_NO_THROW(state.update(info, 12));
   result = state.update(info, 12);
-  BOOST_CHECK_EQUAL(result.get<0>(), false);
-  BOOST_CHECK_EQUAL(result.get<1>(), false);
-  BOOST_CHECK_EQUAL(result.get<2>(), 0);
+  BOOST_CHECK_EQUAL(std::get<0>(result), false);
+  BOOST_CHECK_EQUAL(std::get<1>(result), false);
+  BOOST_CHECK_EQUAL(std::get<2>(result), 0);
 
   BOOST_CHECK_NO_THROW(state.update(info, 11));
   result = state.update(info, 11);
-  BOOST_CHECK_EQUAL(result.get<0>(), false);
-  BOOST_CHECK_EQUAL(result.get<1>(), false);
-  BOOST_CHECK_EQUAL(result.get<2>(), 0);
+  BOOST_CHECK_EQUAL(std::get<0>(result), false);
+  BOOST_CHECK_EQUAL(std::get<1>(result), false);
+  BOOST_CHECK_EQUAL(std::get<2>(result), 0);
 
   BOOST_CHECK_EQUAL(state.getLeaves().size(), 1);
   BOOST_CHECK_EQUAL((*state.getLeaves().begin())->getSeq(), 12);
@@ -67,9 +68,9 @@ BOOST_AUTO_TEST_CASE(Basic)
   BOOST_CHECK_EQUAL((*state.getLeaves().begin())->getSeq(), 13);
 
   result = state.update(info, 14);
-  BOOST_CHECK_EQUAL(result.get<0>(), false);
-  BOOST_CHECK_EQUAL(result.get<1>(), true);
-  BOOST_CHECK_EQUAL(result.get<2>(), 13);
+  BOOST_CHECK_EQUAL(std::get<0>(result), false);
+  BOOST_CHECK_EQUAL(std::get<1>(result), true);
+  BOOST_CHECK_EQUAL(std::get<2>(result), 13);
 
   BOOST_CHECK_EQUAL(state.getLeaves().size(), 1);
   BOOST_CHECK_EQUAL((*state.getLeaves().begin())->getSeq(), 14);

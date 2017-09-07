@@ -25,15 +25,16 @@
 #ifndef CHRONOSYNC_STATE_HPP
 #define CHRONOSYNC_STATE_HPP
 
-#include "tlv.hpp"
 #include "leaf-container.hpp"
+#include "tlv.hpp"
+
 #include <ndn-cxx/util/sha256.hpp>
 
 namespace chronosync {
 
 class State;
-typedef shared_ptr<State> StatePtr;
-typedef shared_ptr<const State> ConstStatePtr;
+using StatePtr = shared_ptr<State>;
+using ConstStatePtr = shared_ptr<const State>;
 
 /**
  * @brief Abstraction of state tree.
@@ -65,7 +66,7 @@ public:
    * @param seq  sequence number of the leaf
    * @return 3-tuple (isInserted, isUpdated, oldSeqNo)
    */
-  boost::tuple<bool, bool, SeqNo>
+  std::tuple<bool, bool, SeqNo>
   update(const Name& info, const SeqNo& seq);
 
   /**
@@ -77,7 +78,7 @@ public:
     return m_leaves;
   }
 
-  ndn::ConstBufferPtr
+  ConstBufferPtr
   getRootDigest() const;
 
   /**
@@ -111,9 +112,9 @@ public:
   wireDecode(const Block& wire);
 
 protected:
-  template<bool T>
+  template<encoding::Tag T>
   size_t
-  wireEncode(ndn::EncodingImpl<T>& block) const;
+  wireEncode(encoding::EncodingImpl<T>& block) const;
 
 protected:
   LeafContainer m_leaves;
@@ -121,6 +122,8 @@ protected:
   mutable ndn::util::Sha256 m_digest;
   mutable Block m_wire;
 };
+
+NDN_CXX_DECLARE_WIRE_ENCODE_INSTANTIATIONS(State);
 
 } // namespace chronosync
 

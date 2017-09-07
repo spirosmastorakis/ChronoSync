@@ -27,9 +27,9 @@
 
 #include "logic.hpp"
 
-#include <ndn-cxx/face.hpp>
-#include <ndn-cxx/ims/in-memory-storage-persistent.hpp>
 #include <unordered_map>
+
+#include <ndn-cxx/ims/in-memory-storage-persistent.hpp>
 
 namespace chronosync {
 
@@ -64,9 +64,13 @@ public:
          ndn::Face& face,
          const UpdateCallback& updateCallback,
          const Name& signingId = DEFAULT_NAME,
-         std::shared_ptr<ndn::Validator> validator = DEFAULT_VALIDATOR);
+         std::shared_ptr<Validator> validator = DEFAULT_VALIDATOR);
 
   ~Socket();
+
+  using DataValidatedCallback = function<void(const Data&)>;
+
+  using DataValidationErrorCallback = function<void(const Data&, const ValidationError& error)> ;
 
   /**
    * @brief Add a sync node under same logic
@@ -175,7 +179,7 @@ public:
    */
   void
   fetchData(const Name& sessionName, const SeqNo& seq,
-            const ndn::OnDataValidated& onValidated,
+            const DataValidatedCallback& onValidated,
             int nRetries = 0);
 
   /**
@@ -190,13 +194,13 @@ public:
    */
   void
   fetchData(const Name& sessionName, const SeqNo& seq,
-            const ndn::OnDataValidated& onValidated,
-            const ndn::OnDataValidationFailed& onValidationFailed,
+            const DataValidatedCallback& onValidated,
+            const DataValidationErrorCallback& onValidationFailed,
             const ndn::TimeoutCallback& onTimeout,
             int nRetries = 0);
 
   /// @brief Get the root digest of current sync tree
-  ndn::ConstBufferPtr
+  ConstBufferPtr
   getRootDigest() const;
 
   Logic&
@@ -211,25 +215,25 @@ private:
 
   void
   onData(const Interest& interest, const Data& data,
-         const ndn::OnDataValidated& dataCallback,
-         const ndn::OnDataValidationFailed& failCallback);
+         const DataValidatedCallback& dataCallback,
+         const DataValidationErrorCallback& failCallback);
 
   void
   onDataTimeout(const Interest& interest, int nRetries,
-                const ndn::OnDataValidated& dataCallback,
-                const ndn::OnDataValidationFailed& failCallback);
+                const DataValidatedCallback& dataCallback,
+                const DataValidationErrorCallback& failCallback);
 
   void
-  onDataValidationFailed(const shared_ptr<const Data>& data,
-                         const std::string& failureInfo);
+  onDataValidationFailed(const Data& data,
+                         const ValidationError& error);
 
 public:
   static const ndn::Name DEFAULT_NAME;
   static const ndn::Name DEFAULT_PREFIX;
-  static const std::shared_ptr<ndn::Validator> DEFAULT_VALIDATOR;
+  static const std::shared_ptr<Validator> DEFAULT_VALIDATOR;
 
 private:
-  typedef std::unordered_map<ndn::Name, const ndn::RegisteredPrefixId*> RegisteredPrefixList;
+  using RegisteredPrefixList = std::unordered_map<ndn::Name, const ndn::RegisteredPrefixId*>;
 
   Name m_userPrefix;
   ndn::Face& m_face;
@@ -237,7 +241,7 @@ private:
 
   Name m_signingId;
   ndn::KeyChain m_keyChain;
-  std::shared_ptr<ndn::Validator> m_validator;
+  std::shared_ptr<Validator> m_validator;
 
   RegisteredPrefixList m_registeredPrefixList;
   ndn::InMemoryStoragePersistent m_ims;

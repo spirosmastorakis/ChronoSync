@@ -15,24 +15,47 @@
  *
  * You should have received a copy of the GNU General Public License along with
  * ChronoSync, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
- *
- * @author Zhenkai Zhu <http://irl.cs.ucla.edu/~zhenkai/>
- * @author Chaoyi Bian <bcy@pku.edu.cn>
- * @author Alexander Afanasyev <http://lasr.cs.ucla.edu/afanasyev/index.html>
- * @author Yingdi Yu <yingdi@cs.ucla.edu>
  */
 
-#include "interest-container.hpp"
+#include <ndn-cxx/interest.hpp>
+#include <ndn-cxx/data.hpp>
+#include <ndn-cxx/lp/nack.hpp>
+#include <ndn-cxx/util/dummy-client-face.hpp>
+#include <ndn-cxx/security/key-chain.hpp>
 
+#ifndef NDN_CHRONOSYNC_UNIT_TESTS_DUMMY_FORWARDER_HPP
+#define NDN_CHRONOSYNC_UNIT_TESTS_DUMMY_FORWARDER_HPP
+
+namespace ndn {
 namespace chronosync {
 
-UnsatisfiedInterest::UnsatisfiedInterest(const Interest& interest,
-                                         ConstBufferPtr digest,
-                                         bool isUnknown)
-  : interest(interest)
-  , digest(digest)
-  , isUnknown(isUnknown)
+/**
+ * @brief Very basic implementation of the dummy forwarder
+ *
+ * Interests expressed by any added face, will be forwarded to all other faces.
+ * Similarly, any pushed data, will be pushed to all other faces.
+ */
+class DummyForwarder
 {
-}
+public:
+  DummyForwarder(boost::asio::io_service& io, KeyChain& keyChain);
+
+  Face&
+  addFace();
+
+  Face&
+  getFace(size_t nFace)
+  {
+    return *m_faces.at(nFace);
+  }
+
+private:
+  boost::asio::io_service& m_io;
+  KeyChain& m_keyChain;
+  std::vector<shared_ptr<util::DummyClientFace>> m_faces;
+};
 
 } // namespace chronosync
+} // namespace ndn
+
+#endif // NDN_CHRONOSYNC_UNIT_TESTS_DUMMY_FORWARDER_HPP

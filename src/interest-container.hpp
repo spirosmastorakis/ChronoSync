@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -29,9 +29,6 @@
 #include "mi-tag.hpp"
 #include "diff-state-container.hpp"
 
-#include <ndn-cxx/util/time.hpp>
-#include <ndn-cxx/util/scheduler.hpp>
-
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/tag.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -46,19 +43,19 @@ namespace mi = boost::multi_index;
 class UnsatisfiedInterest : noncopyable
 {
 public:
-  UnsatisfiedInterest(shared_ptr<const Interest> interest,
-                      ndn::ConstBufferPtr digest,
+  UnsatisfiedInterest(const Interest& interest,
+                      ConstBufferPtr digest,
                       bool isUnknown = false);
 
 public:
-  shared_ptr<const Interest> interest;
-  ndn::ConstBufferPtr        digest;
-  bool                       isUnknown;
-  ndn::EventId               expirationEvent;
+  const Interest interest;
+  ConstBufferPtr digest;
+  bool           isUnknown;
+  ndn::EventId   expirationEvent;
 };
 
-typedef shared_ptr<UnsatisfiedInterest> UnsatisfiedInterestPtr;
-typedef shared_ptr<const UnsatisfiedInterest> ConstUnsatisfiedInterestPtr;
+using UnsatisfiedInterestPtr = shared_ptr<UnsatisfiedInterest>;
+using ConstUnsatisfiedInterestPtr = shared_ptr<const UnsatisfiedInterest>;
 
 /**
  * @brief Container for unsatisfied Sync Interests
@@ -68,7 +65,7 @@ struct InterestContainer : public mi::multi_index_container<
   mi::indexed_by<
     mi::hashed_unique<
       mi::tag<hashed>,
-      mi::member<UnsatisfiedInterest, ndn::ConstBufferPtr, &UnsatisfiedInterest::digest>,
+      mi::member<UnsatisfiedInterest, ConstBufferPtr, &UnsatisfiedInterest::digest>,
       DigestPtrHash,
       DigestPtrEqual
       >

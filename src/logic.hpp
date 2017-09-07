@@ -26,18 +26,18 @@
 #ifndef CHRONOSYNC_LOGIC_HPP
 #define CHRONOSYNC_LOGIC_HPP
 
-#include "boost-header.h"
 #include "diff-state-container.hpp"
 #include "interest-table.hpp"
 
+#include <boost/archive/iterators/dataflow_exception.hpp>
+#include <boost/archive/iterators/transform_width.hpp>
+#include <boost/assert.hpp>
+#include <boost/iterator/transform_iterator.hpp>
+#include <boost/random.hpp>
+#include <boost/throw_exception.hpp>
+
 #include <memory>
 #include <unordered_map>
-
-#include <ndn-cxx/face.hpp>
-#include <ndn-cxx/util/scheduler.hpp>
-#include <ndn-cxx/security/key-chain.hpp>
-#include <ndn-cxx/security/signing-helpers.hpp>
-#include <ndn-cxx/security/validator.hpp>
 
 namespace chronosync {
 
@@ -76,7 +76,7 @@ public:
  * The parameter is a set of MissingDataInfo, of which each corresponds to
  * a session that has changed its state.
  */
-typedef function<void(const std::vector<MissingDataInfo>&)> UpdateCallback;
+using UpdateCallback = function<void(const std::vector<MissingDataInfo>&)>;
 
 /**
  * @brief Logic of ChronoSync
@@ -123,7 +123,7 @@ public:
         const Name& defaultUserPrefix,
         const UpdateCallback& onUpdate,
         const Name& defaultSigningId = DEFAULT_NAME,
-        std::shared_ptr<ndn::Validator> validator = DEFAULT_VALIDATOR,
+        std::shared_ptr<Validator> validator = DEFAULT_VALIDATOR,
         const time::steady_clock::Duration& resetTimer = DEFAULT_RESET_TIMER,
         const time::steady_clock::Duration& cancelResetTimer = DEFAULT_CANCEL_RESET_TIMER,
         const time::milliseconds& resetInterestLifetime = DEFAULT_RESET_INTEREST_LIFETIME,
@@ -207,7 +207,7 @@ public:
   updateSeqNo(const SeqNo& seq, const Name& updatePrefix = EMPTY_NAME);
 
   /// @brief Get root digest of current sync tree
-  ndn::ConstBufferPtr
+  ConstBufferPtr
   getRootDigest() const;
 
   /// @brief Get the name of all sessions
@@ -297,7 +297,7 @@ private:
    * @param data The invalid Sync Reply
    */
   void
-  onSyncDataValidationFailed(const shared_ptr<const Data>& data);
+  onSyncDataValidationFailed(const Data& data);
 
   /**
    * @brief Callback to valid Sync Reply.
@@ -308,7 +308,7 @@ private:
    * @param firstData Whether the data is new or that obtained using exclude filter
    */
   void
-  onSyncDataValidated(const shared_ptr<const Data>& data, bool firstData = true);
+  onSyncDataValidated(const Data& data, bool firstData = true);
 
   /**
    * @brief Process normal Sync Interest
@@ -324,8 +324,7 @@ private:
    *                          making a reply (to avoid unnecessary recovery)
    */
   void
-  processSyncInterest(const shared_ptr<const Interest>& interest,
-                      bool isTimedProcessing = false);
+  processSyncInterest(const Interest& interest, bool isTimedProcessing = false);
 
   /**
    * @brief Process reset Sync Interest
@@ -350,7 +349,7 @@ private:
    */
   void
   processSyncData(const Name& name,
-                  ndn::ConstBufferPtr digest,
+                  ConstBufferPtr digest,
                   const Block& syncReplyBlock,
                   bool firstData);
 
@@ -362,7 +361,7 @@ private:
    */
   void
   insertToDiffLog(DiffStatePtr diff,
-                  ndn::ConstBufferPtr previousRoot);
+                  ConstBufferPtr previousRoot);
 
   /**
    * @brief Reply to all pending Sync Interests with a particular commit (or diff)
@@ -394,7 +393,7 @@ private:
   cancelReset();
 
   void
-  printDigest(ndn::ConstBufferPtr digest);
+  printDigest(ConstBufferPtr digest);
 
   /**
    * @brief Helper method to send Recovery Interest
@@ -402,7 +401,7 @@ private:
    * @param digest    The digest to be included in the recovery interest
    */
   void
-  sendRecoveryInterest(ndn::ConstBufferPtr digest);
+  sendRecoveryInterest(ConstBufferPtr digest);
 
   /**
    * @brief Process Recovery Interest
@@ -458,17 +457,17 @@ private:
   void
   formAndSendExcludeInterest(const Name& nodePrefix,
                              const State& commit,
-                             ndn::ConstBufferPtr previousRoot);
+                             ConstBufferPtr previousRoot);
 
 public:
   static const ndn::Name DEFAULT_NAME;
   static const ndn::Name EMPTY_NAME;
-  static const std::shared_ptr<ndn::Validator> DEFAULT_VALIDATOR;
+  static const std::shared_ptr<Validator> DEFAULT_VALIDATOR;
 
 private:
-  typedef std::unordered_map<ndn::Name, NodeInfo> NodeList;
+  using NodeList = std::unordered_map<ndn::Name, NodeInfo>;
 
-  static const ndn::ConstBufferPtr EMPTY_DIGEST;
+  static const ConstBufferPtr EMPTY_DIGEST;
   static const ndn::name::Component RESET_COMPONENT;
   static const ndn::name::Component RECOVERY_COMPONENT;
 
@@ -517,12 +516,12 @@ private:
 
   // Security
   ndn::KeyChain m_keyChain;
-  std::shared_ptr<ndn::Validator> m_validator;
+  std::shared_ptr<Validator> m_validator;
 
 
 #ifdef _DEBUG
   int m_instanceId;
-  static int m_instanceCounter;
+  static int s_instanceCounter;
 #endif
 };
 

@@ -27,19 +27,18 @@
 
 INIT_LOGGER(Socket);
 
-
 namespace chronosync {
 
 const ndn::Name Socket::DEFAULT_NAME;
 const ndn::Name Socket::DEFAULT_PREFIX;
-const std::shared_ptr<ndn::Validator> Socket::DEFAULT_VALIDATOR;
+const std::shared_ptr<Validator> Socket::DEFAULT_VALIDATOR;
 
 Socket::Socket(const Name& syncPrefix,
                const Name& userPrefix,
                ndn::Face& face,
                const UpdateCallback& updateCallback,
                const Name& signingId,
-               std::shared_ptr<ndn::Validator> validator)
+               std::shared_ptr<Validator> validator)
   : m_userPrefix(userPrefix)
   , m_face(face)
   , m_logic(face, syncPrefix, userPrefix, updateCallback)
@@ -161,7 +160,7 @@ Socket::publishData(const Block& content, const ndn::time::milliseconds& freshne
 
 void
 Socket::fetchData(const Name& sessionName, const SeqNo& seqNo,
-                  const ndn::OnDataValidated& dataCallback,
+                  const DataValidatedCallback& dataCallback,
                   int nRetries)
 {
   Name interestName;
@@ -170,7 +169,7 @@ Socket::fetchData(const Name& sessionName, const SeqNo& seqNo,
   Interest interest(interestName);
   interest.setMustBeFresh(true);
 
-  ndn::OnDataValidationFailed failureCallback =
+  DataValidationErrorCallback failureCallback =
     bind(&Socket::onDataValidationFailed, this, _1, _2);
 
   m_face.expressInterest(interest,
@@ -183,8 +182,8 @@ Socket::fetchData(const Name& sessionName, const SeqNo& seqNo,
 
 void
 Socket::fetchData(const Name& sessionName, const SeqNo& seqNo,
-                  const ndn::OnDataValidated& dataCallback,
-                  const ndn::OnDataValidationFailed& failureCallback,
+                  const DataValidatedCallback& dataCallback,
+                  const DataValidationErrorCallback& failureCallback,
                   const ndn::TimeoutCallback& onTimeout,
                   int nRetries)
 {
@@ -214,21 +213,21 @@ Socket::onInterest(const Name& prefix, const Interest& interest)
 
 void
 Socket::onData(const Interest& interest, const Data& data,
-               const ndn::OnDataValidated& onValidated,
-               const ndn::OnDataValidationFailed& onFailed)
+               const DataValidatedCallback& onValidated,
+               const DataValidationErrorCallback& onFailed)
 {
   _LOG_DEBUG("Socket::onData");
 
   if (static_cast<bool>(m_validator))
     m_validator->validate(data, onValidated, onFailed);
   else
-    onValidated(data.shared_from_this());
+    onValidated(data);
 }
 
 void
 Socket::onDataTimeout(const Interest& interest, int nRetries,
-                      const ndn::OnDataValidated& onValidated,
-                      const ndn::OnDataValidationFailed& onFailed)
+                      const DataValidatedCallback& onValidated,
+                      const DataValidationErrorCallback& onFailed)
 {
   _LOG_DEBUG("Socket::onDataTimeout");
   if (nRetries <= 0)
@@ -246,12 +245,12 @@ Socket::onDataTimeout(const Interest& interest, int nRetries,
 }
 
 void
-Socket::onDataValidationFailed(const shared_ptr<const Data>& data,
-                               const std::string& failureInfo)
+Socket::onDataValidationFailed(const Data& data,
+                               const ValidationError& error)
 {
 }
 
-ndn::ConstBufferPtr
+ConstBufferPtr
 Socket::getRootDigest() const
 {
   return m_logic.getRootDigest();

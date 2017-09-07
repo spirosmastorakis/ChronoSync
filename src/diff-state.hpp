@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -30,8 +30,8 @@
 namespace chronosync {
 
 class DiffState;
-typedef shared_ptr<DiffState> DiffStatePtr;
-typedef shared_ptr<const DiffState> ConstDiffStatePtr;
+using DiffStatePtr = shared_ptr<DiffState>;
+using ConstDiffStatePtr = shared_ptr<const DiffState>;
 
 /**
  * @brief Contains the diff info between two states.
@@ -67,7 +67,7 @@ public:
    * @param digest root digest of the full state
    */
   void
-  setRootDigest(ndn::ConstBufferPtr digest)
+  setRootDigest(ConstBufferPtr digest)
   {
     m_digest = digest;
   }
@@ -75,7 +75,7 @@ public:
   /**
    * @brief Get root digest of the full state after applying the diff state
    */
-  ndn::ConstBufferPtr
+  ConstBufferPtr
   getRootDigest() const
   {
     return m_digest;
@@ -95,10 +95,10 @@ public:
   diff() const;
 
 private:
-  ConstDiffStatePtr   m_next;
-  ndn::ConstBufferPtr m_digest;
+  ConstDiffStatePtr m_next;
+  ConstBufferPtr m_digest;
 };
 
-} // chronosync
+} // namespace chronosync
 
 #endif // CHRONOSYNC_DIFF_STATE_HPP

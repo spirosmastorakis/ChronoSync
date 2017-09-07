@@ -37,37 +37,36 @@ public:
     Name interestName1;
     digest1 = ndn::util::Sha256::computeDigest(origin, 1);
     interestName1.append(prefix).append(name::Component(digest1));
-    interest1 = make_shared<Interest>(interestName1);
-    interest1->setInterestLifetime(time::milliseconds(100));
+
+    interest1 = Interest(interestName1);
+    interest1.setInterestLifetime(time::milliseconds(100));
 
     Name interestName2;
     digest2 = ndn::util::Sha256::computeDigest(origin, 2);
     interestName2.append(prefix).append(name::Component(digest2));
-    interest2 = make_shared<Interest>(interestName2);
-    interest2->setInterestLifetime(time::milliseconds(100));
+    interest2 = Interest(interestName2);
+    interest2.setInterestLifetime(time::milliseconds(100));
 
     Name interestName3;
     digest3 = ndn::util::Sha256::computeDigest(origin, 3);
     interestName3.append(prefix).append(name::Component(digest3));
-    interest3 = make_shared<Interest>(interestName3);
-    interest3->setInterestLifetime(time::milliseconds(100));
+    interest3 = Interest(interestName3);
+    interest3.setInterestLifetime(time::milliseconds(100));
   }
 
   void
-  insert(InterestTable& table,
-         shared_ptr<Interest> interest,
-         ndn::ConstBufferPtr digest)
+  insert(InterestTable& table, const Interest& interest, ndn::ConstBufferPtr digest)
   {
     table.insert(interest, digest);
   }
 
-  shared_ptr<Interest> interest1;
+  Interest interest1;
   ndn::ConstBufferPtr digest1;
 
-  shared_ptr<Interest> interest2;
+  Interest interest2;
   ndn::ConstBufferPtr digest2;
 
-  shared_ptr<Interest> interest3;
+  Interest interest3;
   ndn::ConstBufferPtr digest3;
 };
 

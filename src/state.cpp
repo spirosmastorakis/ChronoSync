@@ -26,8 +26,6 @@
 
 namespace chronosync {
 
-using boost::make_tuple;
-
 State::~State()
 {
 }
@@ -39,7 +37,7 @@ State::~State()
  * @param seq  sequence number of the leaf
  * @return 3-tuple (isInserted, isUpdated, oldSeqNo)
  */
-boost::tuple<bool, bool, SeqNo>
+std::tuple<bool, bool, SeqNo>
 State::update(const Name& info, const SeqNo& seq)
 {
   m_wire.reset();
@@ -62,7 +60,7 @@ State::update(const Name& info, const SeqNo& seq)
   }
 }
 
-ndn::ConstBufferPtr
+ConstBufferPtr
 State::getRootDigest() const
 {
   m_digest.reset();
@@ -95,9 +93,9 @@ State::operator+=(const State& state)
   return *this;
 }
 
-template<bool T>
+template<encoding::Tag T>
 size_t
-State::wireEncode(ndn::EncodingImpl<T>& block) const
+State::wireEncode(encoding::EncodingImpl<T>& block) const
 {
   size_t totalLength = 0;
 
@@ -117,13 +115,7 @@ State::wireEncode(ndn::EncodingImpl<T>& block) const
   return totalLength;
 }
 
-//! \relates State
-template size_t
-State::wireEncode<true>(ndn::EncodingImpl<true>& block) const;
-
-//! \relates State
-template size_t
-State::wireEncode<false>(ndn::EncodingImpl<false>& block) const;
+NDN_CXX_DEFINE_WIRE_ENCODE_INSTANTIATIONS(State);
 
 const Block&
 State::wireEncode() const

@@ -26,11 +26,12 @@
 #define CHRONOSYNC_LEAF_HPP
 
 #include "common.hpp"
+
 #include <ndn-cxx/util/sha256.hpp>
 
 namespace chronosync {
 
-typedef uint64_t SeqNo;
+using SeqNo = uint64_t;
 
 /**
  * @brief Sync tree leaf
@@ -59,7 +60,7 @@ public:
     return m_seq;
   }
 
-  ndn::ConstBufferPtr
+  ConstBufferPtr
   getDigest() const;
 
   /**
@@ -82,8 +83,8 @@ private:
   mutable ndn::util::Sha256 m_digest;
 };
 
-typedef shared_ptr<Leaf> LeafPtr;
-typedef shared_ptr<const Leaf> ConstLeafPtr;
+using LeafPtr = shared_ptr<Leaf>;
+using ConstLeafPtr = shared_ptr<const Leaf>;
 
 std::ostream&
 operator<<(std::ostream& os, const Leaf& leaf);

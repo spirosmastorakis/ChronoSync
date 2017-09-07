@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -42,7 +42,7 @@ namespace mi = boost::multi_index;
 struct DigestPtrHash
 {
   std::size_t
-  operator()(ndn::ConstBufferPtr digest) const
+  operator()(ConstBufferPtr digest) const
   {
     BOOST_ASSERT(digest->size() > sizeof(std::size_t));
 
@@ -53,7 +53,7 @@ struct DigestPtrHash
 struct DigestPtrEqual
 {
   bool
-  operator()(ndn::ConstBufferPtr digest1, ndn::ConstBufferPtr digest2) const
+  operator()(ConstBufferPtr digest1, ConstBufferPtr digest2) const
   {
     return *digest1 == *digest2;
   }
@@ -68,7 +68,7 @@ struct DiffStateContainer : public mi::multi_index_container<
     // For fast access to elements using DiffState hashes
     mi::hashed_unique<
       mi::tag<hashed>,
-      mi::const_mem_fun<DiffState, ndn::ConstBufferPtr, &DiffState::getRootDigest>,
+      mi::const_mem_fun<DiffState, ConstBufferPtr, &DiffState::getRootDigest>,
       DigestPtrHash,
       DigestPtrEqual
       >,

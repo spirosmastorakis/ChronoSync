@@ -39,13 +39,20 @@
 
 #include <cstddef>
 #include <list>
-#include <set>
 #include <queue>
+#include <set>
 #include <vector>
+#include <tuple>
 
-#include <ndn-cxx/common.hpp>
-#include <ndn-cxx/interest.hpp>
 #include <ndn-cxx/data.hpp>
+#include <ndn-cxx/face.hpp>
+#include <ndn-cxx/interest.hpp>
+#include <ndn-cxx/security/key-chain.hpp>
+#include <ndn-cxx/security/signing-helpers.hpp>
+#include <ndn-cxx/security/v2/validator.hpp>
+#include <ndn-cxx/security/validator-config.hpp>
+#include <ndn-cxx/util/scheduler.hpp>
+#include <ndn-cxx/util/time.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
@@ -64,23 +71,27 @@ using std::size_t;
 using boost::noncopyable;
 using boost::scoped_ptr;
 
-using std::shared_ptr;
-using std::weak_ptr;
-using std::enable_shared_from_this;
-using std::make_shared;
-using std::static_pointer_cast;
-using std::dynamic_pointer_cast;
-using std::const_pointer_cast;
-using std::function;
 using std::bind;
-using std::ref;
+using std::const_pointer_cast;
 using std::cref;
+using std::dynamic_pointer_cast;
+using std::enable_shared_from_this;
+using std::function;
+using std::make_shared;
+using std::make_tuple;
+using std::ref;
+using std::shared_ptr;
+using std::static_pointer_cast;
+using std::weak_ptr;
 
-using ndn::Interest;
-using ndn::Data;
-using ndn::Name;
-using ndn::Exclude;
 using ndn::Block;
+using ndn::ConstBufferPtr;
+using ndn::Data;
+using ndn::Exclude;
+using ndn::Interest;
+using ndn::Name;
+using ndn::security::v2::ValidationError;
+using ndn::security::v2::Validator;
 
 namespace tlv {
 using namespace ndn::tlv;
@@ -89,6 +100,7 @@ using namespace ndn::tlv;
 namespace name = ndn::name;
 namespace time = ndn::time;
 namespace security = ndn::security;
+namespace encoding = ndn::encoding;
 
 } // namespace chronosync
 

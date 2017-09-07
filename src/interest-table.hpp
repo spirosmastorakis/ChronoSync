@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2014 University of California, Los Angeles
+ * Copyright (c) 2012-2017 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -27,8 +27,6 @@
 
 #include "interest-container.hpp"
 
-#include <ndn-cxx/util/scheduler.hpp>
-
 namespace chronosync {
 
 /**
@@ -47,8 +45,8 @@ public:
     }
   };
 
-  typedef InterestContainer::iterator iterator;
-  typedef InterestContainer::const_iterator const_iterator;
+  using iterator = InterestContainer::iterator;
+  using const_iterator = InterestContainer::const_iterator;
 
   explicit
   InterestTable(boost::asio::io_service& io);
@@ -69,17 +67,15 @@ public:
    * @param isKnown  false if the digest is an unknown digest.
    */
   void
-  insert(shared_ptr<const Interest> interest,
-         ndn::ConstBufferPtr digest,
-         bool isKnown = false);
+  insert(const Interest& interest, ConstBufferPtr digest, bool isKnown = false);
 
   /// @brief check if an interest with the digest exists in the table
   bool
-  has(ndn::ConstBufferPtr digest);
+  has(ConstBufferPtr digest);
 
   /// @brief Delete interest by digest (e.g., when it was satisfied)
   void
-  erase(ndn::ConstBufferPtr digest);
+  erase(ConstBufferPtr digest);
 
   const_iterator
   begin() const
@@ -113,9 +109,6 @@ public:
 
 private:
   ndn::Scheduler m_scheduler;
-  ndn::time::steady_clock::Duration m_entryLifetime;
-  ndn::time::steady_clock::Duration m_cleanPeriod;
-
   InterestContainer m_table;
 };
 

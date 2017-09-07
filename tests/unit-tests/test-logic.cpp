@@ -18,20 +18,22 @@
  */
 
 #include "logic.hpp"
-#include "../unit-test-time-fixture.hpp"
-#include <ndn-cxx/util/dummy-client-face.hpp>
+
 #include "boost-test.hpp"
+#include "../identity-management-fixture.hpp"
+
+#include "dummy-forwarder.hpp"
 
 namespace chronosync {
 namespace test {
 
 using std::vector;
-using ndn::util::DummyClientFace;
+using ndn::chronosync::DummyForwarder;
 
 class Handler
 {
 public:
-  Handler(DummyClientFace& face,
+  Handler(ndn::Face& face,
           const Name& syncPrefix,
           const Name& userPrefix)
     : logic(face,
@@ -66,64 +68,30 @@ public:
   std::map<Name, SeqNo> map;
 };
 
-class LogicFixture : public ndn::tests::UnitTestTimeFixture
+class LogicFixture : public ndn::tests::IdentityManagementTimeFixture
 {
 public:
   LogicFixture()
     : syncPrefix("/ndn/broadcast/sync")
+    , fw(io, m_keyChain)
   {
     syncPrefix.appendVersion();
     userPrefix[0] = Name("/user0");
     userPrefix[1] = Name("/user1");
     userPrefix[2] = Name("/user2");
     userPrefix[3] = Name("/user3");
-
-    faces[0].reset(new DummyClientFace(io, {true, true}));
-    faces[1].reset(new DummyClientFace(io, {true, true}));
-    faces[2].reset(new DummyClientFace(io, {true, true}));
-    faces[3].reset(new DummyClientFace(io, {true, true}));
-
-    for (int i = 0; i < 4; i++) {
-      readInterestOffset[i] = 0;
-      readDataOffset[i] = 0;
-    }
-  }
-
-  void
-  passPacket()
-  {
-    for (int i = 0; i < 4; i++)
-      checkFace(i);
-  }
-
-  void
-  checkFace(int sender)
-  {
-    while (faces[sender]->sentInterests.size() > readInterestOffset[sender]) {
-      for (int i = 0; i < 4; i++) {
-        if (sender != i)
-          faces[i]->receive(faces[sender]->sentInterests[readInterestOffset[sender]]);
-      }
-      readInterestOffset[sender]++;
-    }
-    while (faces[sender]->sentData.size() > readDataOffset[sender]) {
-      for (int i = 0; i < 4; i++) {
-        if (sender != i)
-          faces[i]->receive(faces[sender]->sentData[readDataOffset[sender]]);
-      }
-      readDataOffset[sender]++;
-    }
   }
 
 public:
   Name syncPrefix;
   Name userPrefix[4];
 
-  std::unique_ptr<DummyClientFace> faces[4];
+  DummyForwarder fw;
+  // std::unique_ptr<DummyClientFace> faces[4];
   shared_ptr<Handler> handler[4];
 
-  size_t readInterestOffset[4];
-  size_t readDataOffset[4];
+  // size_t readInterestOffset[4];
+  // size_t readDataOffset[4];
 };
 
 BOOST_FIXTURE_TEST_SUITE(LogicTests, LogicFixture)
@@ -137,156 +105,120 @@ BOOST_AUTO_TEST_CASE(Constructor)
 {
   Name syncPrefix("/ndn/broadcast/sync");
   Name userPrefix("/user");
-  DummyClientFace face(io, {true, true});
-  BOOST_REQUIRE_NO_THROW(Logic(face, syncPrefix, userPrefix,
-                               bind(onUpdate, _1)));
+  ndn::util::DummyClientFace face(io, {true, true});
+  BOOST_REQUIRE_NO_THROW(Logic(face, syncPrefix, userPrefix, bind(onUpdate, _1)));
 }
 
 BOOST_AUTO_TEST_CASE(TwoBasic)
 {
-  handler[0] = make_shared<Handler>(ref(*faces[0]), syncPrefix, userPrefix[0]);
-  advanceClocks(ndn::time::milliseconds(10), 10);
+  handler[0] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[0]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[1] = make_shared<Handler>(ref(*faces[1]), syncPrefix, userPrefix[1]);
-  advanceClocks(ndn::time::milliseconds(10), 10);
+  handler[1] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[1]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
   handler[0]->updateSeqNo(1);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
+
   BOOST_CHECK_EQUAL(handler[1]->map[handler[0]->logic.getSessionName()], 1);
-  advanceClocks(ndn::time::milliseconds(10), 10);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
   handler[0]->updateSeqNo(2);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[1]->map[handler[0]->logic.getSessionName()], 2);
-  advanceClocks(ndn::time::milliseconds(10), 10);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
   handler[1]->updateSeqNo(2);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[0]->map[handler[1]->logic.getSessionName()], 2);
 }
 
 BOOST_AUTO_TEST_CASE(ThreeBasic)
 {
-  handler[0] = make_shared<Handler>(ref(*faces[0]), syncPrefix, userPrefix[0]);
-  advanceClocks(ndn::time::milliseconds(10), 10);
+  handler[0] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[0]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[1] = make_shared<Handler>(ref(*faces[1]), syncPrefix, userPrefix[1]);
-  advanceClocks(ndn::time::milliseconds(10), 10);
+  handler[1] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[1]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[2] = make_shared<Handler>(ref(*faces[2]), syncPrefix, userPrefix[2]);
-  advanceClocks(ndn::time::milliseconds(10), 20);
+  handler[2] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[2]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
   handler[0]->updateSeqNo(1);
 
-  for (int i = 0; i < 70; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[1]->map[handler[0]->logic.getSessionName()], 1);
   BOOST_CHECK_EQUAL(handler[2]->map[handler[0]->logic.getSessionName()], 1);
 
   handler[1]->updateSeqNo(2);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[0]->map[handler[1]->logic.getSessionName()], 2);
   BOOST_CHECK_EQUAL(handler[2]->map[handler[1]->logic.getSessionName()], 2);
 
   handler[2]->updateSeqNo(4);
 
-  for (int i = 0; i < 100; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[0]->map[handler[2]->logic.getSessionName()], 4);
   BOOST_CHECK_EQUAL(handler[1]->map[handler[2]->logic.getSessionName()], 4);
 }
 
 BOOST_AUTO_TEST_CASE(ResetRecover)
 {
-  handler[0] = make_shared<Handler>(ref(*faces[0]), syncPrefix, userPrefix[0]);
-  advanceClocks(ndn::time::milliseconds(10), 10);
+  handler[0] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[0]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[1] = make_shared<Handler>(ref(*faces[1]), syncPrefix, userPrefix[1]);
-  advanceClocks(ndn::time::milliseconds(10), 30);
+  handler[1] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[1]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
   handler[0]->updateSeqNo(1);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[1]->map[handler[0]->logic.getSessionName()], 1);
 
   handler[1]->updateSeqNo(2);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[0]->map[handler[1]->logic.getSessionName()], 2);
 
-  advanceClocks(ndn::time::milliseconds(10), 10);
-  handler[2] = make_shared<Handler>(ref(*faces[2]), syncPrefix, userPrefix[2]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
+  handler[2] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[2]);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[2]->map[handler[0]->logic.getSessionName()], 1);
   BOOST_CHECK_EQUAL(handler[2]->map[handler[1]->logic.getSessionName()], 2);
 
   handler[2]->updateSeqNo(4);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[1]->map[handler[2]->logic.getSessionName()], 4);
   BOOST_CHECK_EQUAL(handler[0]->map[handler[2]->logic.getSessionName()], 4);
 }
 
 BOOST_AUTO_TEST_CASE(RecoverConflict)
 {
-  handler[0] = make_shared<Handler>(ref(*faces[0]), syncPrefix, userPrefix[0]);
-  advanceClocks(ndn::time::milliseconds(10), 10);
+  handler[0] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[0]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[1] = make_shared<Handler>(ref(*faces[1]), syncPrefix, userPrefix[1]);
-  advanceClocks(ndn::time::milliseconds(10), 10);
+  handler[1] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[1]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[2] = make_shared<Handler>(ref(*faces[2]), syncPrefix, userPrefix[2]);
-  advanceClocks(ndn::time::milliseconds(10), 30);
+  handler[2] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[2]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
   handler[0]->updateSeqNo(1);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[1]->map[handler[0]->logic.getSessionName()], 1);
   BOOST_CHECK_EQUAL(handler[2]->map[handler[0]->logic.getSessionName()], 1);
 
   handler[1]->updateSeqNo(2);
   handler[2]->updateSeqNo(4);
 
-  for (int i = 0; i < 75; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[0]->map[handler[1]->logic.getSessionName()], 2);
   BOOST_CHECK_EQUAL(handler[0]->map[handler[2]->logic.getSessionName()], 4);
   BOOST_CHECK_EQUAL(handler[1]->map[handler[2]->logic.getSessionName()], 4);
@@ -295,34 +227,28 @@ BOOST_AUTO_TEST_CASE(RecoverConflict)
 
 BOOST_AUTO_TEST_CASE(PartitionRecover)
 {
-  handler[0] = make_shared<Handler>(ref(*faces[0]), syncPrefix, userPrefix[0]);
-  advanceClocks(ndn::time::milliseconds(10), 10);
+  handler[0] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[0]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[1] = make_shared<Handler>(ref(*faces[1]), syncPrefix, userPrefix[1]);
-  advanceClocks(ndn::time::milliseconds(10), 10);
+  handler[1] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[1]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[2] = make_shared<Handler>(ref(*faces[2]), syncPrefix, userPrefix[2]);
-  advanceClocks(ndn::time::milliseconds(10), 10);
+  handler[2] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[2]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[3] = make_shared<Handler>(ref(*faces[3]), syncPrefix, userPrefix[3]);
-  advanceClocks(ndn::time::milliseconds(10), 30);
+  handler[3] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[3]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
   handler[0]->updateSeqNo(1);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[1]->map[handler[0]->logic.getSessionName()], 1);
   BOOST_CHECK_EQUAL(handler[2]->map[handler[0]->logic.getSessionName()], 1);
   BOOST_CHECK_EQUAL(handler[3]->map[handler[0]->logic.getSessionName()], 1);
 
   handler[2]->updateSeqNo(2);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[0]->map[handler[2]->logic.getSessionName()], 2);
   BOOST_CHECK_EQUAL(handler[1]->map[handler[2]->logic.getSessionName()], 2);
   BOOST_CHECK_EQUAL(handler[3]->map[handler[2]->logic.getSessionName()], 2);
@@ -331,20 +257,14 @@ BOOST_AUTO_TEST_CASE(PartitionRecover)
 
   handler[1]->updateSeqNo(3);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[0]->map[handler[1]->logic.getSessionName()], 3);
   handler[2]->map[handler[1]->logic.getSessionName()] = 0;
   handler[3]->map[handler[1]->logic.getSessionName()] = 0;
 
   handler[3]->updateSeqNo(4);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[2]->map[handler[3]->logic.getSessionName()], 4);
   handler[0]->map[handler[3]->logic.getSessionName()] = 0;
   handler[1]->map[handler[3]->logic.getSessionName()] = 0;
@@ -353,20 +273,14 @@ BOOST_AUTO_TEST_CASE(PartitionRecover)
 
   handler[0]->updateSeqNo(5);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[1]->map[handler[0]->logic.getSessionName()], 5);
   BOOST_CHECK_EQUAL(handler[2]->map[handler[0]->logic.getSessionName()], 5);
   BOOST_CHECK_EQUAL(handler[3]->map[handler[0]->logic.getSessionName()], 5);
 
   handler[2]->updateSeqNo(6);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[0]->map[handler[2]->logic.getSessionName()], 6);
   BOOST_CHECK_EQUAL(handler[1]->map[handler[2]->logic.getSessionName()], 6);
   BOOST_CHECK_EQUAL(handler[3]->map[handler[2]->logic.getSessionName()], 6);
@@ -374,49 +288,34 @@ BOOST_AUTO_TEST_CASE(PartitionRecover)
 
 BOOST_AUTO_TEST_CASE(MultipleUserUnderOneLogic)
 {
-  handler[0] = make_shared<Handler>(ref(*faces[0]), syncPrefix, userPrefix[0]);
-  advanceClocks(ndn::time::milliseconds(10), 10);
+  handler[0] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[0]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[1] = make_shared<Handler>(ref(*faces[1]), syncPrefix, userPrefix[2]);
-  advanceClocks(ndn::time::milliseconds(10), 10);
+  handler[1] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[2]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
   handler[0]->logic.addUserNode(userPrefix[1]);
 
-  for (int i = 0; i < 20; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
 
   handler[0]->updateSeqNo(1);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[1]->map[handler[0]->logic.getSessionName()], 1);
 
   handler[0]->logic.updateSeqNo(2, userPrefix[1]);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[1]->map[handler[0]->logic.getSessionName(userPrefix[1])], 2);
 
   handler[1]->updateSeqNo(4);
 
-  for (int i = 0; i < 50; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[0]->map[handler[1]->logic.getSessionName()], 4);
 
   handler[0]->logic.removeUserNode(userPrefix[0]);
 
-  for (int i = 0; i < 100; i++) {
-    advanceClocks(ndn::time::milliseconds(2), 10);
-    passPacket();
-  }
+  advanceClocks(ndn::time::milliseconds(50), 100);
   BOOST_CHECK_EQUAL(handler[1]->logic.getSessionNames().size(), 2);
 }
 

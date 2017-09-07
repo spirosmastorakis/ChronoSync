@@ -38,7 +38,6 @@ INIT_LOGGER(Logic);
 
 namespace chronosync {
 
-using ndn::ConstBufferPtr;
 using ndn::EventId;
 
 const uint8_t EMPTY_DIGEST_VALUE[] = {
@@ -49,12 +48,12 @@ const uint8_t EMPTY_DIGEST_VALUE[] = {
 };
 
 #ifdef _DEBUG
-int Logic::m_instanceCounter = 0;
+int Logic::s_instanceCounter = 0;
 #endif
 
 const ndn::Name Logic::DEFAULT_NAME;
 const ndn::Name Logic::EMPTY_NAME;
-const std::shared_ptr<ndn::Validator> Logic::DEFAULT_VALIDATOR;
+const std::shared_ptr<Validator> Logic::DEFAULT_VALIDATOR;
 const time::steady_clock::Duration Logic::DEFAULT_RESET_TIMER = time::seconds(0);
 const time::steady_clock::Duration Logic::DEFAULT_CANCEL_RESET_TIMER = time::milliseconds(500);
 const time::milliseconds Logic::DEFAULT_RESET_INTEREST_LIFETIME(1000);
@@ -62,7 +61,7 @@ const time::milliseconds Logic::DEFAULT_SYNC_INTEREST_LIFETIME(1000);
 const time::milliseconds Logic::DEFAULT_SYNC_REPLY_FRESHNESS(1000);
 const time::milliseconds Logic::DEFAULT_RECOVERY_INTEREST_LIFETIME(1000);
 
-const ndn::ConstBufferPtr Logic::EMPTY_DIGEST(new ndn::Buffer(EMPTY_DIGEST_VALUE, 32));
+const ConstBufferPtr Logic::EMPTY_DIGEST(new ndn::Buffer(EMPTY_DIGEST_VALUE, 32));
 const ndn::name::Component Logic::RESET_COMPONENT("reset");
 const ndn::name::Component Logic::RECOVERY_COMPONENT("recovery");
 
@@ -71,7 +70,7 @@ Logic::Logic(ndn::Face& face,
              const Name& defaultUserPrefix,
              const UpdateCallback& onUpdate,
              const Name& defaultSigningId,
-             std::shared_ptr<ndn::Validator> validator,
+             std::shared_ptr<Validator> validator,
              const time::steady_clock::Duration& resetTimer,
              const time::steady_clock::Duration& cancelResetTimer,
              const time::milliseconds& resetInterestLifetime,
@@ -99,7 +98,7 @@ Logic::Logic(ndn::Face& face,
   , m_validator(validator)
 {
 #ifdef _DEBUG
-  m_instanceId = m_instanceCounter++;
+  m_instanceId = s_instanceCounter++;
 #endif
 
   _LOG_DEBUG_ID(">> Logic::Logic");
@@ -251,7 +250,7 @@ Logic::updateSeqNo(const SeqNo& seqNo, const Name& updatePrefix)
 
     if (!m_isInReset) {
       _LOG_DEBUG_ID("updateSeqNo: not in Reset ");
-      ndn::ConstBufferPtr previousRoot = m_state.getRootDigest();
+      ConstBufferPtr previousRoot = m_state.getRootDigest();
       {
         std::string hash = ndn::toHex(previousRoot->buf(), previousRoot->size(), false);
         _LOG_DEBUG_ID("Hash: " << hash);
@@ -260,8 +259,7 @@ Logic::updateSeqNo(const SeqNo& seqNo, const Name& updatePrefix)
       bool isInserted = false;
       bool isUpdated = false;
       SeqNo oldSeq;
-      boost::tie(isInserted, isUpdated, oldSeq) = m_state.update(node.sessionName,
-                                                                 node.seqNo);
+      std::tie(isInserted, isUpdated, oldSeq) = m_state.update(node.sessionName, node.seqNo);
 
       _LOG_DEBUG_ID("Insert: " << std::boolalpha << isInserted);
       _LOG_DEBUG_ID("Updated: " << std::boolalpha << isUpdated);
@@ -322,7 +320,7 @@ Logic::onSyncInterest(const Name& prefix, const Interest& interest)
   }
   // Do not process exclude interests, they should be answered by CS
   else if (interest.getExclude().empty()) {
-    processSyncInterest(interest.shared_from_this());
+    processSyncInterest(interest);
   }
 
   _LOG_DEBUG_ID("<< Logic::onSyncInterest");
@@ -344,15 +342,15 @@ Logic::onSyncData(const Interest& interest, const Data& data)
   //                         bind(&Logic::onSyncDataValidated, this, _1),
   //                         bind(&Logic::onSyncDataValidationFailed, this, _1));
   // else
-  //   onSyncDataValidated(data.shared_from_this());
+  //   onSyncDataValidated(data);
 
   if (interest.getExclude().empty()) {
     _LOG_DEBUG_ID("First data");
-    onSyncDataValidated(data.shared_from_this());
+    onSyncDataValidated(data);
   }
   else {
     _LOG_DEBUG_ID("Data obtained using exclude filter");
-    onSyncDataValidated(data.shared_from_this(), false);
+    onSyncDataValidated(data, false);
   }
   sendExcludeInterest(interest, data);
 
@@ -375,29 +373,27 @@ Logic::onSyncTimeout(const Interest& interest)
 }
 
 void
-Logic::onSyncDataValidationFailed(const shared_ptr<const Data>& data)
+Logic::onSyncDataValidationFailed(const Data& data)
 {
   // SyncReply cannot be validated.
 }
 
 void
-Logic::onSyncDataValidated(const shared_ptr<const Data>& data, bool firstData)
+Logic::onSyncDataValidated(const Data& data, bool firstData)
 {
-  Name name = data->getName();
+  Name name = data.getName();
   ConstBufferPtr digest = make_shared<ndn::Buffer>(name.get(-1).value(), name.get(-1).value_size());
 
-  processSyncData(name, digest, data->getContent().blockFromValue(), firstData);
+  processSyncData(name, digest, data.getContent().blockFromValue(), firstData);
 }
 
 void
-Logic::processSyncInterest(const shared_ptr<const Interest>& interest,
-                           bool isTimedProcessing/*=false*/)
+Logic::processSyncInterest(const Interest& interest, bool isTimedProcessing/*=false*/)
 {
   _LOG_DEBUG_ID(">> Logic::processSyncInterest");
 
-  const Name& name = interest->getName();
-  ConstBufferPtr digest =
-      make_shared<ndn::Buffer>(name.get(-1).value(), name.get(-1).value_size());
+  Name name = interest.getName();
+  ConstBufferPtr digest = make_shared<ndn::Buffer>(name.get(-1).value(), name.get(-1).value_size());
 
   ConstBufferPtr rootDigest = m_state.getRootDigest();
 
@@ -480,13 +476,13 @@ Logic::processResetInterest(const Interest& interest)
 
 void
 Logic::processSyncData(const Name& name,
-                       ndn::ConstBufferPtr digest,
+                       ConstBufferPtr digest,
                        const Block& syncReplyBlock,
                        bool firstData)
 {
   _LOG_DEBUG_ID(">> Logic::processSyncData");
   DiffStatePtr commit = make_shared<DiffState>();
-  ndn::ConstBufferPtr previousRoot = m_state.getRootDigest();
+  ConstBufferPtr previousRoot = m_state.getRootDigest();
 
   try {
     m_interestTable.erase(digest); // Remove satisfied interest from PIT
@@ -505,7 +501,7 @@ Logic::processSyncData(const Name& name,
         bool isInserted = false;
         bool isUpdated = false;
         SeqNo oldSeq;
-        boost::tie(isInserted, isUpdated, oldSeq) = m_state.update(info, seq);
+        std::tie(isInserted, isUpdated, oldSeq) = m_state.update(info, seq);
         if (isInserted || isUpdated) {
           commit->update(info, seq);
 
@@ -550,13 +546,14 @@ Logic::satisfyPendingSyncInterests(const Name& updatedPrefix, ConstDiffStatePtr 
   _LOG_DEBUG_ID(">> Logic::satisfyPendingSyncInterests");
   try {
     _LOG_DEBUG_ID("InterestTable size: " << m_interestTable.size());
-    for (InterestTable::const_iterator it = m_interestTable.begin();
-         it != m_interestTable.end(); it++) {
+    auto it = m_interestTable.begin();
+    while (it != m_interestTable.end()) {
       ConstUnsatisfiedInterestPtr request = *it;
+      ++it;
       if (request->isUnknown)
-        sendSyncData(updatedPrefix, request->interest->getName(), m_state);
+        sendSyncData(updatedPrefix, request->interest.getName(), m_state);
       else
-        sendSyncData(updatedPrefix, request->interest->getName(), *commit);
+        sendSyncData(updatedPrefix, request->interest.getName(), *commit);
     }
     m_interestTable.clear();
   }
@@ -567,7 +564,7 @@ Logic::satisfyPendingSyncInterests(const Name& updatedPrefix, ConstDiffStatePtr 
 }
 
 void
-Logic::insertToDiffLog(DiffStatePtr commit, ndn::ConstBufferPtr previousRoot)
+Logic::insertToDiffLog(DiffStatePtr commit, ConstBufferPtr previousRoot)
 {
   _LOG_DEBUG_ID(">> Logic::insertToDiffLog");
   // Connect to the history
@@ -646,17 +643,17 @@ void
 Logic::sendSyncData(const Name& nodePrefix, const Name& name, const State& state)
 {
   _LOG_DEBUG_ID(">> Logic::sendSyncData");
-  shared_ptr<Data> syncReply = make_shared<Data>(name);
-  syncReply->setContent(state.wireEncode());
-  syncReply->setFreshnessPeriod(m_syncReplyFreshness);
+  Data syncReply(name);
+  syncReply.setContent(state.wireEncode());
+  syncReply.setFreshnessPeriod(m_syncReplyFreshness);
   if (m_nodeList.find(nodePrefix) == m_nodeList.end())
     return;
   if (m_nodeList[nodePrefix].signingId.empty())
-    m_keyChain.sign(*syncReply);
+    m_keyChain.sign(syncReply);
   else
-    m_keyChain.sign(*syncReply, security::signingByIdentity(m_nodeList[nodePrefix].signingId));
+    m_keyChain.sign(syncReply, security::signingByIdentity(m_nodeList[nodePrefix].signingId));
 
-  m_face.put(*syncReply);
+  m_face.put(syncReply);
 
   // checking if our own interest got satisfied
   if (m_outstandingInterestName == name) {
@@ -692,14 +689,14 @@ Logic::cancelReset()
 }
 
 void
-Logic::printDigest(ndn::ConstBufferPtr digest)
+Logic::printDigest(ConstBufferPtr digest)
 {
   std::string hash = ndn::toHex(digest->buf(), digest->size(), false);
   _LOG_DEBUG_ID("Hash: " << hash);
 }
 
 void
-Logic::sendRecoveryInterest(ndn::ConstBufferPtr digest)
+Logic::sendRecoveryInterest(ConstBufferPtr digest)
 {
   _LOG_DEBUG_ID(">> Logic::sendRecoveryInterest");
 
@@ -726,7 +723,7 @@ Logic::processRecoveryInterest(const Interest& interest)
 {
   _LOG_DEBUG_ID(">> Logic::processRecoveryInterest");
 
-  const Name& name = interest.getName();
+  Name name = interest.getName();
   ConstBufferPtr digest = make_shared<ndn::Buffer>(name.get(-1).value(), name.get(-1).value_size());
 
   ConstBufferPtr rootDigest = m_state.getRootDigest();
@@ -745,7 +742,7 @@ void
 Logic::onRecoveryData(const Interest& interest, const Data& data)
 {
   _LOG_DEBUG_ID(">> Logic::onRecoveryData");
-  onSyncDataValidated(data.shared_from_this());
+  onSyncDataValidated(data);
   _LOG_DEBUG_ID("<< Logic::onRecoveryData");
 }
 
@@ -785,7 +782,7 @@ Logic::sendExcludeInterest(const Interest& interest, const Data& data)
 }
 
 void
-Logic::formAndSendExcludeInterest(const Name& nodePrefix, const State& commit, ndn::ConstBufferPtr previousRoot)
+Logic::formAndSendExcludeInterest(const Name& nodePrefix, const State& commit, ConstBufferPtr previousRoot)
 {
   _LOG_DEBUG_ID(">> Logic::formAndSendExcludeInterest");
   Name interestName;
@@ -793,17 +790,17 @@ Logic::formAndSendExcludeInterest(const Name& nodePrefix, const State& commit, n
               .append(ndn::name::Component(*previousRoot));
   Interest interest(interestName);
 
-  shared_ptr<Data> data = make_shared<Data>(interestName);
-  data->setContent(commit.wireEncode());
-  data->setFreshnessPeriod(m_syncReplyFreshness);
+  Data data(interestName);
+  data.setContent(commit.wireEncode());
+  data.setFreshnessPeriod(m_syncReplyFreshness);
   if (m_nodeList.find(nodePrefix) == m_nodeList.end())
     return;
   if (m_nodeList[nodePrefix].signingId.empty())
-    m_keyChain.sign(*data);
+    m_keyChain.sign(data);
   else
-    m_keyChain.sign(*data, security::signingByIdentity(m_nodeList[nodePrefix].signingId));
+    m_keyChain.sign(data, security::signingByIdentity(m_nodeList[nodePrefix].signingId));
 
-  sendExcludeInterest(interest, *data);
+  sendExcludeInterest(interest, data);
 
   _LOG_DEBUG_ID("<< Logic::formAndSendExcludeInterest");
 }
