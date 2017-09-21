@@ -35,6 +35,8 @@ def configure(conf):
 
     conf.check_boost(lib=boost_libs, mt=True)
 
+    conf.check_compiler_flags()
+
     conf.load('sanitizers')
 
     # If there happens to be a static library, waf will put the corresponding -L flags
