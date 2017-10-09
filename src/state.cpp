@@ -26,9 +26,7 @@
 
 namespace chronosync {
 
-State::~State()
-{
-}
+State::~State() = default;
 
 /**
  * @brief Add or update leaf to the sync tree
@@ -68,7 +66,7 @@ State::getRootDigest() const
   BOOST_FOREACH (ConstLeafPtr leaf, m_leaves.get<ordered>())
     {
       BOOST_ASSERT(leaf != 0);
-      m_digest.update(leaf->getDigest()->buf(), leaf->getDigest()->size());
+      m_digest.update(leaf->getDigest()->data(), leaf->getDigest()->size());
     }
 
   return m_digest.computeDigest();

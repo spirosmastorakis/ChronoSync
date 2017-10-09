@@ -49,7 +49,7 @@ struct SessionNameHash
 
     BOOST_ASSERT(buffer->size() > sizeof(std::size_t));
 
-    return *reinterpret_cast<const std::size_t*>(buffer->buf());
+    return *reinterpret_cast<const std::size_t*>(buffer->data());
   }
 };
 

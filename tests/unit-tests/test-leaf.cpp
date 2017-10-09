@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE(LeafDigest)
   BOOST_CHECK_NO_THROW(leaf.getDigest());
 
   ndn::ConstBufferPtr digest = leaf.getDigest();
-  BOOST_CHECK_EQUAL(result, ndn::toHex(digest->buf(), digest->size(), false));
+  BOOST_CHECK_EQUAL(result, ndn::toHex(digest->data(), digest->size(), false));
 }
 
 BOOST_AUTO_TEST_CASE(Container)

@@ -46,7 +46,7 @@ struct DigestPtrHash
   {
     BOOST_ASSERT(digest->size() > sizeof(std::size_t));
 
-    return *reinterpret_cast<const std::size_t*>(digest->buf());
+    return *reinterpret_cast<const std::size_t*>(digest->data());
   }
 };
 

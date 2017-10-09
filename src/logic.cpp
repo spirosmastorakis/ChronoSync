@@ -252,7 +252,7 @@ Logic::updateSeqNo(const SeqNo& seqNo, const Name& updatePrefix)
       _LOG_DEBUG_ID("updateSeqNo: not in Reset ");
       ConstBufferPtr previousRoot = m_state.getRootDigest();
       {
-        std::string hash = ndn::toHex(previousRoot->buf(), previousRoot->size(), false);
+        std::string hash = ndn::toHex(previousRoot->data(), previousRoot->size(), false);
         _LOG_DEBUG_ID("Hash: " << hash);
       }
 
@@ -691,7 +691,7 @@ Logic::cancelReset()
 void
 Logic::printDigest(ConstBufferPtr digest)
 {
-  std::string hash = ndn::toHex(digest->buf(), digest->size(), false);
+  std::string hash = ndn::toHex(digest->data(), digest->size(), false);
   _LOG_DEBUG_ID("Hash: " << hash);
 }
 
