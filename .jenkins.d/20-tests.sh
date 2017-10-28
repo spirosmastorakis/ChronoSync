@@ -41,4 +41,5 @@ ASAN_OPTIONS+=":strict_string_checks=true"
 ASAN_OPTIONS+=":strip_path_prefix=${PWD}/"
 export ASAN_OPTIONS
 
-./build/unit-tests $(ut_log_args ChronoSync)
+# Run unit tests
+./build/unit-tests $(ut_log_args)

@@ -1,41 +1,42 @@
 # -*- Mode: python; py-indent-offset: 4; indent-tabs-mode: nil; coding: utf-8; -*-
 
-from waflib import Logs, Utils, Context
-import os
-
 VERSION = '0.4.0'
 APPNAME = 'ChronoSync'
+GIT_TAG_PREFIX = 'ChronoSync-'
+
+from waflib import Logs, Utils, Context
+import os
 
 def options(opt):
     opt.load(['compiler_c', 'compiler_cxx', 'gnu_dirs'])
     opt.load(['default-compiler-flags', 'boost', 'doxygen', 'sphinx_build',
-              'sanitizers', 'coverage', 'pch'],
+              'coverage', 'sanitizers', 'pch'],
              tooldir=['.waf-tools'])
 
-    syncopt = opt.add_option_group ("ChronoSync Options")
-
-    syncopt.add_option('--debug', action='store_true', default=False, dest='debug',
-                       help='''debugging mode''')
-    syncopt.add_option('--with-tests', action='store_true', default=False, dest='_tests',
-                       help='''build unit tests''')
+    opt.add_option('--with-tests', action='store_true', default=False,
+                   dest='with_tests', help='''Build unit tests''')
 
 def configure(conf):
     conf.load(['compiler_c', 'compiler_cxx', 'gnu_dirs',
                'default-compiler-flags', 'boost', 'pch', 'coverage',
                'doxygen', 'sphinx_build'])
 
+    if 'PKG_CONFIG_PATH' not in os.environ:
+        os.environ['PKG_CONFIG_PATH'] = Utils.subst_vars('${LIBDIR}/pkgconfig', conf.env)
     conf.check_cfg(package='libndn-cxx', args=['--cflags', '--libs'],
                    uselib_store='NDN_CXX', mandatory=True)
 
     boost_libs = 'system iostreams thread log log_setup'
-    if conf.options._tests:
+    if conf.options.with_tests:
         conf.env['CHRONOSYNC_HAVE_TESTS'] = 1
         conf.define('CHRONOSYNC_HAVE_TESTS', 1);
         boost_libs += ' unit_test_framework'
-
     conf.check_boost(lib=boost_libs, mt=True)
 
     conf.check_compiler_flags()
+
+    # Loading "late" to prevent tests from being compiled with profiling flags
+    conf.load('coverage')
 
     conf.load('sanitizers')
 
@@ -134,7 +135,7 @@ def version(ctx):
     Context.g_module.VERSION_SPLIT = [v for v in VERSION_BASE.split('.')]
 
     try:
-        cmd = ['git', 'describe', '--match', 'ChronoSync-*']
+        cmd = ['git', 'describe', '--match', '%s*' % GIT_TAG_PREFIX]
         p = Utils.subprocess.Popen(cmd, stdout=Utils.subprocess.PIPE,
                                    stderr=None, stdin=None)
         out = p.communicate()[0].strip()
