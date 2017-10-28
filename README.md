@@ -1,11 +1,13 @@
 ChronoSync: synchronization library for distributed realtime applications for NDN
 =================================================================================
 
+[![Build Status](https://travis-ci.org/named-data/ChronoSync.svg?branch=master)](https://travis-ci.org/named-data/ChronoSync)
+
 In supporting many distributed applications, such as group text messaging, file sharing,
 and joint editing, a basic requirement is the efficient and robust synchronization of
 knowledge about the dataset such as text messages, changes to the shared folder, or
-document edits.  This library implements
-[ChronoSync protocol](http://named-data.net/wp-content/uploads/2014/03/chronosync-icnp2013.pdf),
+document edits.  This library implements the
+[ChronoSync protocol](https://named-data.net/wp-content/uploads/2014/03/chronosync-icnp2013.pdf),
 which exploits the features of the Named Data Networking architecture to efficiently
 synchronize the state of a dataset among a distributed group of users.  Using appropriate
 naming rules, ChronoSync summarizes the state of a dataset in a condensed cryptographic
@@ -26,7 +28,7 @@ Feedback
 
 Please submit any bugs or issues to the **ChronoSync** issue tracker:
 
-* http://redmine.named-data.net/projects/chronosync
+* https://redmine.named-data.net/projects/chronosync
 
 Installation instructions
 -------------------------
@@ -35,8 +37,7 @@ Installation instructions
 
 Required:
 
-* [ndn-cxx and its dependencies](http://named-data.net/doc/ndn-cxx/)
-* Boost libraries
+* [ndn-cxx and its dependencies](https://named-data.net/doc/ndn-cxx/)
 
 ### Build
 

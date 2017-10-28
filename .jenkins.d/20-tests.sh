@@ -41,5 +41,8 @@ ASAN_OPTIONS+=":strict_string_checks=true"
 ASAN_OPTIONS+=":strip_path_prefix=${PWD}/"
 export ASAN_OPTIONS
 
+export BOOST_TEST_COLOR_OUTPUT="yes"
+export NDN_LOG="*=DEBUG"
+
 # Run unit tests
 ./build/unit-tests $(ut_log_args)
