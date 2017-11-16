@@ -111,7 +111,7 @@ Logic::Logic(ndn::Face& face,
 
   _LOG_DEBUG_ID("Listen to: " << m_syncPrefix);
   m_syncRegisteredPrefixId =
-    m_face.setInterestFilter(m_syncPrefix,
+    m_face.setInterestFilter(ndn::InterestFilter(m_syncPrefix).allowLoopback(false),
                              bind(&Logic::onSyncInterest, this, _1, _2),
                              bind(&Logic::onSyncRegisterFailed, this, _1, _2));
 
