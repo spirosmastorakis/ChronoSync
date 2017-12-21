@@ -3,6 +3,9 @@ ChronoSync: synchronization library for distributed realtime applications for ND
 
 [![Build Status](https://travis-ci.org/named-data/ChronoSync.svg?branch=master)](https://travis-ci.org/named-data/ChronoSync)
 
+If you are new to the NDN community of software generally, read the
+[Contributor's Guide](https://github.com/named-data/NFD/blob/master/CONTRIBUTING.md).
+
 In supporting many distributed applications, such as group text messaging, file sharing,
 and joint editing, a basic requirement is the efficient and robust synchronization of
 knowledge about the dataset such as text messages, changes to the shared folder, or
