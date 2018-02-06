@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2017 University of California, Los Angeles
+ * Copyright (c) 2012-2018 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -64,7 +64,8 @@ public:
          ndn::Face& face,
          const UpdateCallback& updateCallback,
          const Name& signingId = DEFAULT_NAME,
-         std::shared_ptr<Validator> validator = DEFAULT_VALIDATOR);
+         std::shared_ptr<Validator> validator = DEFAULT_VALIDATOR,
+         const time::milliseconds& syncInterestLifetime = Logic::DEFAULT_SYNC_INTEREST_LIFETIME);
 
   ~Socket();
 
