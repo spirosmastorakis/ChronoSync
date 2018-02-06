@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2017 University of California, Los Angeles
+ * Copyright (c) 2012-2018 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -25,7 +25,7 @@
 
 #include "config.hpp"
 
-#ifdef _TESTS
+#ifdef CHRONOSYNC_HAVE_TESTS
 #define CHRONOSYNC_VIRTUAL_WITH_TESTS virtual
 #define CHRONOSYNC_PUBLIC_WITH_TESTS_ELSE_PROTECTED public
 #define CHRONOSYNC_PUBLIC_WITH_TESTS_ELSE_PRIVATE public

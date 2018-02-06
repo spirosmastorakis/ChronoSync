@@ -86,9 +86,9 @@ Logic::Logic(ndn::Face& face,
   , m_needPeriodReset(resetTimer > time::steady_clock::Duration::zero())
   , m_onUpdate(onUpdate)
   , m_scheduler(m_face.getIoService())
-  , m_randomGenerator(static_cast<unsigned int>(std::time(0)))
-  , m_rangeUniformRandom(m_randomGenerator, boost::uniform_int<>(100,500))
-  , m_reexpressionJitter(m_randomGenerator, boost::uniform_int<>(100,500))
+  , m_rng(std::random_device{}())
+  , m_rangeUniformRandom(100, 500)
+  , m_reexpressionJitter(100, 500)
   , m_resetTimer(resetTimer)
   , m_cancelResetTimer(cancelResetTimer)
   , m_resetInterestLifetime(resetInterestLifetime)
@@ -413,7 +413,7 @@ Logic::processSyncInterest(const Interest& interest, bool isTimedProcessing/*=fa
       if (static_cast<bool>(m_delayedInterestProcessingId))
         m_scheduler.cancelEvent(m_delayedInterestProcessingId);
 
-      time::milliseconds after(m_rangeUniformRandom());
+      time::milliseconds after(m_rangeUniformRandom(m_rng));
       _LOG_DEBUG_ID("After: " << after);
       m_delayedInterestProcessingId =
         m_scheduler.scheduleEvent(after,
@@ -454,7 +454,7 @@ Logic::processSyncInterest(const Interest& interest, bool isTimedProcessing/*=fa
       m_scheduler.cancelEvent(m_delayedInterestProcessingId);
 
     m_delayedInterestProcessingId =
-      m_scheduler.scheduleEvent(time::milliseconds(m_rangeUniformRandom()),
+      m_scheduler.scheduleEvent(time::milliseconds(m_rangeUniformRandom(m_rng)),
                                 bind(&Logic::processSyncInterest, this, interest, true));
   }
   else {
@@ -530,7 +530,7 @@ Logic::processSyncData(const Name& name,
 
   if (static_cast<bool>(commit) && !commit->getLeaves().empty() && firstData) {
     // state changed and it is safe to express a new interest
-    time::steady_clock::Duration after = time::milliseconds(m_reexpressionJitter());
+    time::steady_clock::Duration after = time::milliseconds(m_reexpressionJitter(m_rng));
     _LOG_DEBUG_ID("Reschedule sync interest after: " << after);
     EventId eventId = m_scheduler.scheduleEvent(after,
                                                 bind(&Logic::sendSyncInterest, this));
@@ -587,7 +587,7 @@ Logic::sendResetInterest()
     _LOG_DEBUG_ID("ResetTimer: " << m_resetTimer);
 
     EventId eventId =
-      m_scheduler.scheduleEvent(m_resetTimer + ndn::time::milliseconds(m_reexpressionJitter()),
+      m_scheduler.scheduleEvent(m_resetTimer + ndn::time::milliseconds(m_reexpressionJitter(m_rng)),
                                 bind(&Logic::sendResetInterest, this));
     m_scheduler.cancelEvent(m_resetInterestId);
     m_resetInterestId = eventId;
@@ -621,7 +621,7 @@ Logic::sendSyncInterest()
 
   EventId eventId =
     m_scheduler.scheduleEvent(m_syncInterestLifetime / 2 +
-                              ndn::time::milliseconds(m_reexpressionJitter()),
+                              ndn::time::milliseconds(m_reexpressionJitter(m_rng)),
                               bind(&Logic::sendSyncInterest, this));
   m_scheduler.cancelEvent(m_reexpressingInterestId);
   m_reexpressingInterestId = eventId;
@@ -640,18 +640,54 @@ Logic::sendSyncInterest()
 }
 
 void
+Logic::trimState(State& partialState, const State& state, size_t maxSize)
+{
+  partialState.reset();
+  State tmp;
+  std::vector<ConstLeafPtr> leaves;
+  for (const ConstLeafPtr& leaf : state.getLeaves()) {
+    leaves.push_back(leaf);
+  }
+
+  std::shuffle(leaves.begin(), leaves.end(), m_rng);
+
+  for (const auto& constLeafPtr : leaves) {
+    tmp.update(constLeafPtr->getSessionName(), constLeafPtr->getSeq());
+    if (tmp.wireEncode().size() >= maxSize) {
+      break;
+    }
+    partialState.update(constLeafPtr->getSessionName(), constLeafPtr->getSeq());
+  }
+}
+
+void
 Logic::sendSyncData(const Name& nodePrefix, const Name& name, const State& state)
 {
   _LOG_DEBUG_ID(">> Logic::sendSyncData");
+  if (m_nodeList.find(nodePrefix) == m_nodeList.end())
+    return;
+
   Data syncReply(name);
   syncReply.setContent(state.wireEncode());
   syncReply.setFreshnessPeriod(m_syncReplyFreshness);
-  if (m_nodeList.find(nodePrefix) == m_nodeList.end())
-    return;
+
   if (m_nodeList[nodePrefix].signingId.empty())
     m_keyChain.sign(syncReply);
   else
     m_keyChain.sign(syncReply, security::signingByIdentity(m_nodeList[nodePrefix].signingId));
+
+  if (syncReply.wireEncode().size() > ndn::MAX_NDN_PACKET_SIZE) {
+    _LOG_DEBUG("Sync reply size exceeded MAX_NDN_PACKET_SIZE");
+    auto maxContentSize = ndn::MAX_NDN_PACKET_SIZE - (syncReply.wireEncode().size() - state.wireEncode().size());
+    State partialState;
+    trimState(partialState, state, maxContentSize);
+    syncReply.setContent(partialState.wireEncode());
+
+    if (m_nodeList[nodePrefix].signingId.empty())
+      m_keyChain.sign(syncReply);
+    else
+      m_keyChain.sign(syncReply, security::signingByIdentity(m_nodeList[nodePrefix].signingId));
+  }
 
   m_face.put(syncReply);
 
@@ -664,7 +700,7 @@ Logic::sendSyncData(const Name& nodePrefix, const Name& name, const State& state
     }
 
     // re-schedule sending Sync interest
-    time::milliseconds after(m_reexpressionJitter());
+    time::milliseconds after(m_reexpressionJitter(m_rng));
     _LOG_DEBUG_ID("Satisfy our own interest");
     _LOG_DEBUG_ID("Reschedule sync interest after " << after);
     EventId eventId = m_scheduler.scheduleEvent(after, bind(&Logic::sendSyncInterest, this));

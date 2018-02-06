@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2017 University of California, Los Angeles
+ * Copyright (c) 2012-2018 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -317,6 +317,35 @@ BOOST_AUTO_TEST_CASE(MultipleUserUnderOneLogic)
 
   advanceClocks(ndn::time::milliseconds(50), 100);
   BOOST_CHECK_EQUAL(handler[1]->logic.getSessionNames().size(), 2);
+}
+
+BOOST_FIXTURE_TEST_CASE(ExplodeData, ndn::tests::IdentityManagementTimeFixture)
+{
+  Name syncPrefix("/ndn/broadcast/sync");
+  Name userPrefix("/user");
+  ndn::util::DummyClientFace face;
+  Logic logic(face, syncPrefix, userPrefix, bind(onUpdate, _1));
+
+  State state;
+  int i = 0;
+  while (state.wireEncode().size() < ndn::MAX_NDN_PACKET_SIZE) {
+    Name name("/test1");
+    name.append(std::to_string(i));
+    state.update(name, i++);
+  }
+
+  Data syncReply(syncPrefix);
+  syncReply.setContent(state.wireEncode());
+  m_keyChain.sign(syncReply);
+
+  BOOST_REQUIRE(syncReply.wireEncode().size() > ndn::MAX_NDN_PACKET_SIZE);
+
+  State partialState;
+  auto maxSize = ndn::MAX_NDN_PACKET_SIZE - (syncReply.wireEncode().size() - state.wireEncode().size());
+  logic.trimState(partialState, state, maxSize);
+
+  syncReply.setContent(partialState.wireEncode());
+  BOOST_REQUIRE(syncReply.wireEncode().size() < ndn::MAX_NDN_PACKET_SIZE);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

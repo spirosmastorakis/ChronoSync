@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2017 University of California, Los Angeles
+ * Copyright (c) 2012-2018 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -33,10 +33,10 @@
 #include <boost/archive/iterators/transform_width.hpp>
 #include <boost/assert.hpp>
 #include <boost/iterator/transform_iterator.hpp>
-#include <boost/random.hpp>
 #include <boost/throw_exception.hpp>
 
 #include <memory>
+#include <random>
 #include <unordered_map>
 
 namespace chronosync {
@@ -230,6 +230,9 @@ CHRONOSYNC_PUBLIC_WITH_TESTS_ELSE_PRIVATE:
     return m_state;
   }
 
+  /// @brief Trim @p state to a subset @p partialState whose encoding does not exceed @p maxSize
+  void
+  trimState(State& partialState, const State& state, size_t maxSize);
 
 private:
   /**
@@ -498,9 +501,9 @@ private:
   ndn::EventId m_resetInterestId;
 
   // Timer
-  boost::mt19937 m_randomGenerator;
-  boost::variate_generator<boost::mt19937&, boost::uniform_int<> > m_rangeUniformRandom;
-  boost::variate_generator<boost::mt19937&, boost::uniform_int<> > m_reexpressionJitter;
+  std::mt19937 m_rng;
+  std::uniform_int_distribution<> m_rangeUniformRandom;
+  std::uniform_int_distribution<> m_reexpressionJitter;
   /// @brief Timer to send next reset 0 for no reset
   time::steady_clock::Duration m_resetTimer;
   /// @brief Timer to cancel reset state
@@ -517,7 +520,6 @@ private:
   // Security
   ndn::KeyChain m_keyChain;
   std::shared_ptr<Validator> m_validator;
-
 
 #ifdef _DEBUG
   int m_instanceId;
