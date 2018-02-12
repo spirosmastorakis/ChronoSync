@@ -521,10 +521,8 @@ private:
   ndn::KeyChain m_keyChain;
   std::shared_ptr<Validator> m_validator;
 
-#ifdef _DEBUG
   int m_instanceId;
   static int s_instanceCounter;
-#endif
 };
 
 

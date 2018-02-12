@@ -30,11 +30,7 @@
 
 INIT_LOGGER(Logic);
 
-#ifdef _DEBUG
 #define _LOG_DEBUG_ID(v) _LOG_DEBUG("Instance" << m_instanceId << ": " << v)
-#else
-#define _LOG_DEBUG_ID(v) _LOG_DEBUG(v)
-#endif
 
 namespace chronosync {
 
@@ -47,9 +43,7 @@ const uint8_t EMPTY_DIGEST_VALUE[] = {
   0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55
 };
 
-#ifdef _DEBUG
 int Logic::s_instanceCounter = 0;
-#endif
 
 const ndn::Name Logic::DEFAULT_NAME;
 const ndn::Name Logic::EMPTY_NAME;
@@ -96,15 +90,11 @@ Logic::Logic(ndn::Face& face,
   , m_syncReplyFreshness(syncReplyFreshness)
   , m_recoveryInterestLifetime(recoveryInterestLifetime)
   , m_validator(validator)
+  , m_instanceId(s_instanceCounter++)
 {
-#ifdef _DEBUG
-  m_instanceId = s_instanceCounter++;
-#endif
-
   _LOG_DEBUG_ID(">> Logic::Logic");
 
   addUserNode(m_defaultUserPrefix, defaultSigningId);
-
 
   m_syncReset = m_syncPrefix;
   m_syncReset.append("reset");

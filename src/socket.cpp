@@ -48,11 +48,13 @@ Socket::Socket(const Name& syncPrefix,
   , m_signingId(signingId)
   , m_validator(validator)
 {
+  NDN_LOG_DEBUG(">> Socket::Socket");
   if (m_userPrefix != DEFAULT_NAME)
     m_registeredPrefixList[m_userPrefix] =
       m_face.setInterestFilter(m_userPrefix,
                                bind(&Socket::onInterest, this, _1, _2),
                                [] (const Name& prefix, const std::string& msg) {});
+  NDN_LOG_DEBUG("<< Socket::Socket");
 }
 
 Socket::~Socket()
@@ -70,6 +72,8 @@ Socket::addSyncNode(const Name& prefix, const Name& signingId)
   if (prefix == DEFAULT_NAME)
     return;
 
+  NDN_LOG_DEBUG(">> addSyncNode");
+
   auto itr = m_registeredPrefixList.find(prefix);
   if (itr != m_registeredPrefixList.end())
     return;
@@ -81,6 +85,7 @@ Socket::addSyncNode(const Name& prefix, const Name& signingId)
     m_face.setInterestFilter(prefix,
                              bind(&Socket::onInterest, this, _1, _2),
                              [] (const Name& prefix, const std::string& msg) {});
+  NDN_LOG_DEBUG("<< addSyncNode");
 }
 
 void
@@ -208,8 +213,8 @@ Socket::fetchData(const Name& sessionName, const SeqNo& seqNo,
 void
 Socket::onInterest(const Name& prefix, const Interest& interest)
 {
-  shared_ptr<const Data>data = m_ims.find(interest);
-  if (static_cast<bool>(data)) {
+  shared_ptr<const Data> data = m_ims.find(interest);
+  if (data != nullptr) {
     m_face.put(*data);
   }
 }
