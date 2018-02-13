@@ -348,6 +348,41 @@ BOOST_FIXTURE_TEST_CASE(ExplodeData, ndn::tests::IdentityManagementTimeFixture)
   BOOST_REQUIRE(syncReply.wireEncode().size() < ndn::MAX_NDN_PACKET_SIZE);
 }
 
+class MaxPacketCustomizationFixture
+{
+public:
+  MaxPacketCustomizationFixture()
+  {
+    if (getenv("CHRONOSYNC_MAX_PACKET_SIZE") != nullptr) {
+      oldSize = std::string(getenv("CHRONOSYNC_MAX_PACKET_SIZE"));
+      unsetenv("CHRONOSYNC_MAX_PACKET_SIZE");
+    }
+  }
+
+  ~MaxPacketCustomizationFixture()
+  {
+    if (oldSize) {
+      setenv("CHRONOSYNC_MAX_PACKET_SIZE", oldSize->c_str(), 1);
+    }
+  }
+private:
+  ndn::optional<std::string> oldSize;
+};
+
+BOOST_FIXTURE_TEST_CASE(MaxPacketCustomization, MaxPacketCustomizationFixture)
+{
+  BOOST_CHECK_EQUAL(getMaxPacketLimit(), ndn::MAX_NDN_PACKET_SIZE);
+
+  setenv("CHRONOSYNC_MAX_PACKET_SIZE", "1500", 1);
+  BOOST_CHECK_EQUAL(getMaxPacketLimit(), 1500);
+
+  setenv("CHRONOSYNC_MAX_PACKET_SIZE", ndn::to_string(ndn::MAX_NDN_PACKET_SIZE * 100).c_str(), 1);
+  BOOST_CHECK_EQUAL(getMaxPacketLimit(), ndn::MAX_NDN_PACKET_SIZE);
+
+  setenv("CHRONOSYNC_MAX_PACKET_SIZE", "1", 1);
+  BOOST_CHECK_EQUAL(getMaxPacketLimit(), 500);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 } // namespace test

@@ -525,6 +525,10 @@ private:
   static int s_instanceCounter;
 };
 
+#ifdef CHRONOSYNC_HAVE_TESTS
+size_t
+getMaxPacketLimit();
+#endif // CHRONOSYNC_HAVE_TESTS
 
 } // namespace chronosync
 

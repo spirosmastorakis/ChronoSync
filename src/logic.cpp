@@ -26,6 +26,7 @@
 #include "logic.hpp"
 #include "logger.hpp"
 
+#include <ndn-cxx/util/backports.hpp>
 #include <ndn-cxx/util/string-helper.hpp>
 
 INIT_LOGGER(Logic);
@@ -58,6 +59,44 @@ const time::milliseconds Logic::DEFAULT_RECOVERY_INTEREST_LIFETIME(1000);
 const ConstBufferPtr Logic::EMPTY_DIGEST(new ndn::Buffer(EMPTY_DIGEST_VALUE, 32));
 const ndn::name::Component Logic::RESET_COMPONENT("reset");
 const ndn::name::Component Logic::RECOVERY_COMPONENT("recovery");
+
+const size_t NDNLP_EXPECTED_OVERHEAD = 20;
+
+/**
+ * Get maximum packet limit
+ *
+ * By default, it returns `ndn::MAX_NDN_PACKET_SIZE`.
+ * The returned value can be customized using the environment variable `CHRONOSYNC_MAX_PACKET_SIZE`,
+ * but the returned value will be at least 500 and no more than `ndn::MAX_NDN_PACKET_SIZE`.
+ */
+#ifndef CHRONOSYNC_HAVE_TESTS
+static
+#endif // CHRONOSYNC_HAVE_TESTS
+size_t
+getMaxPacketLimit()
+{
+  static size_t limit = 0;
+#ifndef CHRONOSYNC_HAVE_TESTS
+  if (limit != 0) {
+    return limit;
+  }
+#endif // CHRONOSYNC_HAVE_TESTS
+
+  if (getenv("CHRONOSYNC_MAX_PACKET_SIZE") != nullptr) {
+    try {
+      limit = ndn::clamp<size_t>(boost::lexical_cast<size_t>(getenv("CHRONOSYNC_MAX_PACKET_SIZE")),
+                                 500, ndn::MAX_NDN_PACKET_SIZE);
+    }
+    catch (const boost::bad_lexical_cast&) {
+      limit = ndn::MAX_NDN_PACKET_SIZE;
+    }
+  }
+  else {
+    limit = ndn::MAX_NDN_PACKET_SIZE;
+  }
+
+  return limit;
+}
 
 Logic::Logic(ndn::Face& face,
              const Name& syncPrefix,
@@ -666,9 +705,11 @@ Logic::sendSyncData(const Name& nodePrefix, const Name& name, const State& state
   else
     m_keyChain.sign(syncReply, security::signingByIdentity(m_nodeList[nodePrefix].signingId));
 
-  if (syncReply.wireEncode().size() > ndn::MAX_NDN_PACKET_SIZE) {
-    _LOG_DEBUG("Sync reply size exceeded MAX_NDN_PACKET_SIZE");
-    auto maxContentSize = ndn::MAX_NDN_PACKET_SIZE - (syncReply.wireEncode().size() - state.wireEncode().size());
+  if (syncReply.wireEncode().size() > getMaxPacketLimit() - NDNLP_EXPECTED_OVERHEAD) {
+    _LOG_DEBUG("Sync reply size exceeded maximum packet limit (" << getMaxPacketLimit() << ")");
+    auto maxContentSize = getMaxPacketLimit() - (syncReply.wireEncode().size() - syncReply.getContent().size());
+    maxContentSize -= NDNLP_EXPECTED_OVERHEAD;
+
     State partialState;
     trimState(partialState, state, maxContentSize);
     syncReply.setContent(partialState.wireEncode());
