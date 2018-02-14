@@ -18,11 +18,14 @@
  */
 
 #include "logic.hpp"
+#include "bzip2-helper.hpp"
 
 #include "boost-test.hpp"
 #include "../identity-management-fixture.hpp"
 
 #include "dummy-forwarder.hpp"
+
+#include <ndn-cxx/util/random.hpp>
 
 namespace chronosync {
 namespace test {
@@ -319,7 +322,7 @@ BOOST_AUTO_TEST_CASE(MultipleUserUnderOneLogic)
   BOOST_CHECK_EQUAL(handler[1]->logic.getSessionNames().size(), 2);
 }
 
-BOOST_FIXTURE_TEST_CASE(ExplodeData, ndn::tests::IdentityManagementTimeFixture)
+BOOST_FIXTURE_TEST_CASE(TrimState, ndn::tests::IdentityManagementTimeFixture)
 {
   Name syncPrefix("/ndn/broadcast/sync");
   Name userPrefix("/user");
@@ -327,25 +330,47 @@ BOOST_FIXTURE_TEST_CASE(ExplodeData, ndn::tests::IdentityManagementTimeFixture)
   Logic logic(face, syncPrefix, userPrefix, bind(onUpdate, _1));
 
   State state;
-  int i = 0;
-  while (state.wireEncode().size() < ndn::MAX_NDN_PACKET_SIZE) {
-    Name name("/test1");
-    name.append(std::to_string(i));
-    state.update(name, i++);
+  for (size_t i = 0; i != 100; ++i) {
+    state.update(Name("/to/trim").appendNumber(i), 42);
   }
 
-  Data syncReply(syncPrefix);
-  syncReply.setContent(state.wireEncode());
-  m_keyChain.sign(syncReply);
+  State partial;
+  logic.trimState(partial, state, 1);
+  BOOST_CHECK_EQUAL(partial.getLeaves().size(), 99);
 
-  BOOST_REQUIRE(syncReply.wireEncode().size() > ndn::MAX_NDN_PACKET_SIZE);
+  logic.trimState(partial, state, 100);
+  BOOST_CHECK_EQUAL(partial.getLeaves().size(), 1);
 
-  State partialState;
-  auto maxSize = ndn::MAX_NDN_PACKET_SIZE - (syncReply.wireEncode().size() - state.wireEncode().size());
-  logic.trimState(partialState, state, maxSize);
+  logic.trimState(partial, state, 101);
+  BOOST_CHECK_EQUAL(partial.getLeaves().size(), 1);
 
-  syncReply.setContent(partialState.wireEncode());
-  BOOST_REQUIRE(syncReply.wireEncode().size() < ndn::MAX_NDN_PACKET_SIZE);
+  logic.trimState(partial, state, 42);
+  BOOST_CHECK_EQUAL(partial.getLeaves().size(), 58);
+}
+
+BOOST_FIXTURE_TEST_CASE(VeryLargeState, ndn::tests::IdentityManagementTimeFixture)
+{
+  addIdentity("/bla");
+  Name syncPrefix("/ndn/broadcast/sync");
+  Name userPrefix("/user");
+  ndn::util::DummyClientFace face;
+  Logic logic(face, syncPrefix, userPrefix, bind(onUpdate, _1));
+
+  State state;
+  for (size_t i = 0; i < 50000 && bzip2::compress(reinterpret_cast<const char*>(state.wireEncode().wire()),
+                                                  state.wireEncode().size())->size() < ndn::MAX_NDN_PACKET_SIZE;
+       i += 10) {
+    Name prefix("/to/trim");
+    prefix.appendNumber(i);
+    for (size_t j = 0; j != 20; ++j) {
+      prefix.appendNumber(ndn::random::generateWord32());
+    }
+    state.update(prefix, ndn::random::generateWord32());
+  }
+  BOOST_TEST_MESSAGE("Got state with " << state.getLeaves().size() << " leaves");
+
+  auto data = logic.encodeSyncReply(userPrefix, "/fake/prefix/of/interest", state);
+  BOOST_CHECK_LE(data.wireEncode().size(), ndn::MAX_NDN_PACKET_SIZE);
 }
 
 class MaxPacketCustomizationFixture
@@ -361,6 +386,7 @@ public:
 
   ~MaxPacketCustomizationFixture()
   {
+    unsetenv("CHRONOSYNC_MAX_PACKET_SIZE");
     if (oldSize) {
       setenv("CHRONOSYNC_MAX_PACKET_SIZE", oldSize->c_str(), 1);
     }

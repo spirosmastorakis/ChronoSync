@@ -230,9 +230,12 @@ CHRONOSYNC_PUBLIC_WITH_TESTS_ELSE_PRIVATE:
     return m_state;
   }
 
-  /// @brief Trim @p state to a subset @p partialState whose encoding does not exceed @p maxSize
+  /// Create a subset @p partialState excluding @p nExcludedStates from @p state
   void
-  trimState(State& partialState, const State& state, size_t maxSize);
+  trimState(State& partialState, const State& state, size_t excludedStates);
+
+  Data
+  encodeSyncReply(const Name& nodePrefix, const Name& name, const State& state);
 
 private:
   /**

@@ -25,6 +25,7 @@
 
 #include "logic.hpp"
 #include "logger.hpp"
+#include "bzip2-helper.hpp"
 
 #include <ndn-cxx/util/backports.hpp>
 #include <ndn-cxx/util/string-helper.hpp>
@@ -413,7 +414,9 @@ Logic::onSyncDataValidated(const Data& data, bool firstData)
   Name name = data.getName();
   ConstBufferPtr digest = make_shared<ndn::Buffer>(name.get(-1).value(), name.get(-1).value_size());
 
-  processSyncData(name, digest, data.getContent().blockFromValue(), firstData);
+  auto contentBuffer = bzip2::decompress(reinterpret_cast<const char*>(data.getContent().value()),
+                                         data.getContent().value_size());
+  processSyncData(name, digest, Block(contentBuffer), firstData);
 }
 
 void
@@ -669,10 +672,10 @@ Logic::sendSyncInterest()
 }
 
 void
-Logic::trimState(State& partialState, const State& state, size_t maxSize)
+Logic::trimState(State& partialState, const State& state, size_t nExcludedStates)
 {
   partialState.reset();
-  State tmp;
+
   std::vector<ConstLeafPtr> leaves;
   for (const ConstLeafPtr& leaf : state.getLeaves()) {
     leaves.push_back(leaf);
@@ -680,13 +683,50 @@ Logic::trimState(State& partialState, const State& state, size_t maxSize)
 
   std::shuffle(leaves.begin(), leaves.end(), m_rng);
 
+  size_t statesToEncode = leaves.size() - std::min(leaves.size() - 1, nExcludedStates);
   for (const auto& constLeafPtr : leaves) {
-    tmp.update(constLeafPtr->getSessionName(), constLeafPtr->getSeq());
-    if (tmp.wireEncode().size() >= maxSize) {
+    if (statesToEncode == 0) {
       break;
     }
     partialState.update(constLeafPtr->getSessionName(), constLeafPtr->getSeq());
+    --statesToEncode;
   }
+}
+
+Data
+Logic::encodeSyncReply(const Name& nodePrefix, const Name& name, const State& state)
+{
+  Data syncReply(name);
+  syncReply.setFreshnessPeriod(m_syncReplyFreshness);
+
+  auto finalizeReply = [this, &nodePrefix, &syncReply] (const State& state) {
+    auto contentBuffer = bzip2::compress(reinterpret_cast<const char*>(state.wireEncode().wire()),
+                                         state.wireEncode().size());
+    syncReply.setContent(contentBuffer);
+
+    if (m_nodeList[nodePrefix].signingId.empty())
+      m_keyChain.sign(syncReply);
+    else
+      m_keyChain.sign(syncReply, security::signingByIdentity(m_nodeList[nodePrefix].signingId));
+  };
+
+  finalizeReply(state);
+
+  size_t nExcludedStates = 1;
+  while (syncReply.wireEncode().size() > getMaxPacketLimit() - NDNLP_EXPECTED_OVERHEAD) {
+    if (nExcludedStates == 1) {
+      // To show this debug message only once
+      _LOG_DEBUG("Sync reply size exceeded maximum packet limit (" << (getMaxPacketLimit() - NDNLP_EXPECTED_OVERHEAD) << ")");
+    }
+    State partialState;
+    trimState(partialState, state, nExcludedStates);
+    finalizeReply(partialState);
+
+    BOOST_ASSERT(state.getLeaves().size() != 0);
+    nExcludedStates *= 2;
+  }
+
+  return syncReply;
 }
 
 void
@@ -696,31 +736,7 @@ Logic::sendSyncData(const Name& nodePrefix, const Name& name, const State& state
   if (m_nodeList.find(nodePrefix) == m_nodeList.end())
     return;
 
-  Data syncReply(name);
-  syncReply.setContent(state.wireEncode());
-  syncReply.setFreshnessPeriod(m_syncReplyFreshness);
-
-  if (m_nodeList[nodePrefix].signingId.empty())
-    m_keyChain.sign(syncReply);
-  else
-    m_keyChain.sign(syncReply, security::signingByIdentity(m_nodeList[nodePrefix].signingId));
-
-  if (syncReply.wireEncode().size() > getMaxPacketLimit() - NDNLP_EXPECTED_OVERHEAD) {
-    _LOG_DEBUG("Sync reply size exceeded maximum packet limit (" << getMaxPacketLimit() << ")");
-    auto maxContentSize = getMaxPacketLimit() - (syncReply.wireEncode().size() - syncReply.getContent().size());
-    maxContentSize -= NDNLP_EXPECTED_OVERHEAD;
-
-    State partialState;
-    trimState(partialState, state, maxContentSize);
-    syncReply.setContent(partialState.wireEncode());
-
-    if (m_nodeList[nodePrefix].signingId.empty())
-      m_keyChain.sign(syncReply);
-    else
-      m_keyChain.sign(syncReply, security::signingByIdentity(m_nodeList[nodePrefix].signingId));
-  }
-
-  m_face.put(syncReply);
+  m_face.put(encodeSyncReply(nodePrefix, name, state));
 
   // checking if our own interest got satisfied
   if (m_outstandingInterestName == name) {
