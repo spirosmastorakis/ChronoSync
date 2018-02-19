@@ -65,7 +65,8 @@ public:
          const UpdateCallback& updateCallback,
          const Name& signingId = DEFAULT_NAME,
          std::shared_ptr<Validator> validator = DEFAULT_VALIDATOR,
-         const time::milliseconds& syncInterestLifetime = Logic::DEFAULT_SYNC_INTEREST_LIFETIME);
+         const time::milliseconds& syncInterestLifetime = Logic::DEFAULT_SYNC_INTEREST_LIFETIME,
+         const name::Component& session = {});
 
   ~Socket();
 
@@ -82,9 +83,10 @@ public:
    *
    * @param prefix Prefix of the new node
    * @param signingId Signing ID for the packet sent out by the new node
+   * @param session Manually defined session number
    */
   void
-  addSyncNode(const Name& prefix, const Name& signingId = DEFAULT_NAME);
+  addSyncNode(const Name& prefix, const Name& signingId = DEFAULT_NAME, const name::Component& session = {});
 
   /**
    * @brief Remove a sync node under same logic

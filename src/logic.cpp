@@ -110,7 +110,8 @@ Logic::Logic(ndn::Face& face,
              const time::milliseconds& resetInterestLifetime,
              const time::milliseconds& syncInterestLifetime,
              const time::milliseconds& syncReplyFreshness,
-             const time::milliseconds& recoveryInterestLifetime)
+             const time::milliseconds& recoveryInterestLifetime,
+             const name::Component& session)
   : m_face(face)
   , m_syncPrefix(syncPrefix)
   , m_defaultUserPrefix(defaultUserPrefix)
@@ -134,7 +135,7 @@ Logic::Logic(ndn::Face& face,
 {
   _LOG_DEBUG_ID(">> Logic::Logic");
 
-  addUserNode(m_defaultUserPrefix, defaultSigningId);
+  addUserNode(m_defaultUserPrefix, defaultSigningId, session);
 
   m_syncReset = m_syncPrefix;
   m_syncReset.append("reset");
@@ -194,7 +195,7 @@ Logic::setDefaultUserPrefix(const Name& defaultUserPrefix)
 }
 
 void
-Logic::addUserNode(const Name& userPrefix, const Name& signingId)
+Logic::addUserNode(const Name& userPrefix, const Name& signingId, const name::Component& session)
 {
   if (userPrefix == EMPTY_NAME)
     return;
@@ -205,7 +206,12 @@ Logic::addUserNode(const Name& userPrefix, const Name& signingId)
     m_nodeList[userPrefix].userPrefix = userPrefix;
     m_nodeList[userPrefix].signingId = signingId;
     Name sessionName = userPrefix;
-    sessionName.appendNumber(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count());
+    if (!session.empty()) {
+      sessionName.append(session);
+    }
+    else {
+      sessionName.appendNumber(ndn::time::toUnixTimestamp(ndn::time::system_clock::now()).count());
+    }
     m_nodeList[userPrefix].sessionName = sessionName;
     m_nodeList[userPrefix].seqNo = 0;
     reset(false);

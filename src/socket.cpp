@@ -39,12 +39,14 @@ Socket::Socket(const Name& syncPrefix,
                const UpdateCallback& updateCallback,
                const Name& signingId,
                std::shared_ptr<Validator> validator,
-               const time::milliseconds& syncInterestLifetime)
+               const time::milliseconds& syncInterestLifetime,
+               const name::Component& session)
   : m_userPrefix(userPrefix)
   , m_face(face)
   , m_logic(face, syncPrefix, userPrefix, updateCallback, Logic::DEFAULT_NAME, Logic::DEFAULT_VALIDATOR,
             Logic::DEFAULT_RESET_TIMER, Logic::DEFAULT_CANCEL_RESET_TIMER, Logic::DEFAULT_RESET_INTEREST_LIFETIME,
-            syncInterestLifetime)
+            syncInterestLifetime, Logic::DEFAULT_SYNC_REPLY_FRESHNESS, Logic::DEFAULT_RECOVERY_INTEREST_LIFETIME,
+            session)
   , m_signingId(signingId)
   , m_validator(validator)
 {
@@ -67,7 +69,7 @@ Socket::~Socket()
 }
 
 void
-Socket::addSyncNode(const Name& prefix, const Name& signingId)
+Socket::addSyncNode(const Name& prefix, const Name& signingId, const name::Component& session)
 {
   if (prefix == DEFAULT_NAME)
     return;
@@ -80,7 +82,7 @@ Socket::addSyncNode(const Name& prefix, const Name& signingId)
 
   if (m_userPrefix == DEFAULT_NAME)
     m_userPrefix = prefix;
-  m_logic.addUserNode(prefix, signingId);
+  m_logic.addUserNode(prefix, signingId, session);
   m_registeredPrefixList[prefix] =
     m_face.setInterestFilter(prefix,
                              bind(&Socket::onInterest, this, _1, _2),
@@ -103,7 +105,6 @@ Socket::removeSyncNode(const Name& prefix)
 
   m_ims.erase(prefix);
   m_logic.removeUserNode(prefix);
-
 }
 
 void

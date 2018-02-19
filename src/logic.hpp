@@ -117,6 +117,7 @@ public:
    * @param syncInterestLifetime The lifetime of sync interest
    * @param syncReplyFreshness The FreshnessPeriod of sync reply
    * @param recoveryInterestLifetime The lifetime of recovery interest
+   * @param session Manually defined session ID
    */
   Logic(ndn::Face& face,
         const Name& syncPrefix,
@@ -129,7 +130,8 @@ public:
         const time::milliseconds& resetInterestLifetime = DEFAULT_RESET_INTEREST_LIFETIME,
         const time::milliseconds& syncInterestLifetime = DEFAULT_SYNC_INTEREST_LIFETIME,
         const time::milliseconds& syncReplyFreshness = DEFAULT_SYNC_REPLY_FRESHNESS,
-        const time::milliseconds& recoveryInterestLifetime = DEFAULT_RECOVERY_INTEREST_LIFETIME);
+        const time::milliseconds& recoveryInterestLifetime = DEFAULT_RECOVERY_INTEREST_LIFETIME,
+        const name::Component& session = {});
 
   ~Logic();
 
@@ -165,9 +167,10 @@ public:
    *
    * @param userPrefix prefix of the added node
    * @param signingId signing Id of the added node
+   * @param session manually defined session ID
    */
   void
-  addUserNode(const Name& userPrefix, const Name& signingId = DEFAULT_NAME);
+  addUserNode(const Name& userPrefix, const Name& signingId = DEFAULT_NAME, const name::Component& session = {});
 
   /// @brief remove the node from the local session
   void

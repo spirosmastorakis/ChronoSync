@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2017 University of California, Los Angeles
+ * Copyright (c) 2012-2018 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -50,7 +50,11 @@ public:
              userPrefix,
              face,
              isNum ? bind(&SocketTestApp::fetchNumbers, this, _1) :
-                     bind(&SocketTestApp::fetchAll, this, _1))
+                          bind(&SocketTestApp::fetchAll, this, _1),
+             Logic::DEFAULT_NAME,
+             Logic::DEFAULT_VALIDATOR,
+             Logic::DEFAULT_SYNC_INTEREST_LIFETIME,
+             name::Component::fromEscapedString("override"))
   {
   }
 
@@ -325,6 +329,9 @@ BOOST_AUTO_TEST_CASE(BasicData)
 
   BOOST_CHECK_EQUAL(app[0]->toString(), app[1]->toString());
   BOOST_CHECK_EQUAL(app[0]->toString(), app[2]->toString());
+
+  BOOST_CHECK_EQUAL(sessionName[0], Name("/user0/override"));
+  BOOST_CHECK_EQUAL(sessionName[1], Name("/user1/override"));
 }
 
 BOOST_AUTO_TEST_CASE(BasicNumber)
