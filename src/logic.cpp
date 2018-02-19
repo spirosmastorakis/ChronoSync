@@ -300,7 +300,7 @@ Logic::updateSeqNo(const SeqNo& seqNo, const Name& updatePrefix)
         insertToDiffLog(commit, previousRoot);
 
         satisfyPendingSyncInterests(prefix, commit);
-        formAndSendExcludeInterest(prefix, *commit, previousRoot);
+        // formAndSendExcludeInterest(prefix, *commit, previousRoot);
       }
     }
   }
@@ -382,7 +382,7 @@ Logic::onSyncData(const Interest& interest, const Data& data)
     _LOG_DEBUG_ID("Data obtained using exclude filter");
     onSyncDataValidated(data, false);
   }
-  sendExcludeInterest(interest, data);
+  // sendExcludeInterest(interest, data);
 
   _LOG_DEBUG_ID("<< Logic::onSyncData");
 }
@@ -414,9 +414,14 @@ Logic::onSyncDataValidated(const Data& data, bool firstData)
   Name name = data.getName();
   ConstBufferPtr digest = make_shared<ndn::Buffer>(name.get(-1).value(), name.get(-1).value_size());
 
-  auto contentBuffer = bzip2::decompress(reinterpret_cast<const char*>(data.getContent().value()),
-                                         data.getContent().value_size());
-  processSyncData(name, digest, Block(contentBuffer), firstData);
+  try {
+    auto contentBuffer = bzip2::decompress(reinterpret_cast<const char*>(data.getContent().value()),
+                                           data.getContent().value_size());
+    processSyncData(name, digest, Block(contentBuffer), firstData);
+  }
+  catch (const std::ios_base::failure& error) {
+    _LOG_WARN("Error decompressing content of " << data.getName() << " (" << error.what() << ")");
+  }
 }
 
 void
@@ -837,56 +842,56 @@ Logic::onRecoveryTimeout(const Interest& interest)
   _LOG_DEBUG_ID("<< Logic::onRecoveryTimeout");
 }
 
-void
-Logic::sendExcludeInterest(const Interest& interest, const Data& data)
-{
-  _LOG_DEBUG_ID(">> Logic::sendExcludeInterest");
+// void
+// Logic::sendExcludeInterest(const Interest& interest, const Data& data)
+// {
+//   _LOG_DEBUG_ID(">> Logic::sendExcludeInterest");
 
-  Name interestName = interest.getName();
-  Interest excludeInterest(interestName);
+//   Name interestName = interest.getName();
+//   Interest excludeInterest(interestName);
 
-  Exclude exclude = interest.getExclude();
-  exclude.excludeOne(data.getFullName().get(-1));
-  excludeInterest.setExclude(exclude);
-  excludeInterest.setMustBeFresh(true);
+//   Exclude exclude = interest.getExclude();
+//   exclude.excludeOne(data.getFullName().get(-1));
+//   excludeInterest.setExclude(exclude);
+//   excludeInterest.setMustBeFresh(true);
 
-  excludeInterest.setInterestLifetime(m_syncInterestLifetime);
+//   excludeInterest.setInterestLifetime(m_syncInterestLifetime);
 
-  if (excludeInterest.wireEncode().size() > ndn::MAX_NDN_PACKET_SIZE) {
-    return;
-  }
+//   if (excludeInterest.wireEncode().size() > ndn::MAX_NDN_PACKET_SIZE) {
+//     return;
+//   }
 
-  m_face.expressInterest(excludeInterest,
-                         bind(&Logic::onSyncData, this, _1, _2),
-                         bind(&Logic::onSyncTimeout, this, _1), // Nack
-                         bind(&Logic::onSyncTimeout, this, _1));
+//   m_face.expressInterest(excludeInterest,
+//                          bind(&Logic::onSyncData, this, _1, _2),
+//                          bind(&Logic::onSyncTimeout, this, _1), // Nack
+//                          bind(&Logic::onSyncTimeout, this, _1));
 
-  _LOG_DEBUG_ID("Send interest: " << excludeInterest.getName());
-  _LOG_DEBUG_ID("<< Logic::sendExcludeInterest");
-}
+//   _LOG_DEBUG_ID("Send interest: " << excludeInterest.getName());
+//   _LOG_DEBUG_ID("<< Logic::sendExcludeInterest");
+// }
 
-void
-Logic::formAndSendExcludeInterest(const Name& nodePrefix, const State& commit, ConstBufferPtr previousRoot)
-{
-  _LOG_DEBUG_ID(">> Logic::formAndSendExcludeInterest");
-  Name interestName;
-  interestName.append(m_syncPrefix)
-              .append(ndn::name::Component(*previousRoot));
-  Interest interest(interestName);
+// void
+// Logic::formAndSendExcludeInterest(const Name& nodePrefix, const State& commit, ConstBufferPtr previousRoot)
+// {
+//   _LOG_DEBUG_ID(">> Logic::formAndSendExcludeInterest");
+//   Name interestName;
+//   interestName.append(m_syncPrefix)
+//               .append(ndn::name::Component(*previousRoot));
+//   Interest interest(interestName);
 
-  Data data(interestName);
-  data.setContent(commit.wireEncode());
-  data.setFreshnessPeriod(m_syncReplyFreshness);
-  if (m_nodeList.find(nodePrefix) == m_nodeList.end())
-    return;
-  if (m_nodeList[nodePrefix].signingId.empty())
-    m_keyChain.sign(data);
-  else
-    m_keyChain.sign(data, security::signingByIdentity(m_nodeList[nodePrefix].signingId));
+//   Data data(interestName);
+//   data.setContent(commit.wireEncode());
+//   data.setFreshnessPeriod(m_syncReplyFreshness);
+//   if (m_nodeList.find(nodePrefix) == m_nodeList.end())
+//     return;
+//   if (m_nodeList[nodePrefix].signingId.empty())
+//     m_keyChain.sign(data);
+//   else
+//     m_keyChain.sign(data, security::signingByIdentity(m_nodeList[nodePrefix].signingId));
 
-  sendExcludeInterest(interest, data);
+//   sendExcludeInterest(interest, data);
 
-  _LOG_DEBUG_ID("<< Logic::formAndSendExcludeInterest");
-}
+//   _LOG_DEBUG_ID("<< Logic::formAndSendExcludeInterest");
+// }
 
 } // namespace chronosync
