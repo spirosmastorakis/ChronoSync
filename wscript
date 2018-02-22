@@ -1,8 +1,8 @@
 # -*- Mode: python; py-indent-offset: 4; indent-tabs-mode: nil; coding: utf-8; -*-
 
-VERSION = '0.4.0'
+VERSION = '0.5.0'
 APPNAME = 'ChronoSync'
-GIT_TAG_PREFIX = 'ChronoSync-'
+GIT_TAG_PREFIX = ''
 
 from waflib import Logs, Utils, Context
 import os
@@ -87,7 +87,6 @@ def build(bld):
         VERSION      = VERSION,
         )
 
-# docs
 def docs(bld):
     from waflib import Options
     Options.commands = ['doxygen', 'sphinx'] + Options.commands
@@ -96,7 +95,7 @@ def doxygen(bld):
     version(bld)
 
     if not bld.env.DOXYGEN:
-        Logs.error("ERROR: cannot build documentation (`doxygen' is not found in $PATH)")
+        Logs.error("ERROR: cannot build documentation (`doxygen' not found in $PATH)")
     else:
         bld(features="subst",
             name="doxygen-conf",
@@ -108,18 +107,17 @@ def doxygen(bld):
             HTML_FOOTER="../build/docs/named_data_theme/named_data_footer-with-analytics.html" \
                           if os.getenv('GOOGLE_ANALYTICS', None) \
                           else "../docs/named_data_theme/named_data_footer.html",
-            GOOGLE_ANALYTICS=os.getenv('GOOGLE_ANALYTICS', ""),
-            )
+            GOOGLE_ANALYTICS=os.getenv('GOOGLE_ANALYTICS', ""))
 
         bld(features="doxygen",
-            doxyfile='docs/doxygen.conf',
+            doxyfile="docs/doxygen.conf",
             use="doxygen-conf")
 
 def sphinx(bld):
     version(bld)
 
     if not bld.env.SPHINX_BUILD:
-        bld.fatal("ERROR: cannot build documentation (`sphinx-build' is not found in $PATH)")
+        bld.fatal("ERROR: cannot build documentation (`sphinx-build' not found in $PATH)")
     else:
         bld(features="sphinx",
             outdir="docs",
@@ -134,15 +132,48 @@ def version(ctx):
     Context.g_module.VERSION_BASE = Context.g_module.VERSION
     Context.g_module.VERSION_SPLIT = [v for v in VERSION_BASE.split('.')]
 
+    didGetVersion = False
     try:
-        cmd = ['git', 'describe', '--match', '%s*' % GIT_TAG_PREFIX]
+        cmd = ['git', 'describe', '--always', '--match', '%s*' % GIT_TAG_PREFIX]
         p = Utils.subprocess.Popen(cmd, stdout=Utils.subprocess.PIPE,
                                    stderr=None, stdin=None)
-        out = p.communicate()[0].strip()
-        if p.returncode == 0 and out != "":
-            Context.g_module.VERSION = out[11:]
-    except:
+        out = str(p.communicate()[0].strip())
+        didGetVersion = (p.returncode == 0 and out != "")
+        if didGetVersion:
+            if out.startswith(GIT_TAG_PREFIX):
+                Context.g_module.VERSION = out[len(GIT_TAG_PREFIX):]
+            else:
+                Context.g_module.VERSION = "%s-commit-%s" % (Context.g_module.VERSION_BASE, out)
+    except OSError:
         pass
+
+    versionFile = ctx.path.find_node('VERSION')
+
+    if not didGetVersion and versionFile is not None:
+        try:
+            Context.g_module.VERSION = versionFile.read()
+            return
+        except (OSError, IOError):
+            pass
+
+    # version was obtained from git, update VERSION file if necessary
+    if versionFile is not None:
+        try:
+            version = versionFile.read()
+            if version == Context.g_module.VERSION:
+                return # no need to update
+        except (OSError, IOError):
+            Logs.warn("VERSION file exists, but not readable")
+    else:
+        versionFile = ctx.path.make_node('VERSION')
+
+    if versionFile is None:
+        return
+
+    try:
+        versionFile.write(Context.g_module.VERSION)
+    except (OSError, IOError):
+        Logs.warn("VERSION file is not writeable")
 
 def dist(ctx):
     version(ctx)
