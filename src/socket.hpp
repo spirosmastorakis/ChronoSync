@@ -245,7 +245,7 @@ private:
   Logic m_logic;
 
   Name m_signingId;
-  ndn::KeyChain m_keyChain;
+  ndn::KeyChain& m_keyChain;
   std::shared_ptr<Validator> m_validator;
 
   RegisteredPrefixList m_registeredPrefixList;
