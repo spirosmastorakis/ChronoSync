@@ -531,7 +531,7 @@ private:
   time::milliseconds m_recoveryInterestLifetime;
 
   // Security
-  ndn::KeyChain m_keyChain;
+  ndn::KeyChain& m_keyChain;
   std::shared_ptr<Validator> m_validator;
 
   int m_instanceId;
