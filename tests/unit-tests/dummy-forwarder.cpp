@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2017 University of California, Los Angeles
+ * Copyright (c) 2012-2018 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -35,29 +35,30 @@ DummyForwarder::addFace()
 {
   auto face = std::make_shared<util::DummyClientFace>(m_io, m_keyChain,
                                                       util::DummyClientFace::Options{true, true});
-  face->onSendInterest.connect([this, face] (const Interest& interest) {
+  util::DummyClientFace* self = &*face; // to prevent memory leak
+  face->onSendInterest.connect([this, self] (const Interest& interest) {
       Interest i(interest);
       for (auto& otherFace : m_faces) {
-        if (&*face == &*otherFace) {
+        if (self == &*otherFace) {
           continue;
         }
         m_io.post([=] { otherFace->receive(i); });
       }
     });
-  face->onSendData.connect([this, face] (const Data& data) {
+  face->onSendData.connect([this, self] (const Data& data) {
       Data d(data);
       for (auto& otherFace : m_faces) {
-        if (&*face == &*otherFace) {
+        if (self == &*otherFace) {
           continue;
         }
         m_io.post([=] { otherFace->receive(d); });
       }
     });
 
-  face->onSendNack.connect([this, face] (const lp::Nack& nack) {
+  face->onSendNack.connect([this, self] (const lp::Nack& nack) {
       lp::Nack n(nack);
       for (auto& otherFace : m_faces) {
-        if (&*face == &*otherFace) {
+        if (self == &*otherFace) {
           continue;
         }
         m_io.post([=] { otherFace->receive(n); });
@@ -66,6 +67,12 @@ DummyForwarder::addFace()
 
   m_faces.push_back(face);
   return *face;
+}
+
+void
+DummyForwarder::removeFaces()
+{
+  m_faces.clear();
 }
 
 } // namespace chronosync

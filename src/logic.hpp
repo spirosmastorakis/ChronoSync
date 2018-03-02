@@ -468,6 +468,9 @@ private:
   //                            const State& commit,
   //                            ConstBufferPtr previousRoot);
 
+  void
+  cleanupPendingInterest(const ndn::PendingInterestId* pendingInterestId);
+
 public:
   static const ndn::Name DEFAULT_NAME;
   static const ndn::Name EMPTY_NAME;
@@ -494,6 +497,7 @@ private:
   InterestTable m_interestTable;
   Name m_outstandingInterestName;
   const ndn::PendingInterestId* m_outstandingInterestId;
+  std::vector<const ndn::PendingInterestId*> m_pendingInterests;
   bool m_isInReset;
   bool m_needPeriodReset;
 

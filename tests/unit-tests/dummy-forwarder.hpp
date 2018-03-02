@@ -1,6 +1,6 @@
 /* -*- Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2017 University of California, Los Angeles
+ * Copyright (c) 2012-2018 University of California, Los Angeles
  *
  * This file is part of ChronoSync, synchronization library for distributed realtime
  * applications for NDN.
@@ -48,6 +48,9 @@ public:
   {
     return *m_faces.at(nFace);
   }
+
+  void
+  removeFaces();
 
 private:
   boost::asio::io_service& m_io;

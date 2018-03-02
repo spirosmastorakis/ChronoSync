@@ -114,10 +114,10 @@ BOOST_AUTO_TEST_CASE(Constructor)
 
 BOOST_AUTO_TEST_CASE(TwoBasic)
 {
-  handler[0] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[0]);
+  handler[0] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[0]);
   advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[1] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[1]);
+  handler[1] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[1]);
   advanceClocks(ndn::time::milliseconds(10), 100);
 
   handler[0]->updateSeqNo(1);
@@ -141,13 +141,13 @@ BOOST_AUTO_TEST_CASE(TwoBasic)
 
 BOOST_AUTO_TEST_CASE(ThreeBasic)
 {
-  handler[0] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[0]);
+  handler[0] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[0]);
   advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[1] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[1]);
+  handler[1] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[1]);
   advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[2] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[2]);
+  handler[2] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[2]);
   advanceClocks(ndn::time::milliseconds(10), 100);
 
   handler[0]->updateSeqNo(1);
@@ -171,10 +171,10 @@ BOOST_AUTO_TEST_CASE(ThreeBasic)
 
 BOOST_AUTO_TEST_CASE(ResetRecover)
 {
-  handler[0] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[0]);
+  handler[0] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[0]);
   advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[1] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[1]);
+  handler[1] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[1]);
   advanceClocks(ndn::time::milliseconds(10), 100);
 
   handler[0]->updateSeqNo(1);
@@ -188,7 +188,7 @@ BOOST_AUTO_TEST_CASE(ResetRecover)
   BOOST_CHECK_EQUAL(handler[0]->map[handler[1]->logic.getSessionName()], 2);
 
   advanceClocks(ndn::time::milliseconds(10), 100);
-  handler[2] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[2]);
+  handler[2] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[2]);
 
   advanceClocks(ndn::time::milliseconds(10), 100);
   BOOST_CHECK_EQUAL(handler[2]->map[handler[0]->logic.getSessionName()], 1);
@@ -203,13 +203,13 @@ BOOST_AUTO_TEST_CASE(ResetRecover)
 
 BOOST_AUTO_TEST_CASE(RecoverConflict)
 {
-  handler[0] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[0]);
+  handler[0] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[0]);
   advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[1] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[1]);
+  handler[1] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[1]);
   advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[2] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[2]);
+  handler[2] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[2]);
   advanceClocks(ndn::time::milliseconds(10), 100);
 
   handler[0]->updateSeqNo(1);
@@ -230,16 +230,16 @@ BOOST_AUTO_TEST_CASE(RecoverConflict)
 
 BOOST_AUTO_TEST_CASE(PartitionRecover)
 {
-  handler[0] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[0]);
+  handler[0] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[0]);
   advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[1] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[1]);
+  handler[1] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[1]);
   advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[2] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[2]);
+  handler[2] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[2]);
   advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[3] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[3]);
+  handler[3] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[3]);
   advanceClocks(ndn::time::milliseconds(10), 100);
 
   handler[0]->updateSeqNo(1);
@@ -291,10 +291,10 @@ BOOST_AUTO_TEST_CASE(PartitionRecover)
 
 BOOST_AUTO_TEST_CASE(MultipleUserUnderOneLogic)
 {
-  handler[0] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[0]);
+  handler[0] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[0]);
   advanceClocks(ndn::time::milliseconds(10), 100);
 
-  handler[1] = make_shared<Handler>(ref(fw.addFace()), syncPrefix, userPrefix[2]);
+  handler[1] = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[2]);
   advanceClocks(ndn::time::milliseconds(10), 100);
 
   handler[0]->logic.addUserNode(userPrefix[1]);
@@ -320,6 +320,58 @@ BOOST_AUTO_TEST_CASE(MultipleUserUnderOneLogic)
 
   advanceClocks(ndn::time::milliseconds(50), 100);
   BOOST_CHECK_EQUAL(handler[1]->logic.getSessionNames().size(), 2);
+}
+
+BOOST_AUTO_TEST_CASE(CancelOutstandingEvents)
+{
+  auto h1 = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[0]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
+
+  auto h2 = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[1]);
+  advanceClocks(ndn::time::milliseconds(10), 100);
+
+  h1->updateSeqNo(1);
+
+  advanceClocks(ndn::time::milliseconds(10), 100);
+  BOOST_CHECK_EQUAL(h2->map[h1->logic.getSessionName()], 1);
+
+  h2->updateSeqNo(2);
+
+  advanceClocks(ndn::time::milliseconds(10), 100);
+  BOOST_CHECK_EQUAL(h1->map[h2->logic.getSessionName()], 2);
+
+  advanceClocks(ndn::time::milliseconds(10), 100);
+  auto h3 = make_shared<Handler>(fw.addFace(), syncPrefix, userPrefix[2]);
+  // Bringing this handler online later causes recovery interests to
+  // be sent -- h3 has no record of any digests
+
+  advanceClocks(ndn::time::milliseconds(10), 100);
+  BOOST_CHECK_EQUAL(h3->map[h1->logic.getSessionName()], 1);
+  BOOST_CHECK_EQUAL(h3->map[h2->logic.getSessionName()], 2);
+
+  h3->updateSeqNo(4);
+
+  advanceClocks(ndn::time::milliseconds(10), 100);
+  BOOST_CHECK_EQUAL(h2->map[h3->logic.getSessionName()], 4);
+  BOOST_CHECK_EQUAL(h1->map[h3->logic.getSessionName()], 4);
+
+  h1.reset();
+
+  BOOST_CHECK_NE(io.poll(), 0); // some cancel events handlers are expected
+  advanceClocks(ndn::time::minutes(1), 60); // should not crash
+
+  h2.reset();
+  h3.reset();
+
+  BOOST_CHECK_NE(io.poll(), 0); // some cancel events handlers are expected
+  fw.removeFaces();
+  while (io.poll() != 0); // execute all other ready events that may have been scheduled
+
+  steadyClock->advance(ndn::time::hours(1));
+  systemClock->advance(ndn::time::hours(1));
+
+  BOOST_CHECK_EQUAL(io.poll(), 0); // no delayed handlers are expected
+  BOOST_CHECK_EQUAL(io.stopped(), true); // io_service expected to be stopped
 }
 
 BOOST_FIXTURE_TEST_CASE(TrimState, ndn::tests::IdentityManagementTimeFixture)

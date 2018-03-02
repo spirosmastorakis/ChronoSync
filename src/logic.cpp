@@ -152,9 +152,19 @@ Logic::Logic(ndn::Face& face,
 
 Logic::~Logic()
 {
-  m_scheduler.cancelAllEvents();
+  _LOG_DEBUG_ID(">> Logic::~Logic");
+  for (const auto& pendingInterestId : m_pendingInterests) {
+    m_face.removePendingInterest(pendingInterestId);
+  }
+  if (m_outstandingInterestId != nullptr) {
+    m_face.removePendingInterest(m_outstandingInterestId);
+    m_outstandingInterestId = nullptr;
+  }
+  m_face.unsetInterestFilter(m_syncRegisteredPrefixId);
+
   m_interestTable.clear();
-  m_face.shutdown();
+  m_scheduler.cancelAllEvents();
+  _LOG_DEBUG_ID("<< Logic::~Logic");
 }
 
 void
@@ -321,22 +331,18 @@ Logic::getRootDigest() const
 void
 Logic::printState(std::ostream& os) const
 {
-  BOOST_FOREACH(ConstLeafPtr leaf, m_state.getLeaves())
-    {
-      os << *leaf << "\n";
-    }
+  for (const auto& leaf : m_state.getLeaves()) {
+    os << *leaf << "\n";
+  }
 }
 
 std::set<Name>
 Logic::getSessionNames() const
 {
   std::set<Name> sessionNames;
-
-  BOOST_FOREACH(ConstLeafPtr leaf, m_state.getLeaves())
-    {
-      sessionNames.insert(leaf->getSessionName());
-    }
-
+  for (const auto& leaf : m_state.getLeaves()) {
+    sessionNames.insert(leaf->getSessionName());
+  }
   return sessionNames;
 }
 
@@ -639,11 +645,15 @@ Logic::sendResetInterest()
   Interest interest(m_syncReset);
   interest.setMustBeFresh(true);
   interest.setInterestLifetime(m_resetInterestLifetime);
-  m_face.expressInterest(interest,
-                         bind(&Logic::onResetData, this, _1, _2),
-                         bind(&Logic::onSyncTimeout, this, _1), // Nack
-                         bind(&Logic::onSyncTimeout, this, _1));
-
+  const ndn::PendingInterestId* pendingInterestId = m_face.expressInterest(interest,
+    bind(&Logic::onResetData, this, _1, _2),
+    bind(&Logic::onSyncTimeout, this, _1), // Nack
+    bind(&Logic::onSyncTimeout, this, _1));
+  m_scheduler.scheduleEvent(m_resetInterestLifetime + ndn::time::milliseconds(5),
+                            [pendingInterestId, this] {
+                              cleanupPendingInterest(pendingInterestId);
+                            });
+  m_pendingInterests.push_back(pendingInterestId);
   _LOG_DEBUG_ID("<< Logic::sendResetInterest");
 }
 
@@ -673,6 +683,10 @@ Logic::sendSyncInterest()
   interest.setMustBeFresh(true);
   interest.setInterestLifetime(m_syncInterestLifetime);
 
+  if (m_outstandingInterestId != nullptr) {
+    m_face.removePendingInterest(m_outstandingInterestId);
+    m_outstandingInterestId = nullptr;
+  }
   m_outstandingInterestId = m_face.expressInterest(interest,
                                                    bind(&Logic::onSyncData, this, _1, _2),
                                                    bind(&Logic::onSyncTimeout, this, _1), // Nack
@@ -803,11 +817,15 @@ Logic::sendRecoveryInterest(ConstBufferPtr digest)
   interest.setMustBeFresh(true);
   interest.setInterestLifetime(m_recoveryInterestLifetime);
 
-  m_face.expressInterest(interest,
-                         bind(&Logic::onRecoveryData, this, _1, _2),
-                         bind(&Logic::onRecoveryTimeout, this, _1), // Nack
-                         bind(&Logic::onRecoveryTimeout, this, _1));
-
+  const ndn::PendingInterestId* pendingInterestId = m_face.expressInterest(interest,
+    bind(&Logic::onRecoveryData, this, _1, _2),
+    bind(&Logic::onRecoveryTimeout, this, _1), // Nack
+    bind(&Logic::onRecoveryTimeout, this, _1));
+  m_scheduler.scheduleEvent(m_recoveryInterestLifetime + ndn::time::milliseconds(5),
+                            [pendingInterestId, this] {
+                              cleanupPendingInterest(pendingInterestId);
+                            });
+  m_pendingInterests.push_back(pendingInterestId);
   _LOG_DEBUG_ID("interest: " << interest.getName());
   _LOG_DEBUG_ID("<< Logic::sendRecoveryInterest");
 }
@@ -846,6 +864,15 @@ Logic::onRecoveryTimeout(const Interest& interest)
   _LOG_DEBUG_ID(">> Logic::onRecoveryTimeout");
   _LOG_DEBUG_ID("Interest: " << interest.getName());
   _LOG_DEBUG_ID("<< Logic::onRecoveryTimeout");
+}
+
+void
+Logic::cleanupPendingInterest(const ndn::PendingInterestId* pendingInterestId)
+{
+  auto itr = std::find(m_pendingInterests.begin(), m_pendingInterests.end(), pendingInterestId);
+  if (itr != m_pendingInterests.end()) {
+    m_pendingInterests.erase(itr);
+  }
 }
 
 // void
