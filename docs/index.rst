@@ -1,31 +1,13 @@
 ChronoSync - A synchronization Protocol in NDN
 ==============================================
 
-..
-   NFD is a network forwarder that implements and evolves together with the Named Data
-   Networking (NDN) `protocol <http://named-data.net/doc/ndn-tlv/>`__. After the initial
-   release, NFD will become a core component of the `NDN Platform
-   <http://named-data.net/codebase/platform/>`__ and will follow the same release cycle.
-
-ChronoSync Documentation
-------------------------
-
 .. toctree::
    :hidden:
    :maxdepth: 3
 
    DesignDoc
-   FAQ
-   ChronoChat
-
-..
-   INSTALL
 
 * :doc:`DesignDoc`
-
-* :doc:`FAQ`
-
-* :doc:`ChronoChat`
 
 **Additional documentation**
 
@@ -39,8 +21,6 @@ Downloading
 License
 -------
 
-..
-   NFD is an open and free software package licensed under GPL 3.0 license and is the
-   centerpiece of our committement to making NDN's core technology open and free to all
-   Internet users and developers. For more information about the licensing details and
-   limitation, refer to `COPYING.md <https://github.com/named-data/NFD/blob/master/COPYING.md>`_.
+ChronoSync is free software: you can redistribute it and/or modify it under the terms
+of the GNU General Public License as published by the Free Software Foundation, either
+version 3 of the License, or (at your option) any later version.
