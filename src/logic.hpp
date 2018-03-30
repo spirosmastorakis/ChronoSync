@@ -131,7 +131,7 @@ public:
         const time::milliseconds& syncInterestLifetime = DEFAULT_SYNC_INTEREST_LIFETIME,
         const time::milliseconds& syncReplyFreshness = DEFAULT_SYNC_REPLY_FRESHNESS,
         const time::milliseconds& recoveryInterestLifetime = DEFAULT_RECOVERY_INTEREST_LIFETIME,
-        const name::Component& session = {});
+        const name::Component& session = name::Component());
 
   ~Logic();
 
@@ -170,7 +170,8 @@ public:
    * @param session manually defined session ID
    */
   void
-  addUserNode(const Name& userPrefix, const Name& signingId = DEFAULT_NAME, const name::Component& session = {});
+  addUserNode(const Name& userPrefix, const Name& signingId = DEFAULT_NAME,
+              const name::Component& session = name::Component());
 
   /// @brief remove the node from the local session
   void

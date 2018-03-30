@@ -66,7 +66,7 @@ public:
          const Name& signingId = DEFAULT_NAME,
          std::shared_ptr<Validator> validator = DEFAULT_VALIDATOR,
          const time::milliseconds& syncInterestLifetime = Logic::DEFAULT_SYNC_INTEREST_LIFETIME,
-         const name::Component& session = {});
+         const name::Component& session = name::Component());
 
   ~Socket();
 
@@ -86,7 +86,8 @@ public:
    * @param session Manually defined session number
    */
   void
-  addSyncNode(const Name& prefix, const Name& signingId = DEFAULT_NAME, const name::Component& session = {});
+  addSyncNode(const Name& prefix, const Name& signingId = DEFAULT_NAME,
+              const name::Component& session = name::Component());
 
   /**
    * @brief Remove a sync node under same logic
